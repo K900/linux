@@ -154,6 +154,7 @@ int nfs_mount(struct nfs_mount_request *info, int timeo, int retrans)
 		.net		= info->net,
 		.protocol	= info->protocol,
 		.address	= (struct sockaddr *)info->sap,
+		.saddress	= info->srcaddr,
 		.addrsize	= info->salen,
 		.timeout	= &mnt_timeout,
 		.servername	= info->hostname,
