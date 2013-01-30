@@ -203,6 +203,7 @@ static inline struct nfs_fs_context *nfs_fc2context(const struct fs_context *fc)
 /* mount_clnt.c */
 struct nfs_mount_request {
 	struct sockaddr_storage	*sap;
+	struct sockaddr         *srcaddr;
 	size_t			salen;
 	char			*hostname;
 	char			*dirpath;
