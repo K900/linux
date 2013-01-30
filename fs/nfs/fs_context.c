@@ -98,6 +98,7 @@ enum nfs_param {
 	Opt_xprtsec,
 	Opt_cert_serial,
 	Opt_privkey_serial,
+	Opt_srcaddr,
 };
 
 enum {
@@ -168,6 +169,7 @@ static const struct fs_parameter_spec nfs_fs_parameters[] = {
 	fsparam_flag  ("bg",		Opt_bg),
 	fsparam_u32   ("bsize",		Opt_bsize),
 	fsparam_string("clientaddr",	Opt_clientaddr),
+	fsparam_string("srcaddr",	Opt_srcaddr),
 	fsparam_flag_no("cto",		Opt_cto),
 	fsparam_flag_no("alignwrite",	Opt_alignwrite),
 	fsparam_enum("fatal_neterrors", Opt_fatal_neterrors,
@@ -922,6 +924,14 @@ static int nfs_fs_context_parse_param(struct fs_context *fc,
 		if (len == 0)
 			goto out_invalid_address;
 		ctx->nfs_server.addrlen = len;
+		break;
+	case Opt_srcaddr:
+		len = rpc_pton(fc->net_ns, param->string, param->size,
+			       &ctx->srcaddr.address,
+			       sizeof(ctx->srcaddr._address));
+		if (len == 0)
+			goto out_invalid_address;
+		ctx->srcaddr.addrlen = len;
 		break;
 	case Opt_clientaddr:
 		trace_nfs_mount_assign(param->key, param->string);
