@@ -45,6 +45,7 @@ struct cb_compound_hdr_res {
 };
 
 struct cb_getattrargs {
+	struct sockaddr *srcaddr;
 	struct nfs_fh fh;
 	uint32_t bitmap[3];
 };
@@ -60,6 +61,7 @@ struct cb_getattrres {
 };
 
 struct cb_recallargs {
+	struct sockaddr *srcaddr;
 	struct nfs_fh fh;
 	nfs4_stateid stateid;
 	uint32_t truncate;
@@ -78,6 +80,7 @@ struct referring_call_list {
 
 struct cb_sequenceargs {
 	struct sockaddr			*csa_addr;
+	struct sockaddr                 *csa_daddr;
 	struct nfs4_sessionid		csa_sessionid;
 	uint32_t			csa_sequenceid;
 	uint32_t			csa_slotid;

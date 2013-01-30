@@ -182,6 +182,7 @@ static __be32 decode_getattr_args(struct svc_rqst *rqstp,
 	status = decode_fh(xdr, &args->fh);
 	if (unlikely(status != 0))
 		return status;
+	args->srcaddr = svc_daddr(rqstp);
 	return decode_bitmap(xdr, args->bitmap);
 }
 
@@ -192,6 +193,7 @@ static __be32 decode_recall_args(struct svc_rqst *rqstp,
 	__be32 *p;
 	__be32 status;
 
+	args->srcaddr = svc_daddr(rqstp);
 	status = decode_delegation_stateid(xdr, &args->stateid);
 	if (unlikely(status != 0))
 		return status;
@@ -410,6 +412,7 @@ static __be32 decode_cb_sequence_args(struct svc_rqst *rqstp,
 		return htonl(NFS4ERR_RESOURCE);
 
 	args->csa_addr = svc_addr(rqstp);
+	args->csa_daddr = svc_daddr(rqstp);
 	args->csa_sequenceid = ntohl(*p++);
 	args->csa_slotid = ntohl(*p++);
 	args->csa_highestslotid = ntohl(*p++);
