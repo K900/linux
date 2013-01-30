@@ -119,6 +119,7 @@ void netdev_sw_irq_coalesce_default_on(struct net_device *dev);
 #define NET_XMIT_SUCCESS	0x00
 #define NET_XMIT_DROP		0x01	/* skb dropped			*/
 #define NET_XMIT_CN		0x02	/* congestion notification	*/
+#define NET_XMIT_BUSY		0x04    /* congestion, but skb was NOT freed */
 #define NET_XMIT_MASK		0x0f	/* qdisc flags in net/sch_generic.h */
 
 /* NET_XMIT_CN is special. It does not guarantee that this packet is lost. It
@@ -3449,18 +3450,27 @@ int dev_loopback_xmit(struct net *net, struct sock *sk, struct sk_buff *newskb);
 u16 dev_pick_tx_zero(struct net_device *dev, struct sk_buff *skb,
 		     struct net_device *sb_dev);
 
-int __dev_queue_xmit(struct sk_buff *skb, struct net_device *sb_dev);
+int __dev_queue_xmit(struct sk_buff *skb, struct net_device *sb_dev,
+		     int try_no_consume);
 int __dev_direct_xmit(struct sk_buff *skb, u16 queue_id);
+
+/* Similar to dev_queue_xmit, but if try_no_consume != 0,
+ * it may return NET_XMIT_BUSY and NOT free the skb if it detects congestion
+ */
+static inline int try_dev_queue_xmit(struct sk_buff *skb, int try_no_consume)
+{
+	return __dev_queue_xmit(skb, NULL, try_no_consume);
+}
 
 static inline int dev_queue_xmit(struct sk_buff *skb)
 {
-	return __dev_queue_xmit(skb, NULL);
+	return __dev_queue_xmit(skb, NULL, 0);
 }
 
 static inline int dev_queue_xmit_accel(struct sk_buff *skb,
 				       struct net_device *sb_dev)
 {
-	return __dev_queue_xmit(skb, sb_dev);
+	return __dev_queue_xmit(skb, sb_dev, 0);
 }
 
 static inline int dev_direct_xmit(struct sk_buff *skb, u16 queue_id)
