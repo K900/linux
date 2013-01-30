@@ -826,6 +826,7 @@ struct nfs_client *nfs4_set_ds_client(struct nfs_server *mds_srv,
 		.nfs_mod = &nfs_v4,
 		.proto = ds_proto,
 		.minorversion = minor_version,
+		/* TODO:  Ability to bind to srcaddr ? */
 		.net = mds_clp->cl_net,
 		.timeparms = &ds_timeout,
 		.cred = mds_srv->cred,
@@ -989,6 +990,8 @@ static int nfs4_init_server(struct nfs_server *server, struct fs_context *fc)
 		.proto = ctx->nfs_server.protocol,
 		.minorversion = ctx->minorversion,
 		.net = fc->net_ns,
+		.srcaddr = &ctx->srcaddr.address,
+		.srcaddrlen = ctx->srcaddr.addrlen,
 		.timeparms = &timeparms,
 		.xprtsec = ctx->xprtsec,
 		.nconnect = ctx->nfs_server.nconnect,
@@ -1092,6 +1095,8 @@ struct nfs_server *nfs4_create_referral_server(struct fs_context *fc)
 		.ip_addr = parent_client->cl_ipaddr,
 		.minorversion = parent_client->cl_mvops->minor_version,
 		.net = parent_client->cl_net,
+		.srcaddr = (const struct sockaddr *)&parent_client->srcaddr,
+		.srcaddrlen = parent_client->srcaddrlen,
 		.timeparms = parent_server->client->cl_timeout,
 		.xprtsec = parent_client->cl_xprtsec,
 		.nconnect = parent_client->cl_nconnect,
@@ -1187,6 +1192,8 @@ int nfs4_update_server(struct nfs_server *server, const char *hostname,
 		.proto = clp->cl_proto,
 		.minorversion = clp->cl_minorversion,
 		.net = net,
+		.srcaddr = (struct sockaddr *)(&clp->srcaddr),
+		.srcaddrlen = clp->srcaddrlen,
 		.timeparms = clnt->cl_timeout,
 		.xprtsec = clp->cl_xprtsec,
 		.nconnect = clp->cl_nconnect,
@@ -1194,6 +1201,7 @@ int nfs4_update_server(struct nfs_server *server, const char *hostname,
 	};
 	int error;
 
+	/* TODO-BEN:  Not sure this is all just right when binding to source-addr. */
 	error = rpc_switch_client_transport(clnt, &xargs, clnt->cl_timeout);
 	if (error != 0)
 		return error;
