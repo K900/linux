@@ -122,6 +122,11 @@ struct nfs_client {
 	 * This is used to generate the mv0 callback address.
 	 */
 	char			cl_ipaddr[48];
+
+	/* If we should bind to a local IP, it should be specified below. */
+	struct sockaddr_storage	srcaddr;
+	size_t			srcaddrlen;
+
 	struct net		*cl_net;
 	netns_tracker		cl_ns_tracker;
 	struct list_head	pending_cb_stateids;
