@@ -800,6 +800,36 @@ static int pfifo_fast_enqueue(struct sk_buff *skb, struct Qdisc *qdisc,
 	return NET_XMIT_SUCCESS;
 }
 
+static int pfifo_fast_try_enqueue(struct sk_buff *skb, struct Qdisc* qdisc, struct sk_buff **to_free)
+{
+	int band = sch_default_prio2band[skb->priority & TC_PRIO_MAX];
+	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
+	struct skb_array *q = band2list(priv, band);
+	unsigned int pkt_len = qdisc_pkt_len(skb);
+	int err;
+
+	err = skb_array_produce(q, skb);
+
+	if (unlikely(err)) {
+		if (err == -ENOSPC) {
+			/* no room to enqueue, tell calling code to back off.
+			 * Do NOT free skb, that is calling code's to deal with.
+			 */
+			return NET_XMIT_BUSY;
+		}
+		else {
+			if (qdisc_is_percpu_stats(qdisc))
+				return qdisc_drop_cpu(skb, qdisc, to_free);
+			else
+				return qdisc_drop(skb, qdisc, to_free);
+		}
+	}
+
+	qdisc_update_stats_at_enqueue(qdisc, pkt_len);
+	return NET_XMIT_SUCCESS;
+}
+
+
 static struct sk_buff *pfifo_fast_dequeue(struct Qdisc *qdisc)
 {
 	struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
@@ -965,6 +995,7 @@ struct Qdisc_ops pfifo_fast_ops __read_mostly = {
 	.id		=	"pfifo_fast",
 	.priv_size	=	sizeof(struct pfifo_fast_priv),
 	.enqueue	=	pfifo_fast_enqueue,
+	.try_enqueue    =       pfifo_fast_try_enqueue,
 	.dequeue	=	pfifo_fast_dequeue,
 	.peek		=	pfifo_fast_peek,
 	.init		=	pfifo_fast_init,
@@ -1025,6 +1056,7 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
 	sch->ops = ops;
 	sch->flags = ops->static_flags;
 	sch->enqueue = ops->enqueue;
+	sch->try_enqueue = ops->try_enqueue;
 	sch->dequeue = ops->dequeue;
 	sch->dev_queue = dev_queue;
 	netdev_hold(dev, &sch->dev_tracker, GFP_KERNEL);
