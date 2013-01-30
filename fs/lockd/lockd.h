@@ -275,6 +275,7 @@ extern const struct rpc_version nlm_version4;
  * Host cache
  */
 struct nlm_host  *nlmclnt_lookup_host(const struct sockaddr *sap,
+					const struct sockaddr *bindaddr,
 					const size_t salen,
 					const unsigned short protocol,
 					const u32 version,

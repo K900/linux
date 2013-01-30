@@ -41,6 +41,7 @@ extern const struct nlmsvc_binding __rcu *nlmsvc_ops;
 struct nlmclnt_initdata {
 	const char		*hostname;
 	const struct sockaddr	*address;
+	const struct sockaddr   *srcaddr;
 	size_t			addrlen;
 	unsigned short		protocol;
 	u32			nfs_version;
