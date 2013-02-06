@@ -233,6 +233,7 @@ struct net_device_core_stats {
 struct neighbour;
 struct neigh_parms;
 struct sk_buff;
+struct pktgen_dev;
 
 struct netdev_hw_addr {
 	struct list_head	list;
@@ -2459,6 +2460,14 @@ struct net_device {
 #if IS_ENABLED(CONFIG_NET_DROP_MONITOR)
 	struct dm_hw_stat_delta __rcu *dm_private;
 #endif
+
+	 /* Callback for when the queue is woken, used by pktgen currently */
+	int                     (*notify_queue_woken)(struct net_device *dev);
+	void* nqw_data; /* To be used by the method above as needed */
+
+	struct pktgen_dev* pkt_dev; /* to quickly find the pkt-gen dev registered with this
+				     * interface, if any.
+				     */
 	struct device		dev;
 	const struct attribute_group *sysfs_groups[5];
 	const struct attribute_group *sysfs_rx_queue_group;
@@ -3691,6 +3700,9 @@ static inline void netif_tx_schedule_all(struct net_device *dev)
 
 	for (i = 0; i < dev->num_tx_queues; i++)
 		netif_schedule_queue(netdev_get_tx_queue(dev, i));
+
+	if (dev->notify_queue_woken)
+		dev->notify_queue_woken(dev);
 }
 
 static __always_inline void netif_tx_start_queue(struct netdev_queue *dev_queue)
@@ -3969,8 +3981,11 @@ static inline void netdev_tx_completed_queue(struct netdev_queue *dev_queue,
 	if (unlikely(dql_avail(&dev_queue->dql) < 0))
 		return;
 
-	if (test_and_clear_bit(__QUEUE_STATE_STACK_XOFF, &dev_queue->state))
+	if (test_and_clear_bit(__QUEUE_STATE_STACK_XOFF, &dev_queue->state)) {
 		netif_schedule_queue(dev_queue);
+		if (dev_queue->dev->notify_queue_woken)
+			dev_queue->dev->notify_queue_woken(dev_queue->dev);
+	}
 #endif
 }
 
@@ -4937,6 +4952,8 @@ static inline void netif_tx_disable(struct net_device *dev)
 	}
 	spin_unlock(&dev->tx_global_lock);
 	local_bh_enable();
+	if (dev->notify_queue_woken)
+		dev->notify_queue_woken(dev);
 }
 
 #ifndef CONFIG_PREEMPT_RT
