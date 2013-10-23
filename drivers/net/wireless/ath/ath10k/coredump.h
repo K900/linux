@@ -17,6 +17,7 @@
  * @ATH10K_FW_CRASH_DUMP_CE_DATA: Copy Engine crash dump data
  * @ATH10K_FW_CRASH_DUMP_RAM_DATA: RAM crash dump data, contains multiple
  *				   struct ath10k_dump_ram_data_hdr
+ * @ATH10K_FW_ERROR_DUMP_DBGLOG:  Recent firmware debug log entries
  * @ATH10K_FW_CRASH_DUMP_MAX: Maximum enumeration
  */
 enum ath10k_fw_crash_dump_type {
@@ -25,7 +26,7 @@ enum ath10k_fw_crash_dump_type {
 
 	/* contains multiple struct ath10k_dump_ram_data_hdr */
 	ATH10K_FW_CRASH_DUMP_RAM_DATA = 2,
-
+	ATH10K_FW_CRASH_DUMP_DBGLOG = 20,
 	ATH10K_FW_CRASH_DUMP_MAX,
 };
 
