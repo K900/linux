@@ -775,6 +775,27 @@ static const char *const ath10k_core_fw_feature_str[] = {
 	[ATH10K_FW_FEATURE_IRAM_RECOVERY] = "iram-recovery",
 	[ATH10K_FW_FEATURE_WMI_10X_CT] = "wmi-10.x-CT",
 	[ATH10K_FW_FEATURE_CT_RXSWCRYPT] = "rxswcrypt-CT",
+	[ATH10K_FW_FEATURE_HAS_TXSTATUS_NOACK] = "txstatus-noack",
+	[ATH10K_FW_FEATURE_CT_RATEMASK] = "ratemask-CT",
+	[ATH10K_FW_FEATURE_HAS_SAFE_BURST] = "safe-burst",
+	[ATH10K_FW_FEATURE_REGDUMP_CT] = "regdump-CT",
+	[ATH10K_FW_FEATURE_TXRATE_CT] = "txrate-CT",
+	[ATH10K_FW_FEATURE_FLUSH_ALL_CT] = "flush-all-CT",
+	[ATH10K_FW_FEATURE_PINGPONG_READ_CT] = "pingpong-CT",
+	[ATH10K_FW_FEATURE_SKIP_CH_RES_CT] = "ch-regs-CT",
+	[ATH10K_FW_FEATURE_NOP_CT] = "nop-CT",
+	[ATH10K_FW_FEATURE_HTT_MGT_CT] = "htt-mgt-CT",
+	[ATH10K_FW_FEATURE_SET_SPECIAL_CT] = "set-special-CT",
+	[ATH10K_FW_FEATURE_NO_BMISS_CT] = "no-bmiss-CT",
+	[ATH10K_FW_FEATURE_HAS_GET_TEMP_CT] = "get-temp-CT",
+	[ATH10K_FW_FEATURE_HAS_TX_RC_CT] = "tx-rc-CT",
+	[ATH10K_FW_FEATURE_CUST_STATS_CT] = "cust-stats-CT",
+	[ATH10K_FW_FEATURE_RETRY_GT2_CT] = "retry-gt2-CT",
+	[ATH10K_FW_FEATURE_CT_STA] = "CT-STA",
+	[ATH10K_FW_FEATURE_TXRATE2_CT] = "txrate2-CT",
+	[ATH10K_FW_FEATURE_BEACON_TX_CB_CT] = "beacon-cb-CT",
+	[ATH10K_FW_FEATURE_CONSUME_BLOCK_ACK_CT] = "wmi-block-ack-CT",
+	[ATH10K_FW_FEATURE_HAS_BCN_RC_CT] = "wmi-bcn-rc-CT",
 };
 
 static unsigned int ath10k_core_get_fw_feature_str(char *buf,
@@ -2791,12 +2812,13 @@ static int ath10k_core_init_firmware_features(struct ath10k *ar)
 			ar->max_num_peers = TARGET_10X_NUM_PEERS_CT;
 			ar->max_num_stations = TARGET_10X_NUM_STATIONS;
 			ar->max_num_vdevs = TARGET_10X_NUM_VDEVS_CT;
+			ar->htt.max_num_pending_tx = TARGET_10X_NUM_MSDU_DESC_CT;
 		} else {
 			ar->max_num_peers = TARGET_10X_NUM_PEERS;
 			ar->max_num_stations = TARGET_10X_NUM_STATIONS;
 			ar->max_num_vdevs = TARGET_10X_NUM_VDEVS;
+			ar->htt.max_num_pending_tx = TARGET_10X_NUM_MSDU_DESC;
 		}
-		ar->htt.max_num_pending_tx = TARGET_10X_NUM_MSDU_DESC;
 		ar->fw_stats_req_mask = WMI_STAT_PEER;
 		ar->max_spatial_stream = WMI_MAX_SPATIAL_STREAM;
 		break;
