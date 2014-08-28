@@ -18,6 +18,8 @@
  * @ATH10K_FW_CRASH_DUMP_RAM_DATA: RAM crash dump data, contains multiple
  *				   struct ath10k_dump_ram_data_hdr
  * @ATH10K_FW_ERROR_DUMP_DBGLOG:  Recent firmware debug log entries
+ * @ATH10K_FW_CRASH_DUMP_STACK:   Stack memory contents.
+ * @ATH10K_FW_CRASH_DUMP_EXC_STACK:   Exception stack memory contents.
  * @ATH10K_FW_CRASH_DUMP_MAX: Maximum enumeration
  */
 enum ath10k_fw_crash_dump_type {
@@ -27,6 +29,9 @@ enum ath10k_fw_crash_dump_type {
 	/* contains multiple struct ath10k_dump_ram_data_hdr */
 	ATH10K_FW_CRASH_DUMP_RAM_DATA = 2,
 	ATH10K_FW_CRASH_DUMP_DBGLOG = 20,
+	ATH10K_FW_CRASH_DUMP_STACK = 21,
+	ATH10K_FW_CRASH_DUMP_EXC_STACK = 22,
+
 	ATH10K_FW_CRASH_DUMP_MAX,
 };
 
@@ -90,8 +95,12 @@ struct ath10k_dump_file_data {
 	/* VERMAGIC_STRING */
 	char kernel_ver[64];
 
+	__le32 stack_addr;
+	__le32 exc_stack_addr;
+
+
 	/* room for growth w/out changing binary format */
-	u8 unused[128];
+	u8 unused[120];
 
 	/* struct ath10k_tlv_dump_data + more */
 	u8 data[];
