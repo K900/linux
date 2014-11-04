@@ -10028,8 +10028,8 @@ int ieee80211_mgd_auth(struct ieee80211_sub_if_data *sdata,
 		goto err_clear;
 	}
 
-	sdata_info(sdata, "authenticate with %pM (local address=%pM)\n",
-		   auth_data->ap_addr, link->conf->addr);
+	sdata_info(sdata, "%pM authenticate with %pM (local address=%pM)\n",
+		   sdata->dev->dev_addr, auth_data->ap_addr, link->conf->addr);
 
 	err = ieee80211_auth(sdata);
 	if (err) {
