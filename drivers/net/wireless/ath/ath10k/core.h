@@ -1163,6 +1163,7 @@ struct ath10k {
 
 	enum ath10k_hw_rev hw_rev;
 	u16 dev_id;
+	bool fw_powerup_failed; /* If true, might take reboot to recover. */
 	u32 chip_id;
 	u32 target_version;
 	u8 fw_version_major;
