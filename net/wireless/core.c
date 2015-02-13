@@ -578,12 +578,9 @@ struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
 
 	rdev->wiphy_idx = atomic_inc_return(&wiphy_counter);
 
-	if (unlikely(rdev->wiphy_idx < 0)) {
+	if (unlikely(rdev->wiphy_idx < 0))
 		/* ugh, wrapped! */
-		atomic_dec(&wiphy_counter);
-		kfree(rdev);
-		return NULL;
-	}
+		goto err_exit;
 
 	/* atomic_inc_return makes it start at 1, make it start at 0 */
 	rdev->wiphy_idx--;
@@ -597,17 +594,16 @@ struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
 
 		if (rv < 0) {
 			rtnl_unlock();
-			goto use_default_name;
+			goto err_exit;
 		}
 
 		rv = dev_set_name(&rdev->wiphy.dev, "%s", requested_name);
 		rtnl_unlock();
 		if (rv)
-			goto use_default_name;
+			goto err_exit;
 	} else {
 		int rv;
 
-use_default_name:
 		/* NOTE:  This is *probably* safe w/out holding rtnl because of
 		 * the restrictions on phy names.  Probably this call could
 		 * fail if some other part of the kernel (re)named a device
@@ -666,6 +662,7 @@ use_default_name:
 
 	if (!rdev->wiphy.rfkill) {
 		wiphy_free(&rdev->wiphy);
+		atomic_dec(&wiphy_counter);
 		return NULL;
 	}
 
@@ -696,6 +693,11 @@ use_default_name:
 	rdev->wiphy.max_sched_scan_plan_interval = U32_MAX;
 
 	return &rdev->wiphy;
+
+err_exit:
+	atomic_dec(&wiphy_counter);
+	kfree(rdev);
+	return NULL;
 }
 EXPORT_SYMBOL(wiphy_new_nm);
 
