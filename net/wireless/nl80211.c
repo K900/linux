@@ -5467,18 +5467,24 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 	int link_id = nl80211_link_id_or_invalid(info->attrs);
 
 	err = nl80211_parse_key(info, &key);
-	if (err)
+	if (err) {
+		pr_info("set-key:  Failed to parse: %d\n", err);
 		return err;
+	}
 
-	if (key.idx < 0)
+	if (key.idx < 0) {
+		pr_info("set-key, idx is negative: %d\n", key.idx);
 		return -EINVAL;
+	}
 
 	/* Only support setting default key and
 	 * Extended Key ID action NL80211_KEY_SET_TX.
 	 */
 	if (!key.def && !key.defmgmt && !key.defbeacon &&
-	    !(key.p.mode == NL80211_KEY_SET_TX))
+	    !(key.p.mode == NL80211_KEY_SET_TX)) {
+		pr_info("set-key: tried to set non-default key.\n");
 		return -EINVAL;
+	}
 
 	if (key.def) {
 		if (!rdev->ops->set_default_key)
@@ -5513,16 +5519,20 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 			return -EOPNOTSUPP;
 
 		err = nl80211_key_allowed(wdev);
-		if (err)
+		if (err) {
+			pr_info("set-key:  key is not allowed: %d\n", err);
 			return err;
+		}
 
 		err = nl80211_validate_key_link_id(info, wdev, link_id, false);
 		if (err)
 			return err;
 
 		err = rdev_set_default_mgmt_key(rdev, wdev, link_id, key.idx);
-		if (err)
+		if (err) {
+			pr_info("set-default-key had error: %d\n", err);
 			return err;
+		}
 
 #ifdef CONFIG_CFG80211_WEXT
 		wdev->wext.default_mgmt_key = key.idx;
@@ -5536,12 +5546,16 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 			return -EOPNOTSUPP;
 
 		err = nl80211_key_allowed(wdev);
-		if (err)
+		if (err) {
+			pr_info("set-key: key is not allowed (!key.def), err: %d\n", err);
 			return err;
+		}
 
 		err = nl80211_validate_key_link_id(info, wdev, link_id, false);
-		if (err)
+		if (err) {
+			pr_info("set-key, rdev-set-default-mgt-key had failured: %d\n", err);
 			return err;
+		}
 
 		return rdev_set_default_beacon_key(rdev, wdev, link_id,
 						   key.idx);
@@ -5578,11 +5592,14 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 	int link_id = nl80211_link_id_or_invalid(info->attrs);
 
 	err = nl80211_parse_key(info, &key);
-	if (err)
+	if (err) {
+		pr_info("new-key:  parse failed: %d\n", err);
 		return err;
+	}
 
 	if (!key.p.key) {
 		GENL_SET_ERR_MSG(info, "no key");
+		pr_info("new-key:  key.p.key is NULL\n");
 		return -EINVAL;
 	}
 
@@ -5600,6 +5617,7 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 	if (key.type != NL80211_KEYTYPE_PAIRWISE &&
 	    key.type != NL80211_KEYTYPE_GROUP) {
 		GENL_SET_ERR_MSG(info, "key type not pairwise or group");
+		pr_info("new-key: invalid key type: %d\n", key.type);
 		return -EINVAL;
 	}
 
@@ -5614,6 +5632,7 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 					   key.type == NL80211_KEYTYPE_PAIRWISE,
 					   mac_addr)) {
 		GENL_SET_ERR_MSG(info, "key setting validation failed");
+		pr_info("new-key:  validate settings failed\n");
 		return -EINVAL;
 	}
 
@@ -5629,8 +5648,12 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 		err = rdev_add_key(rdev, wdev, link_id, key.idx,
 				   key.type == NL80211_KEYTYPE_PAIRWISE,
 				    mac_addr, &key.p);
-		if (err)
+		if (err) {
 			GENL_SET_ERR_MSG(info, "key addition failed");
+			pr_info("new-key:  rdev-add-key failed: %d\n", err);
+		}
+	} else {
+		pr_info("new-key:  key-allowed failed: %d\n", err);
 	}
 
 	return err;
