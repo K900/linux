@@ -288,14 +288,21 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 				   struct key_params *params, int key_idx,
 				   bool pairwise, const u8 *mac_addr)
 {
-	if (!cfg80211_valid_key_idx(rdev, key_idx, pairwise))
+	if (!cfg80211_valid_key_idx(rdev, key_idx, pairwise)) {
+		pr_info("validate-key:  idx is > 5: %d\n", key_idx);
 		return -EINVAL;
+	}
 
-	if (!pairwise && mac_addr && !(rdev->wiphy.flags & WIPHY_FLAG_IBSS_RSN))
+	if (!pairwise && mac_addr && !(rdev->wiphy.flags & WIPHY_FLAG_IBSS_RSN)) {
+		pr_info("validate-key:  pairwise: %d  mac_addr: %pM  rdev->flags: 0x%x\n",
+			(int)pairwise, mac_addr, rdev->wiphy.flags);
 		return -EINVAL;
+	}
 
-	if (pairwise && !mac_addr)
+	if (pairwise && !mac_addr) {
+		pr_info("validate-key: pairwise and NOT mac-addr.\n");
 		return -EINVAL;
+	}
 
 	switch (params->cipher) {
 	case WLAN_CIPHER_SUITE_TKIP:
@@ -316,13 +323,16 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 		 * validating a key.
 		 */
 		if ((params->mode == NL80211_KEY_NO_TX && !pairwise) ||
-		    params->mode == NL80211_KEY_SET_TX)
+		    params->mode == NL80211_KEY_SET_TX) {
+			pr_info("validate-key: no-tx, no ext-key-id feature.\n");
 			return -EINVAL;
+		}
 		if (wiphy_ext_feature_isset(&rdev->wiphy,
 					    NL80211_EXT_FEATURE_EXT_KEY_ID)) {
 			if (pairwise && (key_idx < 0 || key_idx > 1))
 				return -EINVAL;
 		} else if (pairwise && key_idx) {
+			pr_info("validate-key:  pairwise && key-idx, for TKIP/[CG]CMP*\n");
 			return -EINVAL;
 		}
 		break;
@@ -331,10 +341,14 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 	case WLAN_CIPHER_SUITE_BIP_GMAC_128:
 	case WLAN_CIPHER_SUITE_BIP_GMAC_256:
 		/* Disallow BIP (group-only) cipher as pairwise cipher */
-		if (pairwise)
+		if (pairwise) {
+			pr_info("validate-key: BIP as pairwise cipher\n");
 			return -EINVAL;
-		if (key_idx < 4)
+		}
+		if (key_idx < 4) {
+			pr_info("validate-key: key_idx < 4: %d\n", key_idx);
 			return -EINVAL;
+		}
 		break;
 	case WLAN_CIPHER_SUITE_WEP40:
 	case WLAN_CIPHER_SUITE_WEP104:
@@ -415,6 +429,7 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 		case WLAN_CIPHER_SUITE_WEP40:
 		case WLAN_CIPHER_SUITE_WEP104:
 			/* These ciphers do not use key sequence */
+			pr_info("validate-key:  WEP had params->cipher\n");
 			return -EINVAL;
 		case WLAN_CIPHER_SUITE_TKIP:
 		case WLAN_CIPHER_SUITE_CCMP:
@@ -425,14 +440,18 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 		case WLAN_CIPHER_SUITE_BIP_CMAC_256:
 		case WLAN_CIPHER_SUITE_BIP_GMAC_128:
 		case WLAN_CIPHER_SUITE_BIP_GMAC_256:
-			if (params->seq_len != 6)
+			if (params->seq_len != 6) {
+				pr_info("validate-key:  Invalid seq-len: %d != 6\n", params->seq_len);
 				return -EINVAL;
+			}
 			break;
 		}
 	}
 
-	if (!cfg80211_supported_cipher_suite(&rdev->wiphy, params->cipher))
+	if (!cfg80211_supported_cipher_suite(&rdev->wiphy, params->cipher)) {
+		pr_info("validate-key:  cipher suite not supported: %d\n", params->cipher);
 		return -EINVAL;
+	}
 
 	if (params->ltf_keyseed) {
 		if (!wiphy_ext_feature_isset(&rdev->wiphy,
@@ -2532,10 +2551,17 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 		u32 all_iftypes = 0;
 
 		c = &cs[i];
-		if (num_interfaces > c->max_interfaces)
+		if (num_interfaces > c->max_interfaces) {
+			pr_info("%i: iter-comb, num > max: %d > %d\n",
+			  i, num_interfaces, c->max_interfaces);
 			continue;
-		if (params->num_different_channels > c->num_different_channels)
+		}
+
+		if (params->num_different_channels > c->num_different_channels) {
+			pr_info("%i: iter-comb, channels differ: %d > %d\n",
+				i, params->num_different_channels, c->num_different_channels);
 			continue;
+		}
 
 		limits = kmemdup_array(c->limits, c->n_limits, sizeof(*limits),
 				       GFP_KERNEL);
@@ -2543,33 +2569,50 @@ int cfg80211_iter_combinations(struct wiphy *wiphy,
 			return -ENOMEM;
 
 		for (iftype = 0; iftype < NUM_NL80211_IFTYPES; iftype++) {
-			if (cfg80211_iftype_allowed(wiphy, iftype, 0, 1))
+			if (cfg80211_iftype_allowed(wiphy, iftype, 0, 1)) {
+				/*pr_info("%i: type: %d  sw-iftypes: 0x%x\n",
+				  i, iftype, wiphy->software_iftypes);*/
 				continue;
+			}
 			for (j = 0; j < c->n_limits; j++) {
 				all_iftypes |= limits[j].types;
-				if (!(limits[j].types & BIT(iftype)))
+				if (!(limits[j].types & BIT(iftype))) {
+					/*pr_info("%i: type: %i %i:  limits-types: 0x%x\n",
+					  i, iftype, j, limits[j].types);*/
 					continue;
-				if (limits[j].max < params->iftype_num[iftype])
+				}
+				if (limits[j].max < params->iftype_num[iftype]) {
+					pr_info("%i: %i: limit-max: %d  iftype-num: %d\n",
+						i, j, limits[j].max, params->iftype_num[iftype]);
 					goto cont;
+				}
 				limits[j].max -= params->iftype_num[iftype];
 			}
 		}
 
 		if (params->radar_detect !=
-			(c->radar_detect_widths & params->radar_detect))
+		    (c->radar_detect_widths & params->radar_detect)) {
+			pr_info("%i: iter-comb radar-detect: %d  %d\n",
+				i, params->radar_detect, c->radar_detect_widths);
 			goto cont;
+		}
 
 		if (params->radar_detect && c->radar_detect_regions &&
-		    !(c->radar_detect_regions & BIT(region)))
+		    !(c->radar_detect_regions & BIT(region))) {
+			pr_info("%i: iter-comb, radar detect regions mismatch\n", i);
 			goto cont;
+		}
 
 		/* Finally check that all iftypes that we're currently
 		 * using are actually part of this combination. If they
 		 * aren't then we can't use this combination and have
 		 * to continue to the next.
 		 */
-		if ((all_iftypes & used_iftypes) != used_iftypes)
+		if ((all_iftypes & used_iftypes) != used_iftypes) {
+			/*pr_info("%i: all-iftypes: %d  used-iftypes: %d\n",
+			  i, all_iftypes, used_iftypes);*/
 			goto cont;
+		}
 
 		if (beacon_int_gcd) {
 			if (c->beacon_int_min_gcd &&
@@ -2607,10 +2650,14 @@ int cfg80211_check_combinations(struct wiphy *wiphy,
 
 	err = cfg80211_iter_combinations(wiphy, params,
 					 cfg80211_iter_sum_ifcombs, &num);
-	if (err)
+	if (err) {
+		pr_info("cfg-comb-check: failed to iterate combinations\n");
 		return err;
-	if (num == 0)
+	}
+	if (num == 0) {
+		pr_info("cfg-comb-check: iter-combinations returned num==0\n");
 		return -EBUSY;
+	}
 
 	return 0;
 }
