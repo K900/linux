@@ -1475,6 +1475,8 @@ struct ath10k {
 	s32 tx_power_2g_limit;
 	s32 tx_power_5g_limit;
 
+	u8 ath10k_thresh62_ext; /* be sure to flush this to firmware after resets */
+
 	/* must be last */
 	u8 drv_priv[] __aligned(sizeof(void *));
 };
