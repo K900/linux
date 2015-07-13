@@ -106,7 +106,8 @@ static void br_port_set_promisc(struct net_bridge_port *p)
 	if (br_promisc_port(p))
 		return;
 
-	err = dev_set_promiscuity(p->dev, 1);
+	if (!p->dev->ieee80211_ptr)
+		err = dev_set_promiscuity(p->dev, 1);
 	if (err)
 		return;
 
@@ -133,7 +134,8 @@ static void br_port_clear_promisc(struct net_bridge_port *p)
 	if (err)
 		return;
 
-	dev_set_promiscuity(p->dev, -1);
+	if (!p->dev->ieee80211_ptr)
+		dev_set_promiscuity(p->dev, -1);
 	clear_bit(BR_PROMISC_BIT, &p->flags);
 }
 
@@ -251,8 +253,10 @@ static void nbp_delete_promisc(struct net_bridge_port *p)
 	 * from it.
 	 */
 	dev_set_allmulti(p->dev, -1);
-	if (br_promisc_port(p))
-		dev_set_promiscuity(p->dev, -1);
+	if (br_promisc_port(p)) {
+		if (!p->dev->ieee80211_ptr)
+			dev_set_promiscuity(p->dev, -1);
+	}
 	else
 		br_fdb_unsync_static(p->br, p);
 }
