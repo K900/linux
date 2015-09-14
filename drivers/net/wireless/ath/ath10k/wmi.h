@@ -6573,6 +6573,8 @@ enum wmi_10_2_peer_flags {
 
 struct wmi_common_peer_assoc_complete_cmd {
 	struct wmi_mac_addr peer_macaddr;
+#define WMI_ASSOC_FLG_EXT (1<<31) /* Extended info is defined, CT firmware ver 15+ only,
+				   * packed into vdev_id */
 	__le32 vdev_id;
 	__le32 peer_new_assoc; /* 1=assoc, 0=reassoc */
 	__le32 peer_associd; /* 16 LSBs */
@@ -6604,6 +6606,39 @@ struct wmi_10_1_peer_assoc_complete_cmd {
 	struct wmi_common_peer_assoc_complete_cmd cmd;
 } __packed;
 
+struct wmi_ct_assoc_overrides {
+	/* CT firmware ver 15+ only */
+#define PEER_ASSOC_EXT_USE_OVERRIDES (1<<0)
+	/* wave-1 ath10k-ct firmware, at least, has logic to ignore certain rates.
+	 * setting this flag below will disable that logic and give host full control
+	 * of the rate-set to use.
+	 * Rates disabled in firmware are:
+	 * 2x2 11ac rate table does not include:
+	 *   MCS 1x1: 5, 6, 7, 8, 9
+	 *       2x2: 0, 1, 2
+         * 3x3 11ac rate table does not include:
+	 *   MCS 1x1: 3, 4, 5, 6, 7, 8, 9
+	 *       2x2: 0, 1, 5, 6, 7, 8, 9
+	 *       3x3: 0, 1, 2, 3
+	 * As of Jan 29, 2020, this flag is ignored on wave-2 ath10k-ct firmware
+	 */
+#define PEER_ASSOC_EXT_IGNORE_MCS_4_NSS_MASK (1<<1)
+#define PEER_ASSOC_EXT_LEN_32        (1<<2) /* Has 32-override bytes */
+	__le32 ext_flags;
+
+#define RATE_OVERRIDES_COUNT 32
+	/* Space for 256 rates.  If rate_overrides_set is 1,
+	 * any rate NOT specified in rate_overrides will be
+	 * disabled.
+	 */
+	u8 rate_overrides[RATE_OVERRIDES_COUNT];
+} __packed;
+
+struct wmi_10_1_peer_assoc_complete_cmd_ct {
+	struct wmi_10_1_peer_assoc_complete_cmd cmd;
+	struct wmi_ct_assoc_overrides overrides;
+} __packed;
+
 #define WMI_PEER_ASSOC_INFO0_MAX_MCS_IDX_LSB 0
 #define WMI_PEER_ASSOC_INFO0_MAX_MCS_IDX_MASK 0x0f
 #define WMI_PEER_ASSOC_INFO0_MAX_NSS_LSB 4
@@ -6619,10 +6654,27 @@ struct wmi_10_2_peer_assoc_complete_cmd {
 #define WMI_PEER_NSS_160MHZ_MASK	GENMASK(2, 0)
 #define WMI_PEER_NSS_80_80MHZ_MASK	GENMASK(5, 3)
 
+struct wmi_10_2_peer_assoc_complete_cmd_ct {
+	struct wmi_10_2_peer_assoc_complete_cmd cmd;
+	struct wmi_ct_assoc_overrides overrides;
+} __packed;
+
 struct wmi_10_4_peer_assoc_complete_cmd {
 	struct wmi_10_2_peer_assoc_complete_cmd cmd;
 	__le32 peer_bw_rxnss_override;
 } __packed;
+
+struct wmi_10_4_peer_assoc_complete_cmd_ct {
+	struct wmi_10_4_peer_assoc_complete_cmd cmd;
+	struct wmi_ct_assoc_overrides overrides;
+} __packed;
+
+struct wmi_vdev_stats_ct {
+    u32 vdev_id;
+    u32 size; /* size in bytes of this struct */
+    u32 tsf_lo;
+    u32 tsf_hi;
+};
 
 struct wmi_peer_assoc_complete_arg {
 	u8 addr[ETH_ALEN];
@@ -6643,6 +6695,10 @@ struct wmi_peer_assoc_complete_arg {
 	enum wmi_phy_mode peer_phymode;
 	struct wmi_vht_rate_set_arg peer_vht_rates;
 	u32 peer_bw_rxnss_override;
+
+	/* CT firmware only (beta-15 and higher ) */
+	bool has_rate_overrides;
+	u8 rate_overrides[RATE_OVERRIDES_COUNT];
 };
 
 struct wmi_peer_add_wds_entry_cmd {

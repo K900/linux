@@ -2360,6 +2360,194 @@ ath10k_peer_assoc_h_vht_masked(const u16 vht_mcs_mask[NL80211_VHT_NSS_MAX])
 	return true;
 }
 
+static void ath10k_set_rate_enabled(int rix, u8 *rt_array, int val) {
+	int idx = rix / 8;
+	int bit = rix - (idx * 8);
+	if (val) {
+		rt_array[idx] |= (1<<bit);
+	}
+	else {
+		rt_array[idx] &= ~(1<<bit);
+	}
+}
+
+static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
+					       struct ieee80211_vif *vif,
+					       struct ieee80211_sta *sta,
+					       struct wmi_peer_assoc_complete_arg *arg)
+{
+	struct ath10k_vif *arvif = (void *)vif->drv_priv;
+	const struct ieee80211_supported_band *sband;
+	const struct ieee80211_rate *rates;
+	struct cfg80211_chan_def def;
+	enum nl80211_band band;
+	u32 ratemask;
+	int i;
+	int j;
+	int hw_rix;
+	bool ok160 = false;
+	//u16 rate_bw_disable_mask = ar->eeprom_overrides.rate_bw_disable_mask;
+
+	/* So, what we really want here is the max number of chains the firmware
+	 * is compiled for.  But, since we can have 3x3 firmware run on 2x2 chips,
+	 * then we need to hack on this in gruesome ways.  Better have the hack here
+	 * than try to extend FW's ability to send that value I think.
+	 */
+	int hw_nss = ar->num_rf_chains;
+	if (! test_bit(ATH10K_FW_FEATURE_CT_RATEMASK,
+		       ar->running_fw->fw_file.fw_features))
+		return;
+
+	/* Ignore devices not known to be supported, this is a minor feature and
+	 * not worth breaking systems for users that don't need it.
+	 */
+	if (!((ar->dev_id == QCA9887_1_0_DEVICE_ID) ||
+	      (ar->dev_id == QCA988X_2_0_DEVICE_ID) ||
+	      (ar->dev_id == QCA9888_2_0_DEVICE_ID) || /* Wave-2 2x2 MU-MIMO NIC */
+	      (ar->dev_id == QCA99X0_2_0_DEVICE_ID) ||
+	      /* TODO-BEN:  Add IPQ4019, it should work. */
+	      (ar->dev_id == QCA9984_1_0_DEVICE_ID))) {
+#ifdef STANDALONE_CT
+		/* Assume OpenWRT/LEDE users don't need this anyway, so don't warn loudly. */
+		ath10k_dbg(ar, ATH10K_DBG_MAC,
+			   "rate-override:  Skipping un-supported device-id, hw-nss: %d dev-id: 0x%x\n",
+			   hw_nss, ar->dev_id);
+#else
+		ath10k_warn(ar, "rate-override:  Skipping un-supported device-id, hw-nss: %d dev-id: 0x%x\n",
+			    hw_nss, ar->dev_id);
+#endif
+		return;
+	}
+
+	if ((ar->dev_id == QCA9984_1_0_DEVICE_ID) ||
+	    (ar->dev_id == QCA9888_2_0_DEVICE_ID)) {
+		ok160 = true;
+	}
+
+	if (hw_nss < 3) {
+		/* Maybe 2x2 NIC booting 3x3 988x firmware? */
+		/* 9887 is weird, NSS = 1, but FW rate-table is compiled for 3x3 evidently */
+		if ((ar->dev_id == QCA988X_2_0_DEVICE_ID) ||
+		    (ar->dev_id == QCA9887_1_0_DEVICE_ID)) {
+			hw_nss = 3;
+		}
+	}
+
+	lockdep_assert_held(&ar->conf_mutex);
+
+	if (WARN_ON(ath10k_mac_vif_chan(vif, &def)))
+		return;
+
+	band = def.chan->band;
+	sband = ar->hw->wiphy->bands[band];
+	ratemask = arvif->bitrate_mask.control[band].legacy;
+	rates = sband->bitrates;
+
+	//ath10k_dbg(ar, ATH10K_DBG_MAC2, "band: %d  ratemask: 0x%x  hw-nss: %d dev-id: 0x%x rate-bw-disable-mask: 0x%x\n",
+	//	   band, ratemask, hw_nss, ar->dev_id, rate_bw_disable_mask);
+
+	arg->has_rate_overrides = true;
+
+	/* Clear the rateset */
+	memset(arg->rate_overrides, 0x0, sizeof(arg->rate_overrides));
+
+	/* Legacy rates */
+	for (i = 0; i < sband->n_bitrates; i++, ratemask >>= 1, rates++) {
+		if (!(ratemask & 1))
+			continue;
+
+		if (ath10k_mac_bitrate_is_cck(rates->bitrate)) {
+			hw_rix = rates->hw_value;
+		}
+		else {
+			/* ofdm rates start at rix 4 */
+			hw_rix = rates->hw_value + 4;
+		}
+		//ath10k_dbg(ar, ATH10K_DBG_MAC2,
+		//	   "set-enabled, bitrate: %d  i: %d  hw-value: %d hw-rix: %d\n",
+		//         rates->bitrate, i, rates->hw_value, hw_rix);
+		ath10k_set_rate_enabled(hw_rix, arg->rate_overrides, 1);
+	}
+
+	/* HT rate logic (ath10k AR98XX, at least, uses 3x3 rateset).  First set
+	 * of 3 is HT20, second set is HT40.  No way to specify HT20 vs HT40
+	 * using normal rate-set info as far as I can tell, so set both to the
+	 * same value.
+	 */
+	for (i = 0; i < hw_nss; i++) {
+		unsigned int mcs = arvif->bitrate_mask.control[band].ht_mcs[i];
+		//ath10k_dbg(ar, ATH10K_DBG_MAC2, "ht-mcs [%i]: 0x%x\n", i, mcs);
+		for (j = 0; j<8; j++) {
+			if (mcs & (1<<j)) {
+				hw_rix = 12 + i * 8 + j;
+				//ath10k_dbg(ar, ATH10K_DBG_MAC2,
+				//	   "set-enabled, ht: hw-rix: %d, %d  i: %d j: %d\n",
+				//	   hw_rix, hw_rix + hw_nss * 8, i, j);
+				//if (!(rate_bw_disable_mask & CT_DISABLE_20MHZ))
+				//	ath10k_set_rate_enabled(hw_rix, arg->rate_overrides, 1);
+				/* Set HT40 rateset too */
+				//if (!(rate_bw_disable_mask & CT_DISABLE_40MHZ))
+				//	ath10k_set_rate_enabled(hw_rix + hw_nss * 8, arg->rate_overrides, 1);
+			}
+		}
+	}
+
+	/* VHT rate logic (ath10k AR98XX, at least, uses 3x3 rateset).
+	 * One set of rates for each of 20, 40, 80Mhz bandwidth.
+	 * Each set has 10 rates for each of 1, 2, and 3 streams.
+	 * No way to specify HT20 vs HT40 vs HT80
+	 * using normal rate-set info as far as I can tell, so set all three to the
+	 * same value.
+	 */
+	/* NOTE: VHT has some illegal rates (VHT-20 MCS 9 at 1x1 and 2x2, and MCS6 at VHT-80).  If user has
+	 * specified only these rates, then the rateset for that bandwidth will be null, and that will
+	 * crash the firmware.  So, try to set the nearest thing.
+	 */
+
+
+	for (i = 0; i < hw_nss; i++) {
+		unsigned int mcs = arvif->bitrate_mask.control[band].vht_mcs[i];
+		//ath10k_dbg(ar, ATH10K_DBG_MAC2, "vht-mcs [%i]: 0x%x\n", i, mcs);
+		for (j = 0; j<10; j++) {
+			if (mcs & (1<<j)) {
+				int hw_rix_20_40, hw_rix_80;
+				hw_rix = 12 + (hw_nss * 2) * 8 + i * 10 + j;
+				hw_rix_20_40 = hw_rix;
+				hw_rix_80 = hw_rix;
+				if ((i < 2) && (j == 9)) {
+					/* Requested invalid rate:  mcs-9 for 1x1 or 2x2, use nearest. */
+					hw_rix_20_40 = 12 + (hw_nss * 2) * 8 + i * 10 + 8;
+				}
+				if ((i == 2) && (j == 6)) {
+					/* Requested invalid rate:  mcs-6 for 80Mhz, use nearest. */
+					hw_rix_80 = 12 + (hw_nss * 2) * 8 + i * 10 + 5;
+				}
+				//ath10k_dbg(ar, ATH10K_DBG_MAC2,
+				//	   "set-enabled, vht: hw-rix-20-40: %d, hw-rix-80: %d  orig-hw-rix: %d  %d, %d  i: %d j: %d\n",
+				//	   hw_rix_20_40, hw_rix_80, hw_rix, hw_rix + hw_nss * 10, hw_rix + hw_nss * 2 * 10, i, j);
+				//if (!(rate_bw_disable_mask & CT_DISABLE_20MHZ))
+				//	ath10k_set_rate_enabled(hw_rix_20_40, arg->rate_overrides, 1);
+				/* Set HT40 rateset too */
+				//if (!(rate_bw_disable_mask & CT_DISABLE_40MHZ))
+				//	ath10k_set_rate_enabled(hw_rix_20_40 + hw_nss * 10, arg->rate_overrides, 1);
+				/* Set HT80 rateset too */
+				//if (!(rate_bw_disable_mask & CT_DISABLE_80MHZ))
+				//	ath10k_set_rate_enabled(hw_rix_80 + hw_nss * 2 * 10, arg->rate_overrides, 1);
+				/* And for NICs that support 160Mhz, set those */
+				//if (ok160 && !(rate_bw_disable_mask & CT_DISABLE_160MHZ))
+				//	ath10k_set_rate_enabled(hw_rix + hw_nss * 3 * 10, arg->rate_overrides, 1);
+			}
+		}
+	}
+
+	for (i = 0; i < sizeof(arg->rate_overrides); i++) {
+		if (arg->rate_overrides[i] != 0xFF) {
+			//ath10k_dbg(ar, ATH10K_DBG_MAC2, "vif: %d rate-overrides[%d]: 0x%x\n",
+			//	   arvif->vdev_id, i, arg->rate_overrides[i]);
+		}
+	}
+}
+
 static void ath10k_peer_assoc_h_ht(struct ath10k *ar,
 				   struct ieee80211_vif *vif,
 				   struct ieee80211_sta *sta,
@@ -2872,6 +3060,8 @@ static int ath10k_peer_assoc_prepare(struct ath10k *ar,
 	ath10k_peer_assoc_h_phymode(ar, vif, sta, arg);
 	ath10k_peer_assoc_h_vht(ar, vif, sta, arg);
 	ath10k_peer_assoc_h_qos(ar, vif, sta, arg);
+
+	ath10k_peer_assoc_h_rate_overrides(ar, vif, sta, arg);
 
 	return 0;
 }

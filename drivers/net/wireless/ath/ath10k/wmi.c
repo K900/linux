@@ -7799,8 +7799,53 @@ ath10k_wmi_peer_assoc_fill(struct ath10k *ar, void *buf,
 			   const struct wmi_peer_assoc_complete_arg *arg)
 {
 	struct wmi_common_peer_assoc_complete_cmd *cmd = buf;
+	u32 vid = arg->vdev_id;
+	u32 ext_flags = 0;
 
-	cmd->vdev_id            = __cpu_to_le32(arg->vdev_id);
+	if (test_bit(ATH10K_FW_FEATURE_CT_RATEMASK,
+		     ar->running_fw->fw_file.fw_features)) {
+		/* Add some CT firmware specific stuff */
+		vid |= (1<<31); /* ext field exists */
+		if (arg->has_rate_overrides) {
+			int i;
+			int opver = ar->running_fw->fw_file.wmi_op_version;
+			ext_flags |= PEER_ASSOC_EXT_USE_OVERRIDES;
+			//if (ar->fwcfg.allow_all_mcs)
+			//	ext_flags |= PEER_ASSOC_EXT_IGNORE_MCS_4_NSS_MASK;
+			ext_flags |= PEER_ASSOC_EXT_LEN_32;
+
+			ath10k_dbg(ar, ATH10K_DBG_WMI,
+				   "overrides: len %d\n", (int)(sizeof(arg->rate_overrides)));
+			for (i = 0; i<sizeof(arg->rate_overrides); i++) {
+				ath10k_dbg(ar, ATH10K_DBG_WMI, "[%i] 0x%x\n",
+					   i, arg->rate_overrides[i]);
+			}
+			if (opver == ATH10K_FW_WMI_OP_VERSION_10_4) {
+				struct wmi_10_4_peer_assoc_complete_cmd_ct *c = (void*)cmd;
+				memcpy(c->overrides.rate_overrides, arg->rate_overrides,
+				       sizeof(c->overrides.rate_overrides));
+				c->overrides.ext_flags = __cpu_to_le32(ext_flags);
+			}
+			else if ((opver == ATH10K_FW_WMI_OP_VERSION_10_2) ||
+				 (opver == ATH10K_FW_WMI_OP_VERSION_10_2_4)) {
+				struct wmi_10_2_peer_assoc_complete_cmd_ct *c = (void*)cmd;
+				memcpy(c->overrides.rate_overrides, arg->rate_overrides,
+				       sizeof(c->overrides.rate_overrides));
+				c->overrides.ext_flags = __cpu_to_le32(ext_flags);
+			}
+			else if (opver == ATH10K_FW_WMI_OP_VERSION_10_1) {
+				struct wmi_10_1_peer_assoc_complete_cmd_ct *c = (void*)cmd;
+				memcpy(c->overrides.rate_overrides, arg->rate_overrides,
+				       sizeof(c->overrides.rate_overrides));
+				c->overrides.ext_flags = __cpu_to_le32(ext_flags);
+			}
+			else {
+				WARN_ON_ONCE(1);
+			}
+		}
+	}
+
+	cmd->vdev_id            = __cpu_to_le32(vid);
 	cmd->peer_new_assoc     = __cpu_to_le32(arg->peer_reassoc ? 0 : 1);
 	cmd->peer_associd       = __cpu_to_le32(arg->peer_aid);
 	cmd->peer_flags         = __cpu_to_le32(arg->peer_flags);
