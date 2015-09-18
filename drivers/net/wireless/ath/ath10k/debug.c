@@ -527,7 +527,7 @@ static int ath10k_fw_stats_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-int ath10k_refresh_peer_stats_t(struct ath10k *ar, u32 type)
+static int ath10k_refresh_peer_stats_t(struct ath10k *ar, u32 type)
 {
 	int ret;
 	unsigned long time_left;
@@ -555,7 +555,7 @@ int ath10k_refresh_peer_stats(struct ath10k *ar)
 	return ath10k_refresh_peer_stats_t(ar, ar->fw_stats_req_mask);
 }
 
-int ath10k_refresh_target_regs(struct ath10k *ar)
+static int ath10k_refresh_target_regs(struct ath10k *ar)
 {
 	if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT,
 		     ar->running_fw->fw_file.fw_features))
