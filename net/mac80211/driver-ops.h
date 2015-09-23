@@ -888,8 +888,10 @@ static inline int drv_set_bitrate_mask(struct ieee80211_local *local,
 	might_sleep();
 	lockdep_assert_wiphy(local->hw.wiphy);
 
-	if (!check_sdata_in_driver(sdata))
+	if (!check_sdata_in_driver(sdata)) {
+		pr_err("drv-set-bitrate-mask, sdata is not in driver!\n");
 		return -EIO;
+	}
 
 	trace_drv_set_bitrate_mask(local, sdata, mask);
 	if (local->ops->set_bitrate_mask)
