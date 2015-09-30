@@ -265,6 +265,45 @@ unlock:
 	return ret;
 }
 
+static void __ieee80211_if_add_hash(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_local *local = sdata->local;
+	int idx = STA_HASH(sdata->vif.addr);
+
+	lockdep_assert_held(&local->iflist_mtx);
+	sdata->hnext = local->sdata_hash[idx];
+	rcu_assign_pointer(local->sdata_hash[idx], sdata);
+}
+
+static int __ieee80211_if_remove_hash(struct ieee80211_sub_if_data *sdata)
+{
+	struct ieee80211_sub_if_data *s;
+	struct ieee80211_local *local = sdata->local;
+	int idx = STA_HASH(sdata->vif.addr);
+
+	lockdep_assert_held(&local->iflist_mtx);
+	s = rcu_dereference_protected(local->sdata_hash[idx],
+				      lockdep_is_held(&local->iflist_mtx));
+	if (!s)
+		return -ENOENT;
+
+	if (s == sdata) {
+		rcu_assign_pointer(local->sdata_hash[idx], s->hnext);
+		return 0;
+	}
+
+	while (rcu_access_pointer(s->hnext) &&
+	       rcu_access_pointer(s->hnext) != sdata)
+		s = rcu_dereference_protected(s->hnext,
+					lockdep_is_held(&local->iflist_mtx));
+
+	if (rcu_access_pointer(s->hnext)) {
+		rcu_assign_pointer(s->hnext, sdata->hnext);
+		return 0;
+	}
+	return -ENOENT;
+}
+
 static int _ieee80211_change_mac(struct ieee80211_sub_if_data *sdata,
 				 void *addr)
 {
@@ -295,8 +334,14 @@ static int _ieee80211_change_mac(struct ieee80211_sub_if_data *sdata,
 	ret = eth_mac_addr(sdata->dev, sa);
 
 	if (ret == 0) {
+		mutex_lock(&sdata->local->iflist_mtx);
+		__ieee80211_if_remove_hash(sdata);
+
 		memcpy(sdata->vif.addr, sa->sa_data, ETH_ALEN);
 		ether_addr_copy(sdata->vif.bss_conf.addr, sdata->vif.addr);
+
+		__ieee80211_if_add_hash(sdata);
+		mutex_unlock(&sdata->local->iflist_mtx);
 	}
 
 	/* Regardless of eth_mac_addr() return we still want to add the
@@ -2403,6 +2448,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
 
 	mutex_lock(&local->iflist_mtx);
 	list_add_tail_rcu(&sdata->list, &local->interfaces);
+	__ieee80211_if_add_hash(sdata);
 	mutex_unlock(&local->iflist_mtx);
 
 	if (new_wdev)
@@ -2418,6 +2464,7 @@ void ieee80211_if_remove(struct ieee80211_sub_if_data *sdata)
 
 	mutex_lock(&sdata->local->iflist_mtx);
 	list_del_rcu(&sdata->list);
+	__ieee80211_if_remove_hash(sdata);
 	mutex_unlock(&sdata->local->iflist_mtx);
 
 	if (sdata->vif.txq)
