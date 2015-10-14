@@ -461,7 +461,7 @@ struct ieee80211_mgd_assoc_data {
 	u8 ap_addr[ETH_ALEN] __aligned(2);
 
 	/* this is for a workaround, so we use it only for non-MLO */
-	const u8 *supp_rates;
+	u8 supp_rates[IEEE80211_MAX_SUPP_RATES];
 	u8 supp_rates_len;
 
 	unsigned long timeout;
