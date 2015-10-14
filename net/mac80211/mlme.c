@@ -1967,10 +1967,12 @@ static bool ieee80211_add_vht_ie(struct ieee80211_sub_if_data *sdata,
 }
 
 static void ieee80211_assoc_add_rates(struct ieee80211_local *local,
+				      struct ieee80211_sub_if_data *sdata,
 				      struct sk_buff *skb,
 				      enum nl80211_chan_width width,
 				      struct ieee80211_supported_band *sband,
-				      struct ieee80211_mgd_assoc_data *assoc_data)
+				      struct ieee80211_mgd_assoc_data *assoc_data,
+				      struct ieee80211_channel *chan)
 {
 	u32 rates;
 
@@ -1987,12 +1989,21 @@ static void ieee80211_assoc_add_rates(struct ieee80211_local *local,
 					 assoc_data->supp_rates_len,
 					 &rates);
 	} else {
+		u32 msk = sdata->cfg_advert_bitrate_mask.control[chan->band].legacy;
+		int i;
+
 		/*
 		 * In case AP not provide any supported rates information
 		 * before association, we send information element(s) with
 		 * all rates that we support.
 		 */
-		rates = ~0;
+		rates = 0;
+		for (i = 0; i < sband->n_bitrates; i++) {
+			if (sdata->cfg_advert_bitrate_mask_set &&
+			    (!(msk & (1 << i))))
+				continue;
+			rates |= BIT(i);
+		}
 	}
 
 	ieee80211_put_srates_elem(skb, sband, 0, ~rates,
@@ -2215,7 +2226,7 @@ ieee80211_add_link_elems(struct ieee80211_sub_if_data *sdata,
 		*capab |= WLAN_CAPABILITY_SPECTRUM_MGMT;
 
 	if (sband->band != NL80211_BAND_S1GHZ)
-		ieee80211_assoc_add_rates(local, skb, width, sband, assoc_data);
+		ieee80211_assoc_add_rates(local, sdata, skb, width, sband, assoc_data, chan);
 
 	if (*capab & WLAN_CAPABILITY_SPECTRUM_MGMT ||
 	    *capab & WLAN_CAPABILITY_RADIO_MEASURE) {
@@ -6528,8 +6539,6 @@ ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 	}
 
 	if (vht_cap.vht_supported && is_5ghz) {
-		unsigned int i;
-
 		if (conn->bw_limit == IEEE80211_CONN_BW_LIMIT_20) {
 			mlme_link_id_dbg(sdata, link_id,
 					 "no 40 MHz support on 5 GHz, limiting to HT\n");
@@ -10051,8 +10060,49 @@ ieee80211_setup_assoc_link(struct ieee80211_sub_if_data *sdata,
 
 	/* for MLO connections assume advertising all rates is OK */
 	if (!req->ap_mld_addr) {
-		assoc_data->supp_rates = bss->supp_rates;
-		assoc_data->supp_rates_len = bss->supp_rates_len;
+		if (sdata->cfg_advert_bitrate_mask_set) {
+			int band = req->bss->channel->band;
+			u32 msk = sdata->cfg_advert_bitrate_mask.control[band].legacy;
+			u8 all_rates[12] = { 2, 4, 11, 22,
+					     12, 18, 24, 36, 48, 72, 96, 108 };
+			int i;
+			int q = 0;
+
+			/* Skip CCK rates for 5Ghz band */
+			if (band != NL80211_BAND_2GHZ)
+				msk = msk << 4;
+
+#if 0
+			pr_err("mgt-assoc, band: %d msk: 0x%x  bss-rates-len: %d\n",
+			       band, msk, (int)(bss->supp_rates_len));
+			for (i = 0; i < bss->supp_rates_len; i++) {
+				pr_err("bss rate[%d] = %d (0x%x)\n",
+				       i, bss->supp_rates[i], bss->supp_rates[i]);
+			}
+#endif
+			for (i = 0; i < 12; i++) {
+				int j;
+
+				if (!(msk & (1 << i)))
+					break;
+
+				for (j = 0; j < bss->supp_rates_len; j++) {
+					/* Mask out the 'basic-rate' flag, 0x80 */
+					if ((bss->supp_rates[j] & 0x7f) == all_rates[i]) {
+						assoc_data->supp_rates[q] =
+							bss->supp_rates[j];
+						q++;
+						break;
+					}
+				}
+			}
+			assoc_data->supp_rates_len = q;
+		}
+		else {
+			memcpy(assoc_data->supp_rates, bss->supp_rates,
+			       bss->supp_rates_len);
+			assoc_data->supp_rates_len = bss->supp_rates_len;
+		}
 	}
 
 	/* copy and link elems for the STA profile */
