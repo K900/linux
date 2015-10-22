@@ -2724,7 +2724,7 @@ static int ath10k_peer_assoc_qos_ap(struct ath10k *ar,
 }
 
 static u16
-ath10k_peer_assoc_h_vht_limit(u16 tx_mcs_set,
+ath10k_peer_assoc_h_vht_limit(struct ath10k *ar, u16 tx_mcs_set,
 			      const u16 vht_mcs_limit[NL80211_VHT_NSS_MAX])
 {
 	int idx_limit;
@@ -2750,6 +2750,11 @@ ath10k_peer_assoc_h_vht_limit(u16 tx_mcs_set,
 		case 5:
 		case 6:
 		default:
+			if (test_bit(ATH10K_FW_FEATURE_CT_RATEMASK,
+				     ar->running_fw->fw_file.fw_features)) {
+				mcs = IEEE80211_VHT_MCS_SUPPORT_0_7;
+				break;
+			}
 			/* see ath10k_mac_can_set_bitrate_mask() */
 			WARN_ON(1);
 			fallthrough;
@@ -2870,7 +2875,7 @@ static void ath10k_peer_assoc_h_vht(struct ath10k *ar,
 	arg->peer_vht_rates.tx_max_rate =
 		__le16_to_cpu(vht_cap->vht_mcs.tx_highest);
 	arg->peer_vht_rates.tx_mcs_set = ath10k_peer_assoc_h_vht_limit(
-		__le16_to_cpu(vht_cap->vht_mcs.tx_mcs_map), vht_mcs_mask);
+		ar, __le16_to_cpu(vht_cap->vht_mcs.tx_mcs_map), vht_mcs_mask);
 
 	/* Configure bandwidth-NSS mapping to FW
 	 * for the chip's tx chains setting on 160Mhz bw
@@ -8963,6 +8968,13 @@ ath10k_mac_can_set_bitrate_mask(struct ath10k *ar,
 {
 	int i;
 	u16 vht_mcs;
+
+	/* CT firmware has improvements that allows this to function
+	 * properly.
+	 */
+	if (test_bit(ATH10K_FW_FEATURE_CT_RATEMASK,
+		     ar->running_fw->fw_file.fw_features))
+		return true;
 
 	/* Due to firmware limitation in WMI_PEER_ASSOC_CMDID it is impossible
 	 * to express all VHT MCS rate masks. Effectively only the following
