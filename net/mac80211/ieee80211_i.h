@@ -2604,15 +2604,16 @@ void ieee80211_send_4addr_nullfunc(struct ieee80211_local *local,
 				   struct ieee80211_sub_if_data *sdata);
 void ieee80211_sta_tx_notify(struct ieee80211_sub_if_data *sdata,
 			     struct ieee80211_hdr *hdr, bool ack, u16 tx_time);
-unsigned int
+void
 ieee80211_get_vif_queues(struct ieee80211_local *local,
-			 struct ieee80211_sub_if_data *sdata);
+			 struct ieee80211_sub_if_data *sdata,
+			 unsigned long *queues);
 void ieee80211_wake_queues_by_reason(struct ieee80211_hw *hw,
-				     unsigned long queues,
+				     unsigned long *queues,
 				     enum queue_stop_reason reason,
 				     bool refcounted);
 void ieee80211_stop_queues_by_reason(struct ieee80211_hw *hw,
-				     unsigned long queues,
+				     unsigned long *queues,
 				     enum queue_stop_reason reason,
 				     bool refcounted);
 void ieee80211_wake_queue_by_reason(struct ieee80211_hw *hw, int queue,
@@ -2626,8 +2627,11 @@ ieee80211_stop_vif_queues(struct ieee80211_local *local,
 			  struct ieee80211_sub_if_data *sdata,
 			  enum queue_stop_reason reason)
 {
+	unsigned long queues[IEEE80211_MAX_QUEUE_MAP_CNT] = { 0, 0, 0 };
+
+	ieee80211_get_vif_queues(local, sdata, queues);
 	ieee80211_stop_queues_by_reason(&local->hw,
-					ieee80211_get_vif_queues(local, sdata),
+					queues,
 					reason, true);
 }
 
@@ -2636,8 +2640,11 @@ ieee80211_wake_vif_queues(struct ieee80211_local *local,
 			  struct ieee80211_sub_if_data *sdata,
 			  enum queue_stop_reason reason)
 {
+	unsigned long queues[IEEE80211_MAX_QUEUE_MAP_CNT] = { 0, 0, 0 };
+
+	ieee80211_get_vif_queues(local, sdata, queues);
 	ieee80211_wake_queues_by_reason(&local->hw,
-					ieee80211_get_vif_queues(local, sdata),
+					queues,
 					reason, true);
 }
 static inline void
@@ -2645,8 +2652,11 @@ ieee80211_stop_vif_queues_norefcount(struct ieee80211_local *local,
 				     struct ieee80211_sub_if_data *sdata,
 				     enum queue_stop_reason reason)
 {
+	unsigned long queues[IEEE80211_MAX_QUEUE_MAP_CNT] = { 0, 0, 0 };
+
+	ieee80211_get_vif_queues(local, sdata, queues);
 	ieee80211_stop_queues_by_reason(&local->hw,
-					ieee80211_get_vif_queues(local, sdata),
+					queues,
 					reason, false);
 }
 static inline void
@@ -2654,8 +2664,11 @@ ieee80211_wake_vif_queues_norefcount(struct ieee80211_local *local,
 				     struct ieee80211_sub_if_data *sdata,
 				     enum queue_stop_reason reason)
 {
+	unsigned long queues[IEEE80211_MAX_QUEUE_MAP_CNT] = { 0, 0, 0 };
+
+	ieee80211_get_vif_queues(local, sdata, queues);
 	ieee80211_wake_queues_by_reason(&local->hw,
-					ieee80211_get_vif_queues(local, sdata),
+					queues,
 					reason, false);
 }
 void ieee80211_add_pending_skb(struct ieee80211_local *local,
@@ -2666,7 +2679,7 @@ void ieee80211_flush_queues(struct ieee80211_local *local,
 			    struct ieee80211_sub_if_data *sdata, bool drop);
 void __ieee80211_flush_queues(struct ieee80211_local *local,
 			      struct ieee80211_sub_if_data *sdata,
-			      unsigned int queues, bool drop);
+			      unsigned long *queues, bool drop);
 
 static inline bool ieee80211_can_run_worker(struct ieee80211_local *local)
 {
