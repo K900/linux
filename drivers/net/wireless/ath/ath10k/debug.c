@@ -282,9 +282,19 @@ void ath10k_debug_fw_stats_process(struct ath10k *ar, struct sk_buff *skb)
 
 	/* CT Firmware only */
 	if (__le32_to_cpu(ev->stats_id) == WMI_REQUEST_REGISTER_DUMP) {
-		struct ath10k_reg_dump* regdump = (struct ath10k_reg_dump*)(ev->data);
+		struct ath10k_reg_dump* regdump;
 		struct ath10k_fw_stats* sptr = &ar->debug.fw_stats;
 		int i;
+
+		if ((ar->running_fw->fw_file.wmi_op_version == ATH10K_FW_WMI_OP_VERSION_10_2) ||
+		    (ar->running_fw->fw_file.wmi_op_version == ATH10K_FW_WMI_OP_VERSION_10_2_4)) {
+			const struct wmi_10_2_stats_event *ev2 = (void *)skb->data;
+			regdump = (struct ath10k_reg_dump*)(ev2->data);
+		} else {
+			/* Must be 10.1 */
+			regdump = (struct ath10k_reg_dump*)(ev->data);
+		}
+
 		for (i = 0; i < __le16_to_cpu(regdump->count); i++) {
 			switch (__le16_to_cpu(regdump->regpair[i].reg_id)) {
 			case REG_DUMP_NONE:
