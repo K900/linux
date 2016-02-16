@@ -1710,6 +1710,28 @@ static bool carl9170_tx_frames_pending(struct ieee80211_hw *hw)
 	return !!atomic_read(&ar->tx_total_queued);
 }
 
+static int carl9170_op_get_antenna(struct ieee80211_hw *hw, int radio_idx,
+				   u32 *tx_ant, u32 *rx_ant)
+{
+	struct ar9170 *ar = hw->priv;
+
+	/* There are no 3x3 AR9170 as far as I can tell, and eeprom reports 0x5
+	 * when there are two antenna available.  I think user-space will work
+	 * more often if we convert to a bitfield without gaps. --Ben
+	 */
+	if (ar->eeprom.tx_mask > 1)
+		*tx_ant = 0x3;
+	else
+		*tx_ant = 0x1;
+
+	if (ar->eeprom.rx_mask > 1)
+		*rx_ant = 0x3;
+	else
+		*rx_ant = 0x1;
+
+	return 0;
+}
+
 static const struct ieee80211_ops carl9170_ops = {
 	.add_chanctx = ieee80211_emulate_add_chanctx,
 	.remove_chanctx = ieee80211_emulate_remove_chanctx,
@@ -1734,6 +1756,7 @@ static const struct ieee80211_ops carl9170_ops = {
 	.sta_notify		= carl9170_op_sta_notify,
 	.get_survey		= carl9170_op_get_survey,
 	.get_stats		= carl9170_op_get_stats,
+	.get_antenna	        = carl9170_op_get_antenna,
 	.ampdu_action		= carl9170_op_ampdu_action,
 	.tx_frames_pending	= carl9170_tx_frames_pending,
 };
@@ -1948,6 +1971,8 @@ int carl9170_register(struct ar9170 *ar)
 {
 	struct ath_regulatory *regulatory = &ar->common.regulatory;
 	int err = 0, i;
+	u32 tx_ant;
+	u32 rx_ant;
 
 	ar->mem_bitmap = devm_bitmap_zalloc(&ar->udev->dev, ar->fw.mem_blocks, GFP_KERNEL);
 	if (!ar->mem_bitmap)
@@ -1976,6 +2001,10 @@ int carl9170_register(struct ar9170 *ar)
 		ar->vif_priv[i].id = i;
 		ar->vif_priv[i].vif = NULL;
 	}
+
+	carl9170_op_get_antenna(ar->hw, -1, &tx_ant, &rx_ant);
+	ar->hw->wiphy->available_antennas_tx = tx_ant;
+	ar->hw->wiphy->available_antennas_rx = rx_ant;
 
 	err = ieee80211_register_hw(ar->hw);
 	if (err)
