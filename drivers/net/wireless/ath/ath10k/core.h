@@ -1279,6 +1279,7 @@ struct ath10k {
 #define ATH10K_FWCFG_ACTIVE_PEERS   (1<<9)
 #define ATH10K_FWCFG_SKID_LIMIT     (1<<10)
 #define ATH10K_FWCFG_REGDOM         (1<<11)
+#define ATH10K_FWCFG_BMISS_VDEVS    (1<<12)
 
 		u32 flags; /* let us know which fields have been set */
 		char calname[100];
@@ -1295,6 +1296,7 @@ struct ath10k {
 		u32 active_peers;
 		u32 skid_limit;
 		int regdom;
+		u32 bmiss_vdevs; /* To disable, set to 0 */
 	} fwcfg;
 
 	struct {
@@ -1406,6 +1408,7 @@ struct ath10k {
 	bool request_nohwcrypt; /* desired setting */
 	u32 num_ratectrl_objs;
 	u32 skid_limit;
+	u32 bmiss_offload_max_vdev;
 	int eeprom_regdom;
 
 	struct work_struct svc_rdy_work;
