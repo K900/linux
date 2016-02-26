@@ -1269,9 +1269,8 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_supported_band *sband;
-	int i, err;
+	int err;
 	size_t noffset;
-	bool have_80mhz = false;
 
 	*offset = 0;
 
@@ -1376,17 +1375,7 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 		*offset = noffset;
 	}
 
-	/* Check if any channel in this sband supports at least 80 MHz */
-	for (i = 0; i < sband->n_channels; i++) {
-		if (sband->channels[i].flags & (IEEE80211_CHAN_DISABLED |
-						IEEE80211_CHAN_NO_80MHZ))
-			continue;
-
-		have_80mhz = true;
-		break;
-	}
-
-	if (sband->vht_cap.vht_supported && have_80mhz) {
+	if (sband->vht_cap.vht_supported) {
 		u8 *pos;
 
 		if (skb_tailroom(skb) < 2 + sizeof(struct ieee80211_vht_cap))

@@ -137,23 +137,6 @@ ieee80211_vht_cap_ie_to_sta_vht_cap(struct ieee80211_sub_if_data *sdata,
 	if (WARN_ON_ONCE(sdata->vif.type == NL80211_IFTYPE_NAN_DATA))
 		return;
 
-	if (sband) {
-		/* Allow VHT if at least one channel on the sband supports 80 MHz */
-		bool have_80mhz = false;
-
-		for (i = 0; i < sband->n_channels; i++) {
-			if (sband->channels[i].flags & (IEEE80211_CHAN_DISABLED |
-							IEEE80211_CHAN_NO_80MHZ))
-				continue;
-
-			have_80mhz = true;
-			break;
-		}
-
-		if (!have_80mhz)
-			return;
-	}
-
 	/*
 	 * A VHT STA must support 40 MHz, but if we verify that here
 	 * then we break a few things - some APs (e.g. Netgear R6300v2
