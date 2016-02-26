@@ -1333,7 +1333,7 @@ static int ath10k_fetch_cal_file(struct ath10k *ar)
 
 	if (ar->fwcfg.calname[0]) {
 		/* Use user-specified file name. */
-		strncpy(filename, ar->fwcfg.calname, sizeof(filename));
+		strscpy(filename, ar->fwcfg.calname, sizeof(filename));
 		filename[sizeof(filename) - 1] = 0;
 	} else {
 		/* cal-<bus>-<id>.bin */
@@ -1464,12 +1464,12 @@ start_again:
 		/* Assign key and values as appropriate */
 		if (strcasecmp(filename, "calname") == 0) {
 			sz = sizeof(ar->fwcfg.calname);
-			strncpy(ar->fwcfg.calname, val, sz);
+			strscpy(ar->fwcfg.calname, val, sz);
 			ar->fwcfg.calname[sz - 1] = 0; /* ensure null term */
 		}
 		else if (strcasecmp(filename, "fwname") == 0) {
 			sz = sizeof(ar->fwcfg.fwname);
-			strncpy(ar->fwcfg.fwname, val, sz);
+			strscpy(ar->fwcfg.fwname, val, sz);
 			ar->fwcfg.fwname[sz - 1] = 0; /* ensure null term */
 		}
 		else if (strcasecmp(filename, "fwver") == 0) {
@@ -1806,6 +1806,10 @@ static int ath10k_core_fetch_board_data_api_n(struct ath10k *ar,
 
 	if (ret)
 		goto err;
+
+	/* Save firmware name so we can display it later. */
+	strscpy(ar->normal_mode_fw.fw_file.fw_name, filename,
+		sizeof(ar->normal_mode_fw.fw_file.fw_name));
 
 	return 0;
 
@@ -2494,6 +2498,9 @@ fw_ie_bss_info_ct:
 				  fw_file->fw_features);
 	}
 
+	/* Save firmware name so we can display it later. */
+	strscpy(fw_file->fw_name, name, sizeof(fw_file->fw_name));
+
 	return 0;
 
 err:
@@ -2565,7 +2572,9 @@ static int ath10k_core_fetch_firmware_files(struct ath10k *ar)
 	return ret;
 
 success:
-	ath10k_dbg(ar, ATH10K_DBG_BOOT, "using fw api %d\n", ar->fw_api);
+	ath10k_dbg(ar, ATH10K_DBG_BOOT, "using fw api %d: %s/%s\n",
+		   ar->fw_api, ar->hw_params.fw.dir,
+		   ar->normal_mode_fw.fw_file.fw_name);
 
 	return 0;
 }
