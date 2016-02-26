@@ -6528,28 +6528,11 @@ ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 	}
 
 	if (vht_cap.vht_supported && is_5ghz) {
-		bool have_80mhz = false;
 		unsigned int i;
 
 		if (conn->bw_limit == IEEE80211_CONN_BW_LIMIT_20) {
 			mlme_link_id_dbg(sdata, link_id,
 					 "no 40 MHz support on 5 GHz, limiting to HT\n");
-			goto out;
-		}
-
-		/* Allow VHT if at least one channel on the sband supports 80 MHz */
-		for (i = 0; i < sband->n_channels; i++) {
-			if (sband->channels[i].flags & (IEEE80211_CHAN_DISABLED |
-							IEEE80211_CHAN_NO_80MHZ))
-				continue;
-
-			have_80mhz = true;
-			break;
-		}
-
-		if (!have_80mhz) {
-			mlme_link_id_dbg(sdata, link_id,
-					 "no 80 MHz channel support on 5 GHz, limiting to HT\n");
 			goto out;
 		}
 	} else if (is_5ghz) { /* !vht_supported but on 5 GHz */
@@ -6560,9 +6543,12 @@ ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 
 	/* VHT - if we have - is fine, including 80 MHz, check 160 below again */
 	if (sband->band != NL80211_BAND_2GHZ) {
-		conn->mode = IEEE80211_CONN_MODE_VHT;
 		conn->bw_limit = IEEE80211_CONN_BW_LIMIT_160;
 	}
+	else {
+		conn->bw_limit = IEEE80211_CONN_BW_LIMIT_40;
+	}
+	conn->mode = IEEE80211_CONN_MODE_VHT;
 
 	if (is_5ghz &&
 	    !(vht_cap.cap & (IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ |
