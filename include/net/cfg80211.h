@@ -5420,7 +5420,8 @@ struct cfg80211_ops {
 				    struct net_device *dev,
 				    unsigned int link_id,
 				    const u8 *peer,
-				    const struct cfg80211_bitrate_mask *mask);
+				    const struct cfg80211_bitrate_mask *mask,
+				    bool is_advert_bitmask);
 
 	int	(*dump_survey)(struct wiphy *wiphy, struct net_device *netdev,
 			int idx, struct survey_info *info);
