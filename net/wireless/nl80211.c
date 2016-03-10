@@ -6214,8 +6214,10 @@ static int nl80211_parse_tx_bitrate_mask(struct genl_info *info,
 
 		sband = rdev->wiphy.bands[i];
 
-		if (!sband)
+		if (!sband) {
+			pr_err("sband[%d] is null\n", i);
 			continue;
+		}
 
 		mask->control[i].legacy = (1 << sband->n_bitrates) - 1;
 		memcpy(mask->control[i].ht_mcs,
@@ -15724,6 +15726,8 @@ static int nl80211_parse_wowlan_nd(struct cfg80211_registered_device *rdev,
 
 out:
 	kfree(tb);
+	if (err != 0)
+		pr_err("rdev-set-bitrate-mask failed: %d\n", err);
 	return err;
 }
 
