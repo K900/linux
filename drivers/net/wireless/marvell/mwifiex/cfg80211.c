@@ -1779,7 +1779,8 @@ mwifiex_cfg80211_set_bitrate_mask(struct wiphy *wiphy,
 				  struct net_device *dev,
 				  unsigned int link_id,
 				  const u8 *peer,
-				  const struct cfg80211_bitrate_mask *mask)
+				  const struct cfg80211_bitrate_mask *mask,
+				  bool is_advert_bitmask)
 {
 	struct mwifiex_private *priv = mwifiex_netdev_get_priv(dev);
 	u16 bitmap_rates[MAX_BITMAP_RATES_SIZE];
