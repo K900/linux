@@ -2379,6 +2379,11 @@ ath10k_peer_assoc_h_vht_masked(const u16 vht_mcs_mask[NL80211_VHT_NSS_MAX])
 static void ath10k_set_rate_enabled(int rix, u8 *rt_array, int val) {
 	int idx = rix / 8;
 	int bit = rix - (idx * 8);
+
+	//pr_err(" rix: %d  idx: %d  bit: %d\n", rix, idx, bit);
+	if (WARN_ON_ONCE(idx >= RATE_OVERRIDES_COUNT))
+		return;
+
 	if (val) {
 		rt_array[idx] |= (1<<bit);
 	}
