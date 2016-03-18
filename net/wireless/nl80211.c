@@ -15727,7 +15727,8 @@ static int nl80211_parse_wowlan_nd(struct cfg80211_registered_device *rdev,
 out:
 	kfree(tb);
 	if (err != 0)
-		pr_err("rdev-set-bitrate-mask failed: %d\n", err);
+		if (err != -ENETDOWN)
+			pr_err("rdev-set-bitrate-mask failed: %d\n", err);
 	return err;
 }
 
