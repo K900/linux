@@ -7030,7 +7030,12 @@ static struct sk_buff *ath10k_wmi_10_4_op_gen_init(struct ath10k *ar)
 
 		config.roam_offload_max_vdev = 0; /* disable roaming */
 		config.roam_offload_max_ap_profiles = 0; /* disable roaming */
-		/* NOT-YET: config.num_peer_keys = __cpu_to_le32(TARGET_10X_NUM_PEER_KEYS_CT); */
+		/* 3 per peer is likely enough, but technically, there is room for 4
+		 * The default is 2 per peer, but that is not enough when testing
+		 * lots of station vdevs with encryption since each 'real' peer can
+		 * have 4 keys, and the self-peer has one key.
+		 */
+		config.num_peer_keys = __cpu_to_le32(3);
 
 #if 0
 		if (ar->num_ratectrl_objs) {
