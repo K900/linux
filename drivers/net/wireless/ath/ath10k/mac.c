@@ -779,12 +779,16 @@ static int ath10k_peer_create(struct ath10k *ar,
 {
 	struct ath10k_peer *peer;
 	int ret;
+	int num_peers = ar->num_peers + list_count_nodes(&ar->arvifs);
 
 	lockdep_assert_held(&ar->conf_mutex);
 
 	/* Each vdev consumes a peer entry as well. */
-	if (ar->num_peers + list_count_nodes(&ar->arvifs) >= ar->max_num_peers)
+	if (num_peers >= ar->max_num_peers) {
+		ath10k_warn(ar, "failed to create peer %pM for vdev %d, too-many-peers (ar->num_peers: %d  num_peers: %d  max_peers: %d)\n",
+			    sta->addr, vdev_id, ar->num_peers, num_peers, ar->max_num_peers);
 		return -ENOBUFS;
+	}
 
 	ret = ath10k_wmi_peer_create(ar, vdev_id, addr, peer_type);
 	if (ret) {
@@ -10763,6 +10767,30 @@ static int ath10k_mac_init_rd(struct ath10k *ar)
    } while (0)
 
 
+static int ath10k_copy_comb(struct ath10k* ar,
+		     const struct ieee80211_iface_combination* comb,
+		     int array_len)
+{
+	int i;
+	int ln;
+
+	/* Clean out any existing combinations. */
+	ath10k_core_free_limits(ar);
+
+	memcpy(&ar->if_comb, comb, sizeof(*comb) * array_len);
+	for (i = 0; i<array_len; i++) {
+		ln = comb[i].n_limits * sizeof(*(comb[i].limits));
+		ar->if_comb[i].limits = kzalloc(ln, GFP_KERNEL);
+		if (!ar->if_comb[i].limits)
+			return -ENOMEM;
+		memcpy((void*)(ar->if_comb[i].limits), comb[i].limits, ln);
+	}
+
+	ar->hw->wiphy->iface_combinations = ar->if_comb;
+	ar->hw->wiphy->n_iface_combinations = array_len;
+	return 0;
+}
+
 int ath10k_mac_register(struct ath10k *ar)
 {
 	static const u32 cipher_suites[] = {
@@ -11026,36 +11054,29 @@ int ath10k_mac_register(struct ath10k *ar)
 
 	switch (ar->running_fw->fw_file.wmi_op_version) {
 	case ATH10K_FW_WMI_OP_VERSION_MAIN:
-		ar->hw->wiphy->iface_combinations = ath10k_if_comb;
-		ar->hw->wiphy->n_iface_combinations =
-			ARRAY_SIZE(ath10k_if_comb);
+		ret = ath10k_copy_comb(ar, ath10k_if_comb, ARRAY_SIZE(ath10k_if_comb));
 		ar->hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_ADHOC);
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_TLV:
 		if (test_bit(WMI_SERVICE_ADAPTIVE_OCS, ar->wmi.svc_map)) {
-			ar->hw->wiphy->iface_combinations =
-				ath10k_tlv_qcs_if_comb;
-			ar->hw->wiphy->n_iface_combinations =
-				ARRAY_SIZE(ath10k_tlv_qcs_if_comb);
+			ret = ath10k_copy_comb(ar, ath10k_tlv_qcs_if_comb,
+					       ARRAY_SIZE(ath10k_tlv_qcs_if_comb));
 		} else {
-			ar->hw->wiphy->iface_combinations = ath10k_tlv_if_comb;
-			ar->hw->wiphy->n_iface_combinations =
-				ARRAY_SIZE(ath10k_tlv_if_comb);
+			ret = ath10k_copy_comb(ar, ath10k_tlv_if_comb,
+					       ARRAY_SIZE(ath10k_tlv_if_comb));
 		}
 		ar->hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_ADHOC);
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_10_1:
 		if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT,
 			     ar->normal_mode_fw.fw_file.fw_features)) {
-			ar->hw->wiphy->iface_combinations = ath10k_10x_ct_if_comb;
-			ATH_ASSIGN_CONST_U16(ath10k_10x_ct_if_comb[0].limits[0].max, ar->max_num_vdevs);
-			ath10k_10x_ct_if_comb[0].max_interfaces =
-				ar->max_num_vdevs;
+			ret = ath10k_copy_comb(ar, ath10k_10x_ct_if_comb,
+					       ARRAY_SIZE(ath10k_10x_ct_if_comb));
+			if (ret != 0)
+				goto err_free;
 
-			ar->hw->wiphy->iface_combinations =
-				ath10k_10x_ct_if_comb;
-			ar->hw->wiphy->n_iface_combinations =
-				ARRAY_SIZE(ath10k_10x_ct_if_comb);
+			ATH_ASSIGN_CONST_U16(ar->if_comb[0].limits[0].max, ar->max_num_vdevs);
+			ar->if_comb[0].max_interfaces = ar->max_num_vdevs;
 			ar->hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_ADHOC);
 
 			/* CT firmware can do tx-sw-crypt if properly configured */
@@ -11064,23 +11085,22 @@ int ath10k_mac_register(struct ath10k *ar)
 			    ath10k_modparam_nohwcrypt)
 				__clear_bit(IEEE80211_HW_SW_CRYPTO_CONTROL, ar->hw->flags);
 		} else {
-			ar->hw->wiphy->iface_combinations = ath10k_10x_if_comb;
-			ar->hw->wiphy->n_iface_combinations =
-				ARRAY_SIZE(ath10k_10x_if_comb);
+			ret = ath10k_copy_comb(ar, ath10k_10x_if_comb,
+					       ARRAY_SIZE(ath10k_10x_if_comb));
 		}
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_10_2:
 	case ATH10K_FW_WMI_OP_VERSION_10_2_4:
 		if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT,
 			     ar->running_fw->fw_file.fw_features)) {
-			ATH_ASSIGN_CONST_U16(ath10k_10x_ct_if_comb[0].limits[0].max, ar->max_num_vdevs);
-			ath10k_10x_ct_if_comb[0].max_interfaces =
-				ar->max_num_vdevs;
+			ret = ath10k_copy_comb(ar, ath10k_10x_ct_if_comb,
+					       ARRAY_SIZE(ath10k_10x_ct_if_comb));
+			if (ret != 0)
+				goto err_free;
 
-			ar->hw->wiphy->iface_combinations =
-				ath10k_10x_ct_if_comb;
-			ar->hw->wiphy->n_iface_combinations =
-				ARRAY_SIZE(ath10k_10x_ct_if_comb);
+			ATH_ASSIGN_CONST_U16(ar->if_comb[0].limits[0].max, ar->max_num_vdevs);
+			ar->if_comb[0].max_interfaces = ar->max_num_vdevs;
+
 			ar->hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_ADHOC);
 
 			/* CT firmware can do tx-sw-crypt if properly configured */
@@ -11089,33 +11109,33 @@ int ath10k_mac_register(struct ath10k *ar)
 			    ath10k_modparam_nohwcrypt)
 				__clear_bit(IEEE80211_HW_SW_CRYPTO_CONTROL, ar->hw->flags);
 		} else {
-			ar->hw->wiphy->iface_combinations = ath10k_10x_if_comb;
-			ar->hw->wiphy->n_iface_combinations =
-				ARRAY_SIZE(ath10k_10x_if_comb);
+			ret = ath10k_copy_comb(ar, ath10k_10x_if_comb,
+					       ARRAY_SIZE(ath10k_10x_if_comb));
 		}
 		break;
 	case ATH10K_FW_WMI_OP_VERSION_10_4:
 		if (test_bit(ATH10K_FW_FEATURE_WMI_10X_CT,
 			     ar->running_fw->fw_file.fw_features)) {
-			ATH_ASSIGN_CONST_U16(ath10k_10_4_ct_if_comb[0].limits[0].max, ar->max_num_vdevs);
-			ath10k_10_4_ct_if_comb[0].max_interfaces =
-				ar->max_num_vdevs;
-			if (ath10k_10_4_ct_if_comb[0].limits[1].max > ar->max_num_vdevs)
-				ATH_ASSIGN_CONST_U16(ath10k_10_4_ct_if_comb[0].limits[1].max, ar->max_num_vdevs);
+			ret = ath10k_copy_comb(ar, ath10k_10_4_ct_if_comb,
+					       ARRAY_SIZE(ath10k_10_4_ct_if_comb));
+			if (ret != 0)
+				goto err_free;
+
+			ATH_ASSIGN_CONST_U16(ar->if_comb[0].limits[0].max, ar->max_num_vdevs);
+			ar->if_comb[0].max_interfaces = ar->max_num_vdevs;
+
+			if (ar->if_comb[0].limits[1].max > ar->max_num_vdevs)
+				ATH_ASSIGN_CONST_U16(ar->if_comb[0].limits[1].max, ar->max_num_vdevs);
+
+			ar->hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_ADHOC);
 
 			if (test_bit(WMI_SERVICE_VDEV_DIFFERENT_BEACON_INTERVAL_SUPPORT,
 				     ar->wmi.svc_map)) {
-				ath10k_10_4_ct_if_comb[0].beacon_int_min_gcd = 100;
+				ar->if_comb[0].beacon_int_min_gcd = 100;
 			}
 			else {
-				ath10k_10_4_ct_if_comb[0].beacon_int_min_gcd = 1;
+				ar->if_comb[0].beacon_int_min_gcd = 1;
 			}
-
-			ar->hw->wiphy->iface_combinations =
-				ath10k_10_4_ct_if_comb;
-			ar->hw->wiphy->n_iface_combinations =
-				ARRAY_SIZE(ath10k_10_4_ct_if_comb);
-			ar->hw->wiphy->interface_modes |= BIT(NL80211_IFTYPE_ADHOC);
 
 			/* CT firmware can do tx-sw-crypt if properly configured */
 			if (test_bit(ATH10K_FW_FEATURE_CT_RXSWCRYPT,
@@ -11124,15 +11144,14 @@ int ath10k_mac_register(struct ath10k *ar)
 				__clear_bit(IEEE80211_HW_SW_CRYPTO_CONTROL, ar->hw->flags);
 
 		} else {
-			ar->hw->wiphy->iface_combinations = ath10k_10_4_if_comb;
-			ar->hw->wiphy->n_iface_combinations =
-				ARRAY_SIZE(ath10k_10_4_if_comb);
 			if (test_bit(WMI_SERVICE_VDEV_DIFFERENT_BEACON_INTERVAL_SUPPORT,
 			     ar->wmi.svc_map)) {
-				ar->hw->wiphy->iface_combinations =
-					ath10k_10_4_bcn_int_if_comb;
-				ar->hw->wiphy->n_iface_combinations =
-					ARRAY_SIZE(ath10k_10_4_bcn_int_if_comb);
+				ret = ath10k_copy_comb(ar, ath10k_10_4_bcn_int_if_comb,
+						       ARRAY_SIZE(ath10k_10_4_bcn_int_if_comb));
+			}
+			else {
+				ret = ath10k_copy_comb(ar, ath10k_10_4_if_comb,
+						       ARRAY_SIZE(ath10k_10_4_if_comb));
 			}
 		}
 		break;
@@ -11140,8 +11159,10 @@ int ath10k_mac_register(struct ath10k *ar)
 	case ATH10K_FW_WMI_OP_VERSION_MAX:
 		WARN_ON(1);
 		ret = -EINVAL;
-		goto err_free;
 	}
+
+	if (ret != 0)
+		goto err_free;
 
 	if (ar->hw_params.dynamic_sar_support)
 		ar->hw->wiphy->sar_capa = &ath10k_sar_capa;
