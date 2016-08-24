@@ -3373,10 +3373,10 @@ struct wmi_start_scan_arg {
 
 /* CT Firmware only, v15 and higher */
 /* Don't advertise any HT support in scan req */
-#define WMI_SCAN_DISABLE_HT  0x40000000
+#define WMI_SCAN_DISABLE_HT    0x40000000
 #define WMI_SCAN_DISABLE_HT_4  0x00400000 /* 10.4 stole the bits I was using in 10.1. --Ben */
 /* Don't advertise any VHT support in scan req */
-#define WMI_SCAN_DISABLE_VHT 0x80000000
+#define WMI_SCAN_DISABLE_VHT   0x80000000
 #define WMI_SCAN_DISABLE_VHT_4 0x00800000
 
 /* WMI_SCAN_CLASS_MASK must be the same value as IEEE80211_SCAN_CLASS_MASK */
@@ -6417,10 +6417,22 @@ enum wmi_peer_param {
 	WMI_PEER_CHAN_WIDTH = 0x4,
 	WMI_PEER_NSS        = 0x5,
 	WMI_PEER_USE_4ADDR  = 0x6,
+	/** Enable extended peer stats */
+	WMI_PEER_EXT_STATS_ENABLE = 0x7,
+	/*Use FIXED Pwr */
 	WMI_PEER_USE_FIXED_PWR = 0x8,
+	/* Set peer fixed rate */
 	WMI_PEER_PARAM_FIXED_RATE = 0x9,
 	WMI_PEER_DEBUG      = 0xa,
+	/* peer NSS for VHT160 - Extended NSS support */
+	WMI_PEER_NSS_VHT160 = 0xb,
+	/* peer NSS for VHT160 - Extended NSS support */
+	WMI_PEER_NSS_VHT80_80 = 0xc,
 	WMI_PEER_PHYMODE    = 0xd,
+
+	/* Whitelist peer TIDs */
+	WMI_PEER_SET_MU_WHITELIST =0x10,
+
 	WMI_PEER_DUMMY_VAR  = 0xff, /* dummy parameter for STA PS workaround */
 };
 
