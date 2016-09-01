@@ -6768,7 +6768,7 @@ static struct sk_buff *ath10k_wmi_10_1_op_gen_init(struct ath10k *ar)
 		     ar->running_fw->fw_file.fw_features)) {
 		if (test_bit(ATH10K_FW_FEATURE_CT_RXSWCRYPT,
 			     ar->running_fw->fw_file.fw_features) &&
-		    ath10k_modparam_nohwcrypt) {
+		    ar->request_nohwcrypt) {
 			/* This will disable rx decryption in hardware, enable raw
 			 * rx mode, and native-wifi tx mode.  Requires 'CT' firmware.
 			 */
@@ -6878,7 +6878,7 @@ static struct sk_buff *ath10k_wmi_10_2_op_gen_init(struct ath10k *ar)
 		     ar->running_fw->fw_file.fw_features)) {
 		if (test_bit(ATH10K_FW_FEATURE_CT_RXSWCRYPT,
 			     ar->running_fw->fw_file.fw_features) &&
-		    ath10k_modparam_nohwcrypt) {
+		    ar->request_nohwcrypt) {
 			/* This will disable rx decryption in hardware, enable raw
 			 * rx mode, and native-wifi tx mode.  Requires 'CT' firmware.
 			 */
@@ -7004,7 +7004,7 @@ static struct sk_buff *ath10k_wmi_10_4_op_gen_init(struct ath10k *ar)
 #endif
 		if (test_bit(ATH10K_FW_FEATURE_CT_RXSWCRYPT,
 			     ar->running_fw->fw_file.fw_features) &&
-		    ath10k_modparam_nohwcrypt) {
+		    ar->request_nohwcrypt) {
 			/* This will disable rx decryption in hardware, enable raw
 			 * rx mode, and native-wifi tx mode.  Requires 'CT' firmware.
 			 */
