@@ -2451,7 +2451,7 @@ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
 	int j;
 	int hw_rix;
 	bool ok160 = false;
-	//u16 rate_bw_disable_mask = ar->eeprom_overrides.rate_bw_disable_mask;
+	u16 rate_bw_disable_mask = 0; //ar->eeprom_overrides.rate_bw_disable_mask;
 
 	/* So, what we really want here is the max number of chains the firmware
 	 * is compiled for.  But, since we can have 3x3 firmware run on 2x2 chips,
@@ -2508,8 +2508,8 @@ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
 	ratemask = arvif->bitrate_mask.control[band].legacy;
 	rates = sband->bitrates;
 
-	//ath10k_dbg(ar, ATH10K_DBG_MAC2, "band: %d  ratemask: 0x%x  hw-nss: %d dev-id: 0x%x rate-bw-disable-mask: 0x%x\n",
-	//	   band, ratemask, hw_nss, ar->dev_id, rate_bw_disable_mask);
+	ath10k_dbg(ar, ATH10K_DBG_MAC2, "band: %d  ratemask: 0x%x  hw-nss: %d dev-id: 0x%x rate-bw-disable-mask: 0x%x\n",
+		   band, ratemask, hw_nss, ar->dev_id, rate_bw_disable_mask);
 
 	arg->has_rate_overrides = true;
 
@@ -2528,9 +2528,9 @@ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
 			/* ofdm rates start at rix 4 */
 			hw_rix = rates->hw_value + 4;
 		}
-		//ath10k_dbg(ar, ATH10K_DBG_MAC2,
-		//	   "set-enabled, bitrate: %d  i: %d  hw-value: %d hw-rix: %d\n",
-		//         rates->bitrate, i, rates->hw_value, hw_rix);
+		ath10k_dbg(ar, ATH10K_DBG_MAC2,
+			   "set-enabled, bitrate: %d  i: %d  hw-value: %d hw-rix: %d\n",
+		         rates->bitrate, i, rates->hw_value, hw_rix);
 		ath10k_set_rate_enabled(hw_rix, arg->rate_overrides, 1);
 	}
 
@@ -2541,13 +2541,13 @@ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
 	 */
 	for (i = 0; i < hw_nss; i++) {
 		unsigned int mcs = arvif->bitrate_mask.control[band].ht_mcs[i];
-		//ath10k_dbg(ar, ATH10K_DBG_MAC2, "ht-mcs [%i]: 0x%x\n", i, mcs);
+		ath10k_dbg(ar, ATH10K_DBG_MAC2, "ht-mcs [%i]: 0x%x\n", i, mcs);
 		for (j = 0; j<8; j++) {
 			if (mcs & (1<<j)) {
 				hw_rix = 12 + i * 8 + j;
-				//ath10k_dbg(ar, ATH10K_DBG_MAC2,
-				//	   "set-enabled, ht: hw-rix: %d, %d  i: %d j: %d\n",
-				//	   hw_rix, hw_rix + hw_nss * 8, i, j);
+				ath10k_dbg(ar, ATH10K_DBG_MAC2,
+					   "set-enabled, ht: hw-rix: %d, %d  i: %d j: %d\n",
+					   hw_rix, hw_rix + hw_nss * 8, i, j);
 				//if (!(rate_bw_disable_mask & CT_DISABLE_20MHZ))
 				//	ath10k_set_rate_enabled(hw_rix, arg->rate_overrides, 1);
 				/* Set HT40 rateset too */
@@ -2572,7 +2572,7 @@ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
 
 	for (i = 0; i < hw_nss; i++) {
 		unsigned int mcs = arvif->bitrate_mask.control[band].vht_mcs[i];
-		//ath10k_dbg(ar, ATH10K_DBG_MAC2, "vht-mcs [%i]: 0x%x\n", i, mcs);
+		ath10k_dbg(ar, ATH10K_DBG_MAC2, "vht-mcs [%i]: 0x%x\n", i, mcs);
 		for (j = 0; j<10; j++) {
 			if (mcs & (1<<j)) {
 				int hw_rix_20_40, hw_rix_80;
@@ -2587,9 +2587,9 @@ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
 					/* Requested invalid rate:  mcs-6 for 80Mhz, use nearest. */
 					hw_rix_80 = 12 + (hw_nss * 2) * 8 + i * 10 + 5;
 				}
-				//ath10k_dbg(ar, ATH10K_DBG_MAC2,
-				//	   "set-enabled, vht: hw-rix-20-40: %d, hw-rix-80: %d  orig-hw-rix: %d  %d, %d  i: %d j: %d\n",
-				//	   hw_rix_20_40, hw_rix_80, hw_rix, hw_rix + hw_nss * 10, hw_rix + hw_nss * 2 * 10, i, j);
+				ath10k_dbg(ar, ATH10K_DBG_MAC2,
+					   "set-enabled, vht: hw-rix-20-40: %d, hw-rix-80: %d  orig-hw-rix: %d  %d, %d  i: %d j: %d\n",
+					   hw_rix_20_40, hw_rix_80, hw_rix, hw_rix + hw_nss * 10, hw_rix + hw_nss * 2 * 10, i, j);
 				//if (!(rate_bw_disable_mask & CT_DISABLE_20MHZ))
 				//	ath10k_set_rate_enabled(hw_rix_20_40, arg->rate_overrides, 1);
 				/* Set HT40 rateset too */
@@ -2607,8 +2607,8 @@ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
 
 	for (i = 0; i < sizeof(arg->rate_overrides); i++) {
 		if (arg->rate_overrides[i] != 0xFF) {
-			//ath10k_dbg(ar, ATH10K_DBG_MAC2, "vif: %d rate-overrides[%d]: 0x%x\n",
-			//	   arvif->vdev_id, i, arg->rate_overrides[i]);
+			ath10k_dbg(ar, ATH10K_DBG_MAC2, "vif: %d rate-overrides[%d]: 0x%x\n",
+				   arvif->vdev_id, i, arg->rate_overrides[i]);
 		}
 	}
 }
