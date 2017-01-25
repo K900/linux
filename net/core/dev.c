@@ -4912,8 +4912,18 @@ int __dev_queue_xmit(struct sk_buff *skb, struct net_device *sb_dev,
 		if (!skb) /* xmit completed */
 			goto out;
 
-		net_crit_ratelimited("Virtual device %s asks to queue packet!\n",
-				     dev->name);
+		{
+			/* This spams when using pktgen on 802.1q vlans.  Doesn't seem
+			 * to actually cause any harm, so make sure this message is not
+			 * repeated more than once. --Ben
+			 */
+			static int done_one = 0;
+			if (!done_one) {
+				net_crit_ratelimited("Virtual device %s asks to queue packet!\n",
+						     dev->name);
+				done_one = 1;
+			}
+		}
 		/* NETDEV_TX_BUSY or queue was stopped */
 		if (!is_list)
 			rc = -ENETDOWN;
