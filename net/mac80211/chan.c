@@ -2294,8 +2294,10 @@ int _ieee80211_link_use_channel(struct ieee80211_link_data *link,
 	ret = cfg80211_chandef_dfs_required(local->hw.wiphy,
 					    &chanreq->oper,
 					    sdata->wdev.iftype);
-	if (ret < 0)
+	if (ret < 0) {
+		sdata_info(sdata, "vif-use-channel: chandef-dfs-required returned error: %d\n", ret);
 		goto out;
+	}
 	if (ret > 0)
 		radar_detect_width = BIT(chanreq->oper.width);
 
@@ -2309,8 +2311,10 @@ int _ieee80211_link_use_channel(struct ieee80211_link_data *link,
 							&chanreq->oper,
 							mode,
 							radar_detect_width);
-		if (ret < 0)
+		if (ret < 0) {
+			sdata_info(sdata, "vif-use-channel:  check-combinations failed: %d\n", ret);
 			goto out;
+		}
 	}
 
 	if (!local->in_reconfig)
@@ -2320,6 +2324,7 @@ int _ieee80211_link_use_channel(struct ieee80211_link_data *link,
 					       assign_on_failure, &reused_ctx);
 	if (IS_ERR(ctx)) {
 		ret = PTR_ERR(ctx);
+		sdata_info(sdata, "vif-use-channel: could not find or create chantx, ret: %d\n", ret);
 		goto out;
 	}
 
@@ -2340,6 +2345,7 @@ int _ieee80211_link_use_channel(struct ieee80211_link_data *link,
 		/* if assign fails refcount stays the same */
 		if (ieee80211_chanctx_refcount(local, ctx) == 0)
 			ieee80211_free_chanctx(local, ctx, false);
+		sdata_info(sdata, "vif-use-channel:  assign-vif-chantx failed: %d\n", ret);
 		goto out;
 	}
 

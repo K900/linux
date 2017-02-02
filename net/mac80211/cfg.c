@@ -4233,8 +4233,10 @@ static int ieee80211_start_radar_detection(struct wiphy *wiphy,
 
 	lockdep_assert_wiphy(local->hw.wiphy);
 
-	if (ieee80211_is_scan_ongoing(wiphy, local, chandef))
+	if (ieee80211_is_scan_ongoing(wiphy, local, chandef)) {
+		sdata_info(sdata, "start-radar failed, is-scan-ongoing is true\n");
 		return -EBUSY;
+	}
 
 	link_data = sdata_dereference(sdata->link[link_id], sdata);
 	if (!link_data)
@@ -4246,8 +4248,11 @@ static int ieee80211_start_radar_detection(struct wiphy *wiphy,
 
 	err = ieee80211_link_use_channel(link_data, &chanreq,
 					 IEEE80211_CHANCTX_SHARED);
-	if (err)
+	if (err) {
+		sdata_info(sdata, "start-radar failed, vif-use-channel check failed: %d\n",
+			   err);
 		return err;
+	}
 
 	wiphy_hrtimer_work_queue(wiphy, &link_data->dfs_cac_timer_work,
 				 ms_to_ktime(cac_time_ms));
