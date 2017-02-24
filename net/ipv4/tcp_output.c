@@ -2861,7 +2861,8 @@ static bool tcp_small_queue_check(struct sock *sk, const struct sk_buff *skb,
 
 	limit = max_t(unsigned long,
 		      2 * skb->truesize,
-		      READ_ONCE(sk->sk_pacing_rate) >> READ_ONCE(sk->sk_pacing_shift));
+		      sock_net(sk)->ipv4.sysctl_tcp_tsq_limit_output_interval *
+		      (READ_ONCE(sk->sk_pacing_rate) >> READ_ONCE(sk->sk_pacing_shift)));
 	limit = min_t(unsigned long, limit,
 		      READ_ONCE(sock_net(sk)->ipv4.sysctl_tcp_limit_output_bytes));
 	limit <<= factor;
