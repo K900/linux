@@ -221,6 +221,7 @@ struct netns_ipv4 {
 	u8 sysctl_tcp_nometrics_save;
 	u8 sysctl_tcp_no_ssthresh_metrics_save;
 	u8 sysctl_tcp_workaround_signed_windows;
+	int sysctl_tcp_tsq_limit_output_interval;
 	int sysctl_tcp_challenge_ack_limit;
 	u8 sysctl_tcp_min_tso_segs;
 	u8 sysctl_tcp_reflect_tos;

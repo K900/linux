@@ -3489,6 +3489,7 @@ static int __net_init tcp_sk_init(struct net *net)
 	net->ipv4.sysctl_tcp_tso_win_divisor = 3;
 	/* Default TSQ limit of 4 MB */
 	net->ipv4.sysctl_tcp_limit_output_bytes = 4 << 20;
+	net->ipv4.sysctl_tcp_tsq_limit_output_interval = 1;
 
 	/* rfc5961 challenge ack rate limiting, per net-ns, disabled by default. */
 	net->ipv4.sysctl_tcp_challenge_ack_limit = INT_MAX;
