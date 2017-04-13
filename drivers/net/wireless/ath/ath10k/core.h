@@ -1287,6 +1287,7 @@ struct ath10k {
 #define ATH10K_FWCFG_SKID_LIMIT     (1<<10)
 #define ATH10K_FWCFG_REGDOM         (1<<11)
 #define ATH10K_FWCFG_BMISS_VDEVS    (1<<12)
+#define ATH10K_FWCFG_MAX_AMSDUS     (1<<13)
 
 		u32 flags; /* let us know which fields have been set */
 		char calname[100];
@@ -1304,6 +1305,7 @@ struct ath10k {
 		u32 skid_limit;
 		int regdom;
 		u32 bmiss_vdevs; /* To disable, set to 0 */
+		u32 max_amsdus;
 	} fwcfg;
 
 	struct {
