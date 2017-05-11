@@ -1623,6 +1623,14 @@ static int ath10k_core_fetch_board_data_api_1(struct ath10k *ar, int bd_ie_type)
 		ar->normal_mode_fw.ext_board_len = ar->normal_mode_fw.ext_board->size;
 	}
 
+	/* Save firmware board name so we can display it later. */
+	if (ar->fwcfg.bname[0])
+		strscpy(ar->normal_mode_fw.fw_file.fw_board_name, ar->fwcfg.bname,
+			sizeof(ar->normal_mode_fw.fw_file.fw_board_name));
+	else
+		strscpy(ar->normal_mode_fw.fw_file.fw_board_name, ATH10K_BOARD_DATA_FILE,
+			sizeof(ar->normal_mode_fw.fw_file.fw_board_name));
+
 	return 0;
 }
 
