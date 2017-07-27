@@ -2451,7 +2451,7 @@ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
 	int j;
 	int hw_rix;
 	bool ok160 = false;
-	u16 rate_bw_disable_mask = 0; //ar->eeprom_overrides.rate_bw_disable_mask;
+	u16 rate_bw_disable_mask = ar->eeprom_overrides.rate_bw_disable_mask;
 
 	/* So, what we really want here is the max number of chains the firmware
 	 * is compiled for.  But, since we can have 3x3 firmware run on 2x2 chips,
