@@ -4136,8 +4136,10 @@ static int ieee80211_set_bitrate_mask(struct wiphy *wiphy,
 
 		band = sdata->vif.bss_conf.chanreq.oper.chan->band;
 
-		if (!(mask->control[band].legacy & basic_rates))
-			return -EINVAL;
+		if (!(mask->control[band].legacy & basic_rates)) {
+			pr_err("%s:  WARNING: no legacy rates for band[%d] in set-bitrate-mask.\n",
+			       sdata->dev->name, band);
+		}
 	}
 
 	if (ieee80211_hw_check(&local->hw, HAS_RATE_CONTROL)) {
