@@ -48,9 +48,9 @@ static ssize_t read_file_node_aggr(struct file *file, char __user *user_buf,
 			 an->mpdudensity);
 
 	len += scnprintf(buf + len, size - len,
-			 "\n%3s%11s%10s%10s%10s%10s%9s%6s%8s\n",
+			 "\n%3s%11s%10s%10s%10s%10s%9s%6s\n",
 			 "TID", "SEQ_START", "SEQ_NEXT", "BAW_SIZE",
-			 "BAW_HEAD", "BAW_TAIL", "BAR_IDX", "SCHED", "PAUSED");
+			 "BAW_HEAD", "BAW_TAIL", "BAR_IDX", "SCHED");
 
 	for (tidno = 0; tidno < IEEE80211_NUM_TIDS; tidno++) {
 		tid = ath_node_to_tid(an, tidno);
