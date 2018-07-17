@@ -2119,6 +2119,16 @@ static int ath10k_mac_vif_setup_ps(struct ath10k_vif *arvif)
 	return 0;
 }
 
+static int ath10k_mac_vif_config_retry_limit(struct ath10k_vif *arvif, int limit)
+{
+	struct ath10k *ar = arvif->ar;
+	int vdev_param = ar->wmi.vdev_param->rc_num_retries;
+
+	lockdep_assert_held(&arvif->ar->conf_mutex);
+
+	return ath10k_wmi_vdev_set_param(ar, arvif->vdev_id, vdev_param, limit);
+}
+
 static int ath10k_mac_vif_disable_keepalive(struct ath10k_vif *arvif)
 {
 	struct ath10k *ar = arvif->ar;
@@ -5223,6 +5233,24 @@ out:
 	return ret;
 }
 
+static int ath10k_config_retry_limit(struct ath10k *ar, int limit)
+{
+	struct ath10k_vif *arvif;
+	int ret = 0;
+
+	lockdep_assert_held(&ar->conf_mutex);
+
+	list_for_each_entry(arvif, &ar->arvifs, list) {
+		ret = ath10k_mac_vif_config_retry_limit(arvif, limit);
+		if (ret) {
+			ath10k_warn(ar, "failed to setup retry-limit: %d\n", ret);
+			break;
+		}
+	}
+
+	return ret;
+}
+
 static void ath10k_scan_abort(struct ath10k *ar)
 {
 	int ret;
@@ -6093,6 +6121,9 @@ static int ath10k_config(struct ieee80211_hw *hw, int radio_idx, u32 changed)
 		if (ret)
 			ath10k_warn(ar, "failed to recalc monitor: %d\n", ret);
 	}
+
+	if (changed & IEEE80211_CONF_CHANGE_RETRY_LIMITS)
+		ret = ath10k_config_retry_limit(ar, conf->long_frame_max_tx_count);
 
 	mutex_unlock(&ar->conf_mutex);
 	return ret;
