@@ -110,7 +110,7 @@ static const struct cfg80211_sar_capa ath10k_sar_capa = {
 
 #define ath10k_wmi_legacy_rates ath10k_rates
 
-static bool ath10k_mac_bitrate_is_cck(int bitrate)
+bool ath10k_mac_bitrate_is_cck(int bitrate)
 {
 	switch (bitrate) {
 	case 10:
@@ -5377,6 +5377,12 @@ static void ath10k_mac_op_tx(struct ieee80211_hw *hw,
 	is_htt = (txpath == ATH10K_MAC_TX_HTT ||
 		  txpath == ATH10K_MAC_TX_HTT_MGMT);
 	is_mgmt = (txpath == ATH10K_MAC_TX_HTT_MGMT);
+
+	if (ar->eeprom_overrides.tx_debug & 0x1) {
+		ath10k_warn(ar, "op-tx, vif: %pM  type: %d txmode: %d  is_htt: %d  is_mgt: %d\n",
+			    vif->addr, vif->type, txmode, is_htt, is_mgmt);
+	}
+
 
 	if (is_htt) {
 		bool is_presp = false;
