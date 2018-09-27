@@ -4848,8 +4848,6 @@ void ieee80211_sta_tx_notify(struct ieee80211_sub_if_data *sdata,
 
 	if (ack)
 		sdata->u.mgd.probe_send_count = 0;
-	else
-		sdata->u.mgd.nullfunc_failed = true;
 	wiphy_work_queue(sdata->local->hw.wiphy, &sdata->work);
 }
 
@@ -4873,6 +4871,7 @@ static void ieee80211_mgd_probe_ap_send(struct ieee80211_sub_if_data *sdata)
 	u8 *dst = sdata->vif.cfg.ap_addr;
 	u8 unicast_limit = max(1, max_probe_tries - 3);
 	struct sta_info *sta;
+	u32 max_tries;
 
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);
 
@@ -4900,16 +4899,17 @@ static void ieee80211_mgd_probe_ap_send(struct ieee80211_sub_if_data *sdata)
 	}
 
 	if (ieee80211_hw_check(&sdata->local->hw, REPORTS_TX_ACK_STATUS)) {
-		ifmgd->nullfunc_failed = false;
+		max_tries = max_nullfunc_tries;
 		ieee80211_send_nullfunc(sdata->local, sdata, false);
 	} else {
+		max_tries = max_probe_tries;
 		ieee80211_mlme_send_probe_req(sdata, sdata->vif.addr, dst,
 					      sdata->vif.cfg.ssid,
 					      sdata->vif.cfg.ssid_len,
 					      sdata->deflink.conf->bss->channel);
 	}
 
-	ifmgd->probe_timeout = jiffies + msecs_to_jiffies(probe_wait_ms);
+	ifmgd->probe_timeout = jiffies + msecs_to_jiffies(probe_wait_ms / max_tries);
 	run_again(sdata, ifmgd->probe_timeout);
 }
 
@@ -9129,53 +9129,35 @@ void ieee80211_sta_work(struct ieee80211_sub_if_data *sdata)
 	    ifmgd->associated) {
 		u8 *bssid = sdata->deflink.u.mgd.bssid;
 		int max_tries;
+		bool ack_status = ieee80211_hw_check(&local->hw, REPORTS_TX_ACK_STATUS);
 
-		if (ieee80211_hw_check(&local->hw, REPORTS_TX_ACK_STATUS))
+		if (ack_status)
 			max_tries = max_nullfunc_tries;
 		else
 			max_tries = max_probe_tries;
 
 		/* ACK received for nullfunc probing frame */
-		if (!ifmgd->probe_send_count)
+		if (!ifmgd->probe_send_count) {
+			/* probe_send_count of zero means probe succeeded */
 			ieee80211_reset_ap_probe(sdata);
-		else if (ifmgd->nullfunc_failed) {
-			if (ifmgd->probe_send_count < max_tries) {
-				mlme_dbg(sdata,
-					 "No ack for nullfunc frame to AP %pM, try %d/%i\n",
-					 bssid, ifmgd->probe_send_count,
-					 max_tries);
-				ieee80211_mgd_probe_ap_send(sdata);
-			} else {
-				mlme_wrn(sdata,
-					 "No ack for nullfunc frame to AP %pM, disconnecting.\n",
-					 bssid);
-				ieee80211_sta_connection_lost(sdata,
-					WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY,
-					false);
-			}
-		} else if (time_is_after_jiffies(ifmgd->probe_timeout))
+		} else if (time_is_after_jiffies(ifmgd->probe_timeout)) {
+			/* probe_timeout is after current jiffies
+			 * Not time to (re)probe yet
+			 */
 			run_again(sdata, ifmgd->probe_timeout);
-		else if (ieee80211_hw_check(&local->hw, REPORTS_TX_ACK_STATUS)) {
-			mlme_wrn(sdata,
-				 "Failed to send nullfunc to AP %pM after %dms, disconnecting\n",
-				 bssid, probe_wait_ms);
-			ieee80211_sta_connection_lost(sdata,
-				WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY, false);
 		} else if (ifmgd->probe_send_count < max_tries) {
-			mlme_dbg(sdata,
-				 "No probe response from AP %pM after %dms, try %d/%i\n",
-				 bssid, probe_wait_ms,
-				 ifmgd->probe_send_count, max_tries);
+			mlme_dbg(sdata, "No %s AP %pM, try %d/%i\n",
+				 ack_status ? "ack for nullfunc frame to" :
+				 "probe response from",
+				 bssid, ifmgd->probe_send_count, max_tries);
 			ieee80211_mgd_probe_ap_send(sdata);
 		} else {
-			/*
-			 * We actually lost the connection ... or did we?
-			 * Let's make sure!
-			 */
 			mlme_wrn(sdata,
-				 "No probe response from AP %pM after %dms, disconnecting.\n",
-				 bssid, probe_wait_ms);
-
+				 "No %s AP %pM after %dms, tried %d/%i, disconnecting.\n",
+				 ack_status ? "ack for nullfunc frame to" :
+				 "probe response from",
+                                 bssid, probe_wait_ms, ifmgd->probe_send_count,
+                                 max_tries);
 			ieee80211_sta_connection_lost(sdata,
 				WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY, false);
 		}
