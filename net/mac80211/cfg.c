@@ -316,8 +316,10 @@ static int ieee80211_start_p2p_device(struct wiphy *wiphy,
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);
 
 	ret = ieee80211_check_combinations(sdata, NULL, 0, 0, -1);
-	if (ret < 0)
+	if (ret < 0) {
+		sdata_info(sdata, "start-p2p-device:  check-combinations failed: %d\n", ret);
 		return ret;
+	}
 
 	return ieee80211_do_open(wdev, true);
 }
@@ -423,8 +425,10 @@ static int ieee80211_start_nan(struct wiphy *wiphy,
 		return -EALREADY;
 
 	ret = ieee80211_check_combinations(sdata, NULL, 0, 0, -1);
-	if (ret < 0)
+	if (ret < 0) {
+		sdata_info(sdata, "start-nan:  check-combinations failed: %d\n", ret);
 		return ret;
+	}
 
 	ret = ieee80211_do_open(wdev, true);
 	if (ret)
@@ -4831,6 +4835,7 @@ __ieee80211_channel_switch(struct wiphy *wiphy, struct net_device *dev,
 	/* if reservation is invalid then this will fail */
 	err = ieee80211_check_combinations(sdata, NULL, 0, 0, -1);
 	if (err) {
+		sdata_info(sdata, "chan-switch:  check-combinations failed: %d\n", err);
 		ieee80211_link_unreserve_chanctx(link_data);
 		goto out;
 	}
