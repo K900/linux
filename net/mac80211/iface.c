@@ -357,6 +357,7 @@ static int ieee80211_change_mac(struct net_device *dev, void *addr)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = sdata->local;
+	int ret;
 
 	/*
 	 * This happens during unregistration if there's a bond device
@@ -368,7 +369,10 @@ static int ieee80211_change_mac(struct net_device *dev, void *addr)
 
 	guard(wiphy)(local->hw.wiphy);
 
-	return _ieee80211_change_mac(sdata, addr);
+	ret = _ieee80211_change_mac(sdata, addr);
+	if (ret)
+		sdata_info(sdata, "check-change-mac failed: %d\n", ret);
+	return ret;
 }
 
 static inline int identical_mac_addr_allowed(int type1, int type2)
