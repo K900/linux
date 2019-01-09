@@ -10208,8 +10208,10 @@ static int nl80211_get_mesh_config(struct sk_buff *skb,
 	else
 		err = rdev_get_mesh_config(rdev, dev, &cur_params);
 
-	if (err)
+	if (err) {
+		pr_err("get-mesh-config, rdev-get-mesh-config failed: %d\n", err);
 		return err;
+	}
 
 	/* Draw up a netlink message to send back */
 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
