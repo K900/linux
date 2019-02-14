@@ -4230,7 +4230,8 @@ void ath10k_wmi_event_host_swba(struct ath10k *ar, struct sk_buff *skb)
 
 		bcn = ieee80211_beacon_get(ar->hw, arvif->vif, 0);
 		if (!bcn) {
-			ath10k_warn(ar, "could not get mac80211 beacon\n");
+			ath10k_warn(ar, "could not get mac80211 beacon, vdev_id: %i addr: %pM\n",
+				    arvif->vdev_id, arvif->vif->addr);
 			continue;
 		}
 

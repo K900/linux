@@ -4273,6 +4273,7 @@ static int ieee80211_start_radar_detection(struct wiphy *wiphy,
 		return err;
 	}
 
+	sdata_info(sdata, "start-radar-detection, starting dfs-cac-timer-work.\n");
 	wiphy_hrtimer_work_queue(wiphy, &link_data->dfs_cac_timer_work,
 				 ms_to_ktime(cac_time_ms));
 
