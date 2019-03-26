@@ -5081,6 +5081,7 @@ struct ieee80211_ops {
 			    u8 instance_id);
 	int (*nan_peer_sched_changed)(struct ieee80211_hw *hw,
 				      struct ieee80211_sta *sta);
+#define HAS_CONSUME_BLOCK_ACK
 	int (*consume_block_ack)(struct ieee80211_hw *hw,
 				 struct ieee80211_vif *vif, struct sk_buff* skb);
 	bool (*can_aggregate_in_amsdu)(struct ieee80211_hw *hw,
