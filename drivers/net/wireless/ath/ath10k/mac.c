@@ -5354,6 +5354,7 @@ static int ath10k_start_scan(struct ath10k *ar,
 /* mac80211 callbacks */
 /**********************/
 
+#ifdef HAS_CONSUME_BLOCK_ACK
 static int ath10k_mac_consume_block_ack(struct ieee80211_hw *hw,
 					struct ieee80211_vif *vif,
 					struct sk_buff *skb)
@@ -5378,7 +5379,7 @@ static int ath10k_mac_consume_block_ack(struct ieee80211_hw *hw,
 	}
 	return -EINVAL;
 }
-
+#endif
 
 static void ath10k_mac_op_tx(struct ieee80211_hw *hw,
 			     struct ieee80211_tx_control *control,
@@ -10471,7 +10472,9 @@ static const struct ieee80211_ops ath10k_ops = {
 	.sta_add_debugfs		= ath10k_sta_add_debugfs,
 #endif
 	.set_sar_specs			= ath10k_mac_set_sar_specs,
+#ifdef HAS_CONSUME_BLOCK_ACK
 	.consume_block_ack		= ath10k_mac_consume_block_ack,
+#endif
 };
 
 #define CHAN2G(_channel, _freq, _flags) { \
