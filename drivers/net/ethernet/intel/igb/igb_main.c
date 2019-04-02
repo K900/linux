@@ -9447,8 +9447,11 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u32 spd, u8 dplx)
 	/* Make sure dplx is at most 1 bit and lsb of speed is not set
 	 * for the switch() below to work
 	 */
-	if ((spd & 1) || (dplx & ~1))
+	if ((spd & 1) || (dplx & ~1)) {
+		dev_err(&pdev->dev, "Unsupported Speed/Duplex configuration, bit-mismatch, spd: 0x%x  dplx: 0x%x\n",
+			spd, dplx);
 		goto err_inval;
+	}
 
 	/* Fiber NIC's only allow 1000 gbps Full duplex
 	 * and 100Mbps Full duplex for 100baseFx sfp
@@ -9458,6 +9461,8 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u32 spd, u8 dplx)
 		case SPEED_10 + DUPLEX_HALF:
 		case SPEED_10 + DUPLEX_FULL:
 		case SPEED_100 + DUPLEX_HALF:
+			dev_err(&pdev->dev, "Unsupported Speed/Duplex configuration, fiber does not support HD, spd: 0x%x  dplx: 0x%x\n",
+				spd, dplx);
 			goto err_inval;
 		default:
 			break;
@@ -9482,9 +9487,16 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u32 spd, u8 dplx)
 		adapter->hw.phy.autoneg_advertised = ADVERTISE_1000_FULL;
 		break;
 	case SPEED_1000 + DUPLEX_HALF: /* not supported */
+		dev_err(&pdev->dev, "Unsupported Speed/Duplex configuration:  1Gbps HD not supported\n");
+		goto err_inval;
 	default:
+		dev_err(&pdev->dev, "Unsupported Speed/Duplex configuration, case not handled, spd: 0x%x  dplx: 0x%x\n",
+			spd, dplx);
 		goto err_inval;
 	}
+
+	dev_info(&pdev->dev, "Set Speed: %d  dplx: %d  autoneg: %d  forced-speed-duplex: %d\n",
+		 spd, dplx, mac->autoneg, mac->forced_speed_duplex);
 
 	/* clear MDI, MDI(-X) override is only allowed when autoneg enabled */
 	adapter->hw.phy.mdix = AUTO_ALL_MODES;
@@ -9492,7 +9504,6 @@ int igb_set_spd_dplx(struct igb_adapter *adapter, u32 spd, u8 dplx)
 	return 0;
 
 err_inval:
-	dev_err(&pdev->dev, "Unsupported Speed/Duplex configuration\n");
 	return -EINVAL;
 }
 
