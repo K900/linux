@@ -1557,11 +1557,19 @@ skip_fixed_rate:
 	prefetch_len = min(htt->prefetch_len, msdu->len);
 	prefetch_len = roundup(prefetch_len, 4);
 
+	if (ar->eeprom_overrides.tx_debug & 0x3) {
+		ath10k_warn(ar,
+			    "htt tx, is-action: %d  deauth: %d  disassoc: %d  has-protected: %d  nohwcrypt: %d txmode: %d data-qos: %d\n",
+			    ieee80211_is_action(hdr->frame_control), ieee80211_is_deauth(hdr->frame_control),
+			    ieee80211_is_disassoc(hdr->frame_control), ieee80211_has_protected(hdr->frame_control),
+			    skb_cb->flags & ATH10K_SKB_F_NO_HWCRYPT, txmode, ieee80211_is_data_qos(hdr->frame_control));
+	}
+
 	txbuf = htt->txbuf.vaddr_txbuff_32 + msdu_id;
 	txbuf_paddr = htt->txbuf.paddr +
 		      (sizeof(struct ath10k_htt_txbuf_32) * msdu_id);
 
-	if (!is_eth) {
+	if (!(is_eth || (skb_cb->flags & ATH10K_SKB_F_NO_HWCRYPT))) {
 		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)msdu->data;
 
 		if ((ieee80211_is_action(hdr->frame_control) ||
