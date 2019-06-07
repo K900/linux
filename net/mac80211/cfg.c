@@ -2816,8 +2816,10 @@ static int ieee80211_change_station(struct wiphy *wiphy,
 	lockdep_assert_wiphy(local->hw.wiphy);
 
 	sta = sta_info_get_bss(sdata, mac);
-	if (!sta)
+	if (!sta) {
+		sdata_info(sdata, "change-station: Could not find bss: %pM\n", mac);
 		return -ENOENT;
+	}
 
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_MESH_POINT:
@@ -2853,12 +2855,15 @@ static int ieee80211_change_station(struct wiphy *wiphy,
 		statype = CFG80211_STA_NAN_DATA;
 		break;
 	default:
+		sdata_info(sdata, "change-station: vif-type not supported: %d\n", sdata->vif.type);
 		return -EOPNOTSUPP;
 	}
 
 	err = cfg80211_check_station_change(wiphy, params, statype);
-	if (err)
+	if (err) {
+		sdata_info(sdata, "change-station: check-station-change failed: %d\n", err);
 		return err;
+	}
 
 	if (params->vlan && params->vlan != sta->sdata->dev) {
 		vlansdata = IEEE80211_DEV_TO_SUB_IF(params->vlan);
@@ -2897,8 +2902,10 @@ static int ieee80211_change_station(struct wiphy *wiphy,
 		return -EINVAL;
 
 	err = sta_apply_parameters(local, sta, params);
-	if (err)
+	if (err) {
+		sdata_info(sdata, "change-station: sta-apply-parameters failed: %d\n", err);
 		return err;
+	}
 
 	if (sdata->vif.type == NL80211_IFTYPE_STATION &&
 	    params->sta_flags_mask & BIT(NL80211_STA_FLAG_AUTHORIZED)) {
