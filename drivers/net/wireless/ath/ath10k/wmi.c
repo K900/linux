@@ -2047,12 +2047,12 @@ int ath10k_wmi_cmd_send(struct ath10k *ar, struct sk_buff *skb, u32 cmd_id)
 		dev_kfree_skb_any(skb);
 
 	if (ret == -EAGAIN) {
-		ath10k_err(ar, "Cannot communicate with firmware, previous wmi cmds: %d:%d %d:%d %d:%d %d:%d, jiffies: %ld, attempting restart restart firmware.\n",
+		ath10k_err(ar, "Cannot communicate with firmware, previous wmi cmds: %d:%d %d:%d %d:%d %d:%d, jiffies: %ld, attempting restart restart firmware, dev-flags: 0 x%lx\n",
 			   ar->last_wmi_cmds[(ar->last_wmi_cmd_idx - 1) % 4], ar->last_wmi_jiffies[(ar->last_wmi_cmd_idx - 1) % 4],
 			   ar->last_wmi_cmds[(ar->last_wmi_cmd_idx - 2) % 4], ar->last_wmi_jiffies[(ar->last_wmi_cmd_idx - 2) % 4],
 			   ar->last_wmi_cmds[(ar->last_wmi_cmd_idx - 3) % 4], ar->last_wmi_jiffies[(ar->last_wmi_cmd_idx - 3) % 4],
 			   ar->last_wmi_cmds[(ar->last_wmi_cmd_idx - 4) % 4], ar->last_wmi_jiffies[(ar->last_wmi_cmd_idx - 4) % 4],
-			   jiffies);
+			   jiffies, ar->dev_flags);
 		set_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags);
 		ath10k_core_start_recovery(ar);
 	}
