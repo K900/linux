@@ -1287,12 +1287,28 @@ static void ath10k_htt_rx_h_signal(struct ath10k *ar,
 	struct ath10k_hw_params *hw = &ar->hw_params;
 	struct rx_ppdu_start *rxd_ppdu_start = ath10k_htt_rx_desc_get_ppdu_start(hw, rxd);
 	int i;
+	int my_ch = 0;
+
+	int nf = ATH10K_DEFAULT_NOISE_FLOOR;
+
+#ifdef CONFIG_ATH10K_DEBUGFS
+	struct ath10k_pdev_ext_stats_ct *pes = &ar->debug.pdev_ext_stats;
+	s32* nfa = &(pes->chan_nf_0);
+
+	/* FIXME:  Need to figure out how to take the secondary 80Mhz noise floor into
+	 * account too when using 160Mhz, but not worrying about that for now.
+	 */
+#endif
 
 	for (i = 0; i < IEEE80211_MAX_CHAINS ; i++) {
 		status->chains &= ~BIT(i);
 
 		if (rxd_ppdu_start->rssi_chains[i].pri20_mhz != 0x80) {
-			status->chain_signal[i] = ATH10K_DEFAULT_NOISE_FLOOR
+#ifdef CONFIG_ATH10K_DEBUGFS
+			if (nfa[i] && nfa[i] > -512)
+				nf = nfa[i];
+#endif
+			status->chain_signal[i] = nf
 				+ ath10k_sum_sigs(rxd_ppdu_start->rssi_chains[i].pri20_mhz,
 						  rxd_ppdu_start->rssi_chains[i].ext20_mhz,
 						  rxd_ppdu_start->rssi_chains[i].ext40_mhz,
@@ -1305,19 +1321,25 @@ static void ath10k_htt_rx_h_signal(struct ath10k *ar,
 			 */
 
 			status->chains |= BIT(i);
+			my_ch++;
 		}
 	}
+
+	/* So, noise-floor is really per-chain, so I guess we average it here. */
+#ifdef CONFIG_ATH10K_DEBUGFS
+	nf = ATH10K_DEFAULT_NOISE_FLOOR;
+	if (my_ch && ar->debug.nf_avg)
+		nf = ar->debug.nf_avg[my_ch - 1];
+#endif
 
 	/* 0x80 means value-is-not-set on wave-2 firmware.
 	 * For wave-2 firmware, value is not defined and is set to zero. */
 	if (rxd_ppdu_start->rssi_comb_ht &&
 	    (rxd_ppdu_start->rssi_comb_ht != 0x80)) {
-		status->signal = ATH10K_DEFAULT_NOISE_FLOOR +
-			rxd_ppdu_start->rssi_comb_ht;
+		status->signal = nf + rxd_ppdu_start->rssi_comb_ht;
 	}
 	else {
-		status->signal = ATH10K_DEFAULT_NOISE_FLOOR +
-			rxd_ppdu_start->rssi_comb;
+		status->signal = nf + rxd_ppdu_start->rssi_comb;
 	}
 
 	/* ath10k_warn(ar, "rx-h-sig, signal: %d  chains: 0x%x  chain[0]: %d  chain[1]: %d  chain[2]: %d chain[3]: %d\n",
