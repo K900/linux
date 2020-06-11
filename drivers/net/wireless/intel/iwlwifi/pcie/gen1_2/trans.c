@@ -174,6 +174,13 @@ void iwl_pcie_alloc_fw_monitor(struct iwl_trans *trans, u8 max_power)
 		max_power = 19;
 	}
 
+	/* Try to use less memory, there are other things in the system as well! */
+	if (max_power > 19) {
+		pr_err("iwl_pcie_alloc_fw_monitor, decreasing max-power from %d to 19 to save memory.\n",
+		       max_power);
+		max_power = 19;
+	}
+
 	iwl_pcie_alloc_fw_monitor_block(trans, max_power);
 }
 
