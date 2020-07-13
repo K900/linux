@@ -635,7 +635,7 @@ static int iwl_run_unified_mvm_ucode(struct iwl_mvm *mvm)
 	/* Will also start the device */
 	ret = iwl_mvm_load_ucode_wait_alive(mvm, IWL_UCODE_REGULAR);
 	if (ret) {
-		IWL_ERR(mvm, "Failed to start RT ucode: %d\n", ret);
+		IWL_ERR(mvm, "run-mvm-ucode: Failed to start RT ucode: %d\n", ret);
 
 		/* if we needed reset then fail here, but notify and remove */
 		if (mvm->fw_product_reset) {
@@ -1709,7 +1709,7 @@ int iwl_mvm_up(struct iwl_mvm *mvm)
 
 	ret = iwl_mvm_load_rt_fw(mvm);
 	if (ret) {
-		IWL_ERR(mvm, "Failed to start RT ucode: %d\n", ret);
+		IWL_ERR(mvm, "mvm-up: Failed to start RT ucode: %d\n", ret);
 		if (ret != -ERFKILL && !mvm->fw_product_reset)
 			iwl_fw_dbg_error_collect(&mvm->fwrt,
 						 FW_DBG_TRIGGER_DRIVER);
