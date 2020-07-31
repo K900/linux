@@ -361,7 +361,7 @@ iwl_mld_configure_trans(struct iwl_op_mode *op_mode)
 	else
 		trans->conf.ext_32khz_clock_valid = !!eckv_value;
 
-	trans->conf.rx_buf_size = iwl_amsdu_size_to_rxb_size();
+	trans->conf.rx_buf_size = iwl_amsdu_size_to_rxb_size(mld->trans->mac_cfg->device_family);
 	trans->conf.command_groups = iwl_mld_groups;
 	trans->conf.command_groups_size = ARRAY_SIZE(iwl_mld_groups);
 	trans->conf.fw_reset_handshake = true;
