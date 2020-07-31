@@ -8,6 +8,7 @@
 #include <linux/types.h>
 #include <linux/spinlock.h>
 #include <linux/gfp.h>
+#include <iwl-config.h>
 
 extern struct iwl_mod_params iwlwifi_mod_params;
 
@@ -33,7 +34,7 @@ enum iwl_amsdu_size {
 	IWL_AMSDU_8K = 2,
 	IWL_AMSDU_12K = 3,
 	/* Add 2K at the end to avoid breaking current API */
-	IWL_AMSDU_2K = 4,
+	IWL_AMSDU_2K = 4, /* ax200 blows up if you set it to this */
 };
 
 enum iwl_uapsd_disable {
@@ -108,7 +109,7 @@ static inline bool iwl_enable_tx_ampdu(void)
 
 /* Verify amsdu_size module parameter and convert it to a rxb size */
 static inline enum iwl_amsdu_size
-iwl_amsdu_size_to_rxb_size(void)
+iwl_amsdu_size_to_rxb_size(int family)
 {
 	switch (iwlwifi_mod_params.amsdu_size) {
 	case IWL_AMSDU_8K:
@@ -118,6 +119,11 @@ iwl_amsdu_size_to_rxb_size(void)
 	default:
 		pr_err("%s: Unsupported amsdu_size: %d\n", KBUILD_MODNAME,
 		       iwlwifi_mod_params.amsdu_size);
+		fallthrough;
+	case IWL_AMSDU_2K:
+		/* ax200 blows up with this setting. */
+		if (family >= IWL_DEVICE_FAMILY_AX210)
+			return IWL_AMSDU_2K;
 		fallthrough;
 	case IWL_AMSDU_DEF:
 	case IWL_AMSDU_4K:

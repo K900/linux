@@ -1394,7 +1394,7 @@ iwl_op_mode_mvm_start(struct iwl_trans *trans, const struct iwl_rf_cfg *cfg,
 	       sizeof(no_reclaim_cmds));
 	trans->conf.n_no_reclaim_cmds = ARRAY_SIZE(no_reclaim_cmds);
 
-	trans->conf.rx_buf_size = iwl_amsdu_size_to_rxb_size();
+	trans->conf.rx_buf_size = iwl_amsdu_size_to_rxb_size(mvm->trans->mac_cfg->device_family);
 
 	trans->conf.wide_cmd_header = true;
 
