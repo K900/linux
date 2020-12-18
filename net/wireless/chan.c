@@ -390,11 +390,15 @@ bool cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 {
 	u32 control_freq, control_freq_khz, start_khz, end_khz;
 
-	if (!chandef->chan)
+	if (!chandef->chan) {
+		pr_err("chandef-valid:  chan is NULL\n");
 		return false;
+	}
 
-	if (chandef->freq1_offset >= 1000)
+	if (chandef->freq1_offset >= 1000) {
+		pr_err("freq1_offset >= 1000: %d\n", chandef->freq1_offset);
 		return false;
+	}
 
 	control_freq = chandef->chan->center_freq;
 
@@ -410,10 +414,16 @@ bool cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 	case NL80211_CHAN_WIDTH_20:
 	case NL80211_CHAN_WIDTH_20_NOHT:
 		if (ieee80211_chandef_to_khz(chandef) !=
-		    ieee80211_channel_to_khz(chandef->chan))
+		    ieee80211_channel_to_khz(chandef->chan)) {
+			pr_err("chandef-valid: 5-20Mhz: khz chandef != chan: %d %d\n",
+			       ieee80211_chandef_to_khz(chandef), ieee80211_channel_to_khz(chandef->chan));
 			return false;
-		if (chandef->center_freq2)
+		}
+		if (chandef->center_freq2) {
+			pr_err("chandef-valid: 5-20Mhz: center_freq2 is non-zero: %d\n",
+			       chandef->center_freq2);
 			return false;
+		}
 		break;
 	case NL80211_CHAN_WIDTH_1:
 	case NL80211_CHAN_WIDTH_2:
@@ -422,23 +432,33 @@ bool cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 	case NL80211_CHAN_WIDTH_16:
 		if (!cfg80211_chandef_is_s1g(chandef))
 			return false;
-		if (chandef->center_freq2)
+		if (chandef->center_freq2) {
+			pr_err("chandef-valid: 1-16Mhz: center_freq2 is non-zero: %d\n",
+			       chandef->center_freq2);
 			return false;
+		}
 
 		control_freq_khz = ieee80211_channel_to_khz(chandef->chan);
 		start_khz = cfg80211_s1g_get_start_freq_khz(chandef);
 		end_khz = cfg80211_s1g_get_end_freq_khz(chandef);
 
-		if (control_freq_khz < start_khz || control_freq_khz > end_khz)
+		if (control_freq_khz < start_khz || control_freq_khz > end_khz) {
+			pr_err("chandef-valid: 1-16Mhz: control_freq outside bounds, control_freq: %d, start: %d, end: %d\n",
+			       control_freq_khz, start_khz, end_khz);
 			return false;
+		}
 		break;
 	case NL80211_CHAN_WIDTH_80P80:
 		if (!chandef->center_freq2)
 			return false;
+
 		/* adjacent is not allowed -- that's a 160 MHz channel */
 		if (chandef->center_freq1 - chandef->center_freq2 == 80 ||
-		    chandef->center_freq2 - chandef->center_freq1 == 80)
+		    chandef->center_freq2 - chandef->center_freq1 == 80) {
+			pr_err("chandef-valid: 80P80Mhz: Adjacent not allowed, f1: %d f2: %d\n",
+			       chandef->center_freq1, chandef->center_freq2);
 			return false;
+		}
 		break;
 	default:
 		if (chandef->center_freq2)
@@ -1579,6 +1599,8 @@ bool _cfg80211_chandef_usable(struct wiphy *wiphy,
 		break;
 	default:
 		WARN_ON_ONCE(1);
+		pr_err("chandef-valid, unknown width: %d\n",
+		       chandef->width);
 		return false;
 	}
 
