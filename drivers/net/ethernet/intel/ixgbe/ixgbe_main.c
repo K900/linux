@@ -6031,8 +6031,11 @@ static int ixgbe_non_sfp_link_config(struct ixgbe_hw *hw)
 		 * to accommodate broken network switches in the field
 		 * which cannot cope with advertised NBASE-T speeds
 		 */
-		speed &= ~(IXGBE_LINK_SPEED_5GB_FULL |
-			   IXGBE_LINK_SPEED_2_5GB_FULL);
+		// This below disables 2.5 and 5GB by default, to work around some
+		// switch bug.  It can be twiddled with ethtool, and I want it enabled
+		// by default again, so comment this out. --Ben
+		//speed &= ~(IXGBE_LINK_SPEED_5GB_FULL |
+		//	   IXGBE_LINK_SPEED_2_5GB_FULL);
 	}
 
 	if (ret)
