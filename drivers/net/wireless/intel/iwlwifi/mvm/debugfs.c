@@ -718,6 +718,11 @@ static ssize_t iwl_dbgfs_tas_get_status_read(struct file *file,
 				 tmp / 8, 125 * (tmp % 8));
 	}
 
+	pos += scnprintf(pos, endpos - pos, "Bus: %s\n",
+			 mvm->fwrt.dev->bus->name);
+	pos += scnprintf(pos, endpos - pos, "BusName: %s\n",
+			 dev_name(mvm->fwrt.dev));
+
 out:
 	ret = simple_read_from_buffer(user_buf, count, ppos, buff, pos - buff);
 	kfree(buff);
