@@ -58,6 +58,8 @@ static const struct debugfs_short_fops name## _ops = {				\
 	debugfs_create_file(#name, mode, phyd, local, &name## _ops);
 
 
+DEBUGFS_READONLY_FILE(hw_dead, "%d",
+		      local->is_dead);
 DEBUGFS_READONLY_FILE(hw_conf, "%x",
 		      local->hw.conf.flags);
 DEBUGFS_READONLY_FILE(user_power, "%d",
@@ -665,6 +667,7 @@ void debugfs_hw_add(struct ieee80211_local *local)
 	DEBUGFS_ADD_MODE(reset, 0200);
 #endif
 	DEBUGFS_ADD_MODE(hwflags, 0600);
+	DEBUGFS_ADD(hw_dead);
 	DEBUGFS_ADD(user_power);
 	DEBUGFS_ADD(power);
 	DEBUGFS_ADD(hw_conf);
