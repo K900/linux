@@ -2038,10 +2038,17 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 	 */
 	res = drv_start(local);
 	if (res) {
-		if (suspended)
+		if (suspended) {
 			WARN(1, "Hardware became unavailable upon resume. This could be a software issue prior to suspend or a hardware issue.\n");
-		else
+		} else {
 			WARN(1, "Hardware became unavailable during restart.\n");
+
+			/* Requires driver reload and/or reboot to recover at this point.  Need
+			 * to notify user-space or set debugfs flag to WDT can be kicked in non-attended
+			 * devices such as APs...
+			 */
+			local->is_dead = 1;
+		}
 		ieee80211_wake_queues_by_reason(hw, IEEE80211_MAX_QUEUE_MAP,
 						IEEE80211_QUEUE_STOP_REASON_SUSPEND,
 						false);
