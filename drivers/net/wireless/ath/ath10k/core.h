@@ -1664,6 +1664,7 @@ struct ath10k {
 		bool txbf_cv_msg;
 		bool rx_all_mgt;
 		bool apply_board_power_ctl_table;
+		bool sw_rts;
 		u8 disable_ibss_cca;
 		u8 peer_stats_pn;
 		u8 rc_txbf_probe;
@@ -1676,6 +1677,8 @@ struct ath10k {
 		u16 pdev_xretry_th; /* Max failed retries before wifi chip is reset, 10.1 firmware default is 0x40 */
 		u16 tx_debug;
 		u16 rc_debug;
+		u16 rts_mu_dur;
+		u16 rts_su_dur;
 		u32 wmi_wd_keepalive_ms; /* 0xFFFFFFFF means disable, otherwise, FW will assert after X ms of not receiving
 					  * a NOP keepalive from the driver.  Suggested value is 0xFFFFFFFF, or 8000+.
 					  * 0 means use whatever firmware defaults to (probably 8000).

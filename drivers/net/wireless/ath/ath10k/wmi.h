@@ -7482,6 +7482,10 @@ struct wmi_pdev_set_special_cmd {
 /* Requires specially compiled firmware (-T option) to have any useful effect. */
 #define SET_SPECIAL_ID_TX_DBG         0x99 /* 0x1 == enable, 0x2 == pkt-dbg, 0x0 == disable (default). */
 
+#define SET_SPECIAL_FWTEST_NUM_RTS_MU_DUR 134 /* 16 bit usec timer, requires sw-rts enabled. */
+#define SET_SPECIAL_FWTEST_NUM_RTS_SU_DUR 231 /* 16 bit usec timer, 0 means use default calculations.  Requires sw-rts enabled. */
+#define SET_SPECIAL_FWTEST_NUM_SW_RTS     212 /* enable/disable sw-rts logic */
+
 #define CT_CCA_TYPE_MIN0 0
 #define CT_CCA_TYPE_MIN1 1
 #define CT_CCA_TYPE_MIN2 2
