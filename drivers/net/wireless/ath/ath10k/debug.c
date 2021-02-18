@@ -3631,6 +3631,24 @@ static ssize_t ath10k_write_ct_special(struct file *file,
 		ath10k_warn(ar, "Setting peer-stats-pn to %d\n",
 			    ar->eeprom_overrides.peer_stats_pn);
 	}
+
+	/* This next bit is for persistent FWTEST API calls */
+	else if (id == (0xFF0000 | SET_SPECIAL_FWTEST_NUM_RTS_MU_DUR)) {
+		ar->eeprom_overrides.rts_mu_dur = val;
+		ath10k_warn(ar, "Setting rts-mu-duration to %d\n",
+			    ar->eeprom_overrides.rts_mu_dur);
+	}
+	else if (id == (0xFF0000 | SET_SPECIAL_FWTEST_NUM_RTS_SU_DUR)) {
+		ar->eeprom_overrides.rts_su_dur = val;
+		ath10k_warn(ar, "Setting rts-su-duration to %d\n",
+			    ar->eeprom_overrides.rts_su_dur);
+	}
+	else if (id == (0xFF0000 | SET_SPECIAL_FWTEST_NUM_SW_RTS)) {
+		ar->eeprom_overrides.sw_rts = val;
+		ath10k_warn(ar, "Setting sw-rts to %d\n",
+			    ar->eeprom_overrides.sw_rts);
+	}
+
 	/* Below here are local driver hacks, and not necessarily passed directly to firmware. */
 	else if (id == 0x1001) {
 		/* Set station failed-transmit kickout threshold. */

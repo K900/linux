@@ -3968,6 +3968,21 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode,
 						    ar->eeprom_overrides.reg_ack_cts);
 		}
 
+		if (ar->eeprom_overrides.sw_rts) {
+			ath10k_wmi_pdev_set_special(ar, 0xFF0000 | SET_SPECIAL_FWTEST_NUM_SW_RTS,
+						    ar->eeprom_overrides.sw_rts);
+		}
+
+		if (ar->eeprom_overrides.rts_mu_dur) {
+			ath10k_wmi_pdev_set_special(ar, 0xFF0000 | SET_SPECIAL_FWTEST_NUM_RTS_MU_DUR,
+						    ar->eeprom_overrides.rts_mu_dur);
+		}
+
+		if (ar->eeprom_overrides.rts_su_dur) {
+			ath10k_wmi_pdev_set_special(ar, 0xFF0000 | SET_SPECIAL_FWTEST_NUM_RTS_SU_DUR,
+						    ar->eeprom_overrides.rts_su_dur);
+		}
+
 		if (ar->eeprom_overrides.reg_ifs_slot) {
 			ath10k_wmi_pdev_set_special(ar, SET_SPECIAL_ID_SLOT,
 						    ar->eeprom_overrides.reg_ifs_slot);
