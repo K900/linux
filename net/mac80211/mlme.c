@@ -10086,7 +10086,7 @@ ieee80211_setup_assoc_link(struct ieee80211_sub_if_data *sdata,
 			int i;
 			int q = 0;
 
-			/* Skip CCK rates for 5Ghz band */
+			/* Skip CCK rates for non 2.4Ghz band */
 			if (band != NL80211_BAND_2GHZ)
 				msk = msk << 4;
 
