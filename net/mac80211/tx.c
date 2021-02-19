@@ -1097,6 +1097,10 @@ ieee80211_tx_h_calculate_duration(struct ieee80211_tx_data *tx)
 	int next_len;
 	bool group_addr;
 
+	/* Don't modify injected packets */
+	if (unlikely(tx->sdata->vif.type == NL80211_IFTYPE_MONITOR))
+		return TX_CONTINUE;
+
 	skb_queue_walk(&tx->skbs, skb) {
 		hdr = (void *) skb->data;
 		if (unlikely(ieee80211_is_pspoll(hdr->frame_control)))
