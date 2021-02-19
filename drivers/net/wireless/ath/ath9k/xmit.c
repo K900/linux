@@ -1471,6 +1471,12 @@ static void ath_tx_fill_desc(struct ath_softc *sc, struct ath_buf *bf,
 			ath_buf_set_rate(sc, bf, &info, len, rts);
 		}
 
+		/* Do not update duration for injected frames.
+		 * Set earlier in ath_buf_set_rate, override here.
+		 */
+		if (unlikely(tx_info->flags & IEEE80211_TX_CTL_INJECTED))
+			info.dur_update = 0;
+
 		info.buf_addr[0] = bf->bf_buf_addr;
 		info.buf_len[0] = skb->len;
 		info.pkt_len = fi->framelen;
