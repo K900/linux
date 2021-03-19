@@ -180,6 +180,36 @@ static ssize_t sta_stats_read(struct file *file, char __user *userbuf,
 		PRINT_MY_STATS(tmp, u64_stats_read(&rx_stats.msdu[i]));
 	}
 
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+	PRINT_MY_STATS("rx-bw-20", rx_stats.msdu_20);
+	PRINT_MY_STATS("rx-bw-40", rx_stats.msdu_40);
+	PRINT_MY_STATS("rx-bw-80", rx_stats.msdu_80);
+	PRINT_MY_STATS("rx-bw-160", rx_stats.msdu_160);
+
+	PRINT_MY_STATS("rx-he-total", rx_stats.msdu_he_tot);
+	PRINT_MY_STATS("rx-vht", rx_stats.msdu_vht);
+	PRINT_MY_STATS("rx-ht", rx_stats.msdu_ht);
+	PRINT_MY_STATS("rx-legacy", rx_stats.msdu_legacy);
+
+	PRINT_MY_STATS("rx-he-ru-alloc[   26]", rx_stats.msdu_he_ru_alloc[NL80211_RATE_INFO_HE_RU_ALLOC_26]);
+	PRINT_MY_STATS("rx-he-ru-alloc[   52]", rx_stats.msdu_he_ru_alloc[NL80211_RATE_INFO_HE_RU_ALLOC_52]);
+	PRINT_MY_STATS("rx-he-ru-alloc[  106]", rx_stats.msdu_he_ru_alloc[NL80211_RATE_INFO_HE_RU_ALLOC_106]);
+	PRINT_MY_STATS("rx-he-ru-alloc[  242]", rx_stats.msdu_he_ru_alloc[NL80211_RATE_INFO_HE_RU_ALLOC_242]);
+	PRINT_MY_STATS("rx-he-ru-alloc[  484]", rx_stats.msdu_he_ru_alloc[NL80211_RATE_INFO_HE_RU_ALLOC_484]);
+	PRINT_MY_STATS("rx-he-ru-alloc[  996]", rx_stats.msdu_he_ru_alloc[NL80211_RATE_INFO_HE_RU_ALLOC_996]);
+	PRINT_MY_STATS("rx-he-ru-alloc[2x996]", rx_stats.msdu_he_ru_alloc[NL80211_RATE_INFO_HE_RU_ALLOC_2x996]);
+
+	for (i = 0; i < ARRAY_SIZE(rx_stats.msdu_nss); i++) {
+		sprintf(tmp, "rx-msdu-nss[%i]", i);
+		PRINT_MY_STATS(tmp, rx_stats.msdu_nss[i]);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(rx_stats.msdu_rate_idx); i++) {
+		sprintf(tmp, "rx-rate-idx[%3i]", i);
+		PRINT_MY_STATS(tmp, rx_stats.msdu_rate_idx[i]);
+	}
+#endif
+
 #undef PRINT_MY_STATS
 done:
 	i = simple_read_from_buffer(userbuf, count, ppos, buf, strlen(buf));
