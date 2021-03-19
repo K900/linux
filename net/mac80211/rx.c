@@ -1858,6 +1858,27 @@ ieee80211_rx_h_uapsd_and_pspoll(struct ieee80211_rx_data *rx)
 	return RX_CONTINUE;
 }
 
+static void ieee80211_update_data_rx_stats(struct ieee80211_rx_data *rx,
+					   struct ieee80211_sta_rx_stats *stats,
+					   struct ieee80211_rx_status *status,
+					   int skb_len)
+{
+	stats->fragments++;
+	stats->packets++;
+	stats->last_rx = jiffies;
+	stats->last_rate = sta_stats_encode_rate(status);
+
+	/* The seqno index has the same property as needed
+	 * for the rx_msdu field, i.e. it is IEEE80211_NUM_TIDS
+	 * for non-QoS-data frames. Here we know it's a data
+	 * frame, so count MSDUs.
+	 */
+	u64_stats_update_begin(&stats->syncp);
+	u64_stats_inc(&stats->msdu[rx->seqno_idx]);
+	u64_stats_add(&stats->bytes, skb_len);
+	u64_stats_update_end(&stats->syncp);
+}
+
 static ieee80211_rx_result debug_noinline
 ieee80211_rx_h_sta_process(struct ieee80211_rx_data *rx)
 {
@@ -3284,6 +3305,9 @@ ieee80211_rx_h_amsdu(struct ieee80211_rx_data *rx)
 		}
 	}
 
+	/* Note:  Packets are segmented and re-sent up the rx path,
+	 * any rx stats update will happen then.
+	 */
 	return __ieee80211_rx_h_amsdu(rx, 0);
 }
 
@@ -3362,6 +3386,13 @@ ieee80211_rx_h_data(struct ieee80211_rx_data *rx)
 	     !test_bit(SDATA_STATE_OFFCHANNEL, &sdata->state)))
 		mod_timer(&local->dynamic_ps_timer, jiffies +
 			  msecs_to_jiffies(local->hw.conf.dynamic_ps_timeout));
+
+
+	if (rx->sta) {
+		struct ieee80211_sta_rx_stats *stats = &rx->sta->deflink.rx_stats;
+		struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(rx->skb);
+		ieee80211_update_data_rx_stats(rx, stats, status, rx->skb->len);
+	}
 
 	ieee80211_deliver_skb(rx);
 
@@ -4973,25 +5004,11 @@ static void ieee80211_rx_8023(struct ieee80211_rx_data *rx,
 	}
 	/* end of statistics */
 
-	stats->last_rx = jiffies;
-	stats->last_rate = sta_stats_encode_rate(status);
-
-	stats->fragments++;
-	stats->packets++;
+	ieee80211_update_data_rx_stats(rx, stats, status, orig_len);
 
 	skb->dev = fast_rx->dev;
 
 	dev_sw_netstats_rx_add(fast_rx->dev, skb->len);
-
-	/* The seqno index has the same property as needed
-	 * for the rx_msdu field, i.e. it is IEEE80211_NUM_TIDS
-	 * for non-QoS-data frames. Here we know it's a data
-	 * frame, so count MSDUs.
-	 */
-	u64_stats_update_begin(&stats->syncp);
-	u64_stats_inc(&stats->msdu[rx->seqno_idx]);
-	u64_stats_add(&stats->bytes, orig_len);
-	u64_stats_update_end(&stats->syncp);
 
 	if (fast_rx->internal_forward) {
 		struct sk_buff *xmit_skb = NULL;
