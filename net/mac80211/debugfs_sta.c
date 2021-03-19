@@ -101,6 +101,93 @@ static ssize_t sta_flags_read(struct file *file, char __user *userbuf,
 }
 STA_OPS(flags);
 
+static ssize_t sta_stats_read(struct file *file, char __user *userbuf,
+			      size_t count, loff_t *ppos)
+{
+	struct sta_info *sta = file->private_data;
+	unsigned int len = 0;
+	const int buf_len = 8000;
+	char *buf = kzalloc(buf_len, GFP_KERNEL);
+	unsigned long sum;
+	char tmp[60];
+	int i;
+	struct ieee80211_sta_rx_stats rx_stats = {0};
+
+	if (!buf)
+		return -ENOMEM;
+
+	sta_accum_rx_stats(sta, &rx_stats);
+
+#define PRINT_MY_STATS(a, b) do {					\
+		len += scnprintf(buf + len, buf_len - len, "%30s %18lu\n", a, (unsigned long)(b)); \
+		if (len >= buf_len) {					\
+			goto done;					\
+		}							\
+	} while (0)
+
+#define PRINT_MY_STATS_S(a, b) do {					\
+		len += scnprintf(buf + len, buf_len - len, "%30s %18ld\n", a, (long)(b)); \
+		if (len >= buf_len) {					\
+			goto done;					\
+		}							\
+	} while (0)
+
+	PRINT_MY_STATS("rx-packets", rx_stats.packets);
+	PRINT_MY_STATS("rx-bytes", u64_stats_read(&rx_stats.bytes));
+	PRINT_MY_STATS("rx-dup", rx_stats.num_duplicates);
+	PRINT_MY_STATS("rx-fragments", rx_stats.fragments);
+	PRINT_MY_STATS("rx-dropped", rx_stats.dropped);
+	PRINT_MY_STATS_S("rx-last-signal", rx_stats.last_signal);
+
+	for (i = 0; i<IEEE80211_MAX_CHAINS; i++) {
+		if (rx_stats.chains & (1<<i)) {
+			sprintf(tmp, "rx-last-signal-chain[%i]", i);
+			PRINT_MY_STATS_S(tmp, rx_stats.chain_signal_last[i]);
+		}
+	}
+	PRINT_MY_STATS("rx-last-rate-encoded", rx_stats.last_rate);
+
+	len += scnprintf(buf + len, buf_len - len, "\n");
+
+	sum = sta->deflink.tx_stats.packets[0] + sta->deflink.tx_stats.packets[1]
+		+ sta->deflink.tx_stats.packets[2] + sta->deflink.tx_stats.packets[3];
+	PRINT_MY_STATS("tx-packets", sum);
+
+		sum = sta->deflink.tx_stats.bytes[0] + sta->deflink.tx_stats.bytes[1]
+		+ sta->deflink.tx_stats.bytes[2] + sta->deflink.tx_stats.bytes[3];
+	PRINT_MY_STATS("tx-bytes", sum);
+
+	/* per txq stats */
+	PRINT_MY_STATS("tx-packets-acs[VO]", sta->deflink.tx_stats.packets[IEEE80211_AC_VO]);
+	PRINT_MY_STATS("tx-packets-acs[VI]", sta->deflink.tx_stats.packets[IEEE80211_AC_VI]);
+	PRINT_MY_STATS("tx-packets-acs[BE]", sta->deflink.tx_stats.packets[IEEE80211_AC_BE]);
+	PRINT_MY_STATS("tx-packets-acs[BK]", sta->deflink.tx_stats.packets[IEEE80211_AC_BK]);
+
+	PRINT_MY_STATS("tx-bytes-acs[VO]", sta->deflink.tx_stats.bytes[IEEE80211_AC_VO]);
+	PRINT_MY_STATS("tx-bytes-acs[VI]", sta->deflink.tx_stats.bytes[IEEE80211_AC_VI]);
+	PRINT_MY_STATS("tx-bytes-acs[BE]", sta->deflink.tx_stats.bytes[IEEE80211_AC_BE]);
+	PRINT_MY_STATS("tx-bytes-acs[BK]", sta->deflink.tx_stats.bytes[IEEE80211_AC_BK]);
+
+	len += scnprintf(buf + len, buf_len - len, "\n");
+	for (i = 0; i<=IEEE80211_NUM_TIDS; i++) {
+		sprintf(tmp, "tx-msdu-tid[%2i]", i);
+		PRINT_MY_STATS(tmp, sta->deflink.tx_stats.msdu[i]);
+	}
+
+	len += scnprintf(buf + len, buf_len - len, "\n");
+	for (i = 0; i<=IEEE80211_NUM_TIDS; i++) {
+		sprintf(tmp, "rx-msdu-tid[%2i]", i);
+		PRINT_MY_STATS(tmp, u64_stats_read(&rx_stats.msdu[i]));
+	}
+
+#undef PRINT_MY_STATS
+done:
+	i = simple_read_from_buffer(userbuf, count, ppos, buf, strlen(buf));
+	kfree(buf);
+	return i;
+}
+STA_OPS(stats);
+
 static ssize_t sta_num_ps_buf_frames_read(struct file *file,
 					  char __user *userbuf,
 					  size_t count, loff_t *ppos)
@@ -1317,6 +1404,7 @@ void ieee80211_sta_debugfs_add(struct sta_info *sta)
 	sta->debugfs_dir = debugfs_create_dir(mac, stations_dir);
 
 	DEBUGFS_ADD(flags);
+	DEBUGFS_ADD(stats);
 	DEBUGFS_ADD(aid);
 	DEBUGFS_ADD(num_ps_buf_frames);
 	DEBUGFS_ADD(last_seq_ctrl);
