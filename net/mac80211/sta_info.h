@@ -429,6 +429,7 @@ struct mesh_sta {
 
 DECLARE_EWMA(signal, 10, 8)
 
+/* Update sta_accum_rx_stats if you change this structure. */
 struct ieee80211_sta_rx_stats {
 	unsigned long packets;
 	unsigned long last_rx;
@@ -1176,5 +1177,8 @@ static inline u32 sta_stats_encode_rate(struct ieee80211_rx_status *s)
 
 	return r;
 }
+
+void sta_accum_rx_stats(struct sta_info *sta,
+			struct ieee80211_sta_rx_stats *rx_stats);
 
 #endif /* STA_INFO_H */

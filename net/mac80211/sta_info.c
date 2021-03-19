@@ -3454,6 +3454,39 @@ unsigned long ieee80211_sta_last_active(struct sta_info *sta, int link_id)
 	return link_sta_info->status_stats.last_ack;
 }
 
+void sta_accum_rx_stats(struct sta_info *sta,
+			struct ieee80211_sta_rx_stats *rx_stats)
+{
+	int cpu;
+	int i;
+
+	memcpy(rx_stats, &sta->deflink.rx_stats, sizeof(*rx_stats));
+
+	if (!sta->deflink.pcpu_rx_stats)
+		return;
+
+	for_each_possible_cpu(cpu) {
+		struct ieee80211_sta_rx_stats *cpurxs;
+
+		cpurxs = per_cpu_ptr(sta->deflink.pcpu_rx_stats, cpu);
+		rx_stats->packets += cpurxs->packets;
+		if (time_after(cpurxs->last_rx, rx_stats->last_rx)) {
+			rx_stats->last_rx = cpurxs->last_rx;
+			rx_stats->last_signal = cpurxs->last_signal;
+			for (i = 0; i<IEEE80211_MAX_CHAINS; i++)
+				rx_stats->chain_signal_last[i] = cpurxs->chain_signal_last[i];
+			rx_stats->last_rate = cpurxs->last_rate;
+		}
+		rx_stats->num_duplicates += cpurxs->num_duplicates;
+		rx_stats->fragments += cpurxs->fragments;
+		rx_stats->dropped += cpurxs->dropped;
+		rx_stats->bytes += sta_get_stats_bytes(cpurxs);
+		for (i = 0; i<=IEEE80211_NUM_TIDS; i++) {
+			rx_stats->msdu[i] += sta_get_tidstats_msdu(cpurxs, i);
+		}
+	}
+}
+
 int ieee80211_sta_allocate_link(struct sta_info *sta, unsigned int link_id)
 {
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
