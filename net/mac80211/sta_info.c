@@ -3480,10 +3480,28 @@ void sta_accum_rx_stats(struct sta_info *sta,
 		rx_stats->num_duplicates += cpurxs->num_duplicates;
 		rx_stats->fragments += cpurxs->fragments;
 		rx_stats->dropped += cpurxs->dropped;
-		rx_stats->bytes += sta_get_stats_bytes(cpurxs);
+		u64_stats_add(&rx_stats->bytes, sta_get_stats_bytes(cpurxs));
+		//rx_stats->bytes += sta_get_stats_bytes(cpurxs);
 		for (i = 0; i<=IEEE80211_NUM_TIDS; i++) {
-			rx_stats->msdu[i] += sta_get_tidstats_msdu(cpurxs, i);
+			u64_stats_add(&rx_stats->msdu[i], sta_get_tidstats_msdu(cpurxs, i));
+			//rx_stats->msdu[i] += sta_get_tidstats_msdu(cpurxs, i);
 		}
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+		rx_stats->msdu_20 += cpurxs->msdu_20;
+		rx_stats->msdu_40 += cpurxs->msdu_40;
+		rx_stats->msdu_80 += cpurxs->msdu_80;
+		rx_stats->msdu_160 += cpurxs->msdu_160;
+		for (i = 0; i<NL80211_RATE_INFO_HE_RU_ALLOC_LAST; i++)
+			rx_stats->msdu_he_ru_alloc[i] += cpurxs->msdu_he_ru_alloc[i];
+		rx_stats->msdu_he_tot += cpurxs->msdu_he_tot;
+		rx_stats->msdu_vht += cpurxs->msdu_vht;
+		rx_stats->msdu_ht += cpurxs->msdu_ht;
+		rx_stats->msdu_legacy += cpurxs->msdu_legacy;
+		for (i = 0; i < ARRAY_SIZE(rx_stats->msdu_nss); i++)
+			rx_stats->msdu_nss[i] += cpurxs->msdu_nss[i];
+		for (i = 0; i < ARRAY_SIZE(rx_stats->msdu_rate_idx); i++)
+			rx_stats->msdu_rate_idx[i] += cpurxs->msdu_rate_idx[i];
+#endif
 	}
 }
 
