@@ -1863,6 +1863,11 @@ static void ieee80211_update_data_rx_stats(struct ieee80211_rx_data *rx,
 					   struct ieee80211_rx_status *status,
 					   int skb_len)
 {
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+	u8 nss;
+	u8 rix;
+#endif
+
 	stats->fragments++;
 	stats->packets++;
 	stats->last_rx = jiffies;
@@ -1877,6 +1882,56 @@ static void ieee80211_update_data_rx_stats(struct ieee80211_rx_data *rx,
 	u64_stats_inc(&stats->msdu[rx->seqno_idx]);
 	u64_stats_add(&stats->bytes, skb_len);
 	u64_stats_update_end(&stats->syncp);
+
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+	/* This code has a lot in common with ieee80211_add_rx_radiotap_header */
+	switch (status->bw) {
+	case RATE_INFO_BW_20:
+		stats->msdu_20++;
+		break;
+	case RATE_INFO_BW_40:
+		stats->msdu_40++;
+		break;
+	case RATE_INFO_BW_80:
+		stats->msdu_80++;
+		break;
+	case RATE_INFO_BW_160:
+		stats->msdu_160++;
+		break;
+	case RATE_INFO_BW_HE_RU:
+		stats->msdu_he_ru_alloc[status->he_ru]++;
+		break;
+	};
+
+	nss = status->nss - 1;
+	rix = status->rate_idx;
+
+	if (status->encoding == RX_ENC_HE) {
+		stats->msdu_he_tot++;
+	}
+	else if (status->encoding == RX_ENC_VHT) {
+		stats->msdu_vht++;
+	}
+	else if (status->encoding == RX_ENC_HT) {
+		stats->msdu_ht++;
+		/* Convert HT MCS to mimic what is done for VHT */
+		nss = status->rate_idx / 8;
+		rix = status->rate_idx - (status->rate_idx * 8);
+	}
+	else {
+		stats->msdu_legacy++;
+	}
+
+	if (nss >= (ARRAY_SIZE(stats->msdu_nss) - 1))
+		stats->msdu_nss[ARRAY_SIZE(stats->msdu_nss) - 1]++;
+	else
+		stats->msdu_nss[nss]++;
+
+	if (rix >= (ARRAY_SIZE(stats->msdu_rate_idx) - 1))
+		stats->msdu_rate_idx[ARRAY_SIZE(stats->msdu_rate_idx) - 1]++;
+	else
+		stats->msdu_rate_idx[rix]++;
+#endif
 }
 
 static ieee80211_rx_result debug_noinline

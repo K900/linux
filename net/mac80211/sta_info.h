@@ -443,6 +443,23 @@ struct ieee80211_sta_rx_stats {
 	struct u64_stats_sync syncp;
 	u64_stats_t bytes;
 	u64_stats_t msdu[IEEE80211_NUM_TIDS + 1];
+
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+	/* these take liberty with how things are defined, and are
+	 * designed to give a rough idea of how things are going.
+	 */
+	u32 msdu_20;
+	u32 msdu_40;
+	u32 msdu_80;
+	u32 msdu_160;
+	u32 msdu_he_ru_alloc[NL80211_RATE_INFO_HE_RU_ALLOC_LAST];
+	u32 msdu_he_tot;
+	u32 msdu_vht;
+	u32 msdu_ht;
+	u32 msdu_legacy;
+	u32 msdu_nss[8];
+	u32 msdu_rate_idx[13];
+#endif
 };
 
 /*
