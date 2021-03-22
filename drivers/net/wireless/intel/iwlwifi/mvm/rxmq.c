@@ -1834,6 +1834,7 @@ static void iwl_mvm_rx_he(struct iwl_mvm *mvm, struct sk_buff *skb,
 			rx_status->flag |= RX_FLAG_AMPDU_EOF_BIT;
 	}
 
+	/* This is only enabled in pure monitor mode. */
 	if (phy_info & IWL_RX_MPDU_PHY_TSF_OVERLOAD)
 		iwl_mvm_decode_he_phy_data(mvm, phy_data, he, he_mu, rx_status,
 					   queue);
@@ -1871,6 +1872,9 @@ static void iwl_mvm_rx_he(struct iwl_mvm *mvm, struct sk_buff *skb,
 
 	if (rate_n_flags & RATE_MCS_BF_MSK)
 		he->data5 |= cpu_to_le16(IEEE80211_RADIOTAP_HE_DATA5_TXBF);
+
+	//printk("he_type: %d  trig: %d  mu: %d  su: %d  he->data1: 0x%x he: %p\n",
+	//       he_type, RATE_MCS_HE_TYPE_TRIG, RATE_MCS_HE_TYPE_MU, RATE_MCS_HE_TYPE_SU, he->data1, he);
 
 	switch ((rate_n_flags & RATE_MCS_HE_GI_LTF_MSK) >>
 		RATE_MCS_HE_GI_LTF_POS) {
