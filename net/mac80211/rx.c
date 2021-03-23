@@ -1899,6 +1899,7 @@ static void ieee80211_update_data_rx_stats(struct ieee80211_rx_data *rx,
 		stats->msdu_160++;
 		break;
 	case RATE_INFO_BW_HE_RU:
+		stats->msdu_he_ru++;
 		stats->msdu_he_ru_alloc[status->he_ru]++;
 		break;
 	};
