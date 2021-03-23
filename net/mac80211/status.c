@@ -1208,6 +1208,9 @@ void ieee80211_tx_status_ext(struct ieee80211_hw *hw,
 
 	if (pubsta) {
 		struct ieee80211_sub_if_data *sdata = sta->sdata;
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+		bool do_stats = false;
+#endif
 
 		if (!acked && !noack_success)
 			sta->deflink.status_stats.retry_failed++;
@@ -1220,6 +1223,9 @@ void ieee80211_tx_status_ext(struct ieee80211_hw *hw,
 							acked, info->status.tx_time);
 
 			if (acked) {
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+				do_stats = true;
+#endif
 				sta->deflink.status_stats.last_ack = jiffies;
 
 				if (sta->deflink.status_stats.lost_packets)
@@ -1250,12 +1256,55 @@ void ieee80211_tx_status_ext(struct ieee80211_hw *hw,
 				return;
 			} else if (noack_success) {
 				/* nothing to do here, do not account as lost */
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+				do_stats = true;
+#endif
 			} else {
 				ieee80211_lost_packet(sta, info);
 			}
 		}
 
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+		if (do_stats && (rates_idx != -1)) {
+			u8 nss = 0;
+			u8 mcs = 0;
+			struct ieee80211_tx_rate *txrt = &(info->status.rates[rates_idx]);
+			if (txrt->flags & IEEE80211_TX_RC_40_MHZ_WIDTH)
+				sta->deflink.tx_stats.msdu_40++;
+			else if (txrt->flags & IEEE80211_TX_RC_80_MHZ_WIDTH)
+				sta->deflink.tx_stats.msdu_80++;
+			else if (txrt->flags & IEEE80211_TX_RC_160_MHZ_WIDTH)
+				sta->deflink.tx_stats.msdu_160++;
+			else
+				sta->deflink.tx_stats.msdu_20++;
+
+			if (txrt->flags & IEEE80211_TX_RC_MCS) {
+				nss = (txrt->idx / 8);
+				mcs = txrt->idx - (nss * 8);
+				sta->deflink.tx_stats.msdu_ht++;
+			}
+			else if (txrt->flags & IEEE80211_TX_RC_VHT_MCS) {
+				mcs = ieee80211_rate_get_vht_mcs(txrt);
+				nss = ieee80211_rate_get_vht_nss(txrt);
+				nss -= 1;
+				sta->deflink.tx_stats.msdu_vht++;
+			}
+			else {
+				mcs = txrt->idx;
+				sta->deflink.tx_stats.msdu_legacy++;
+			}
+
+			if (nss > (ARRAY_SIZE(sta->deflink.tx_stats.msdu_nss) - 1))
+				nss = ARRAY_SIZE(sta->deflink.tx_stats.msdu_nss) - 1;
+			if (mcs > (ARRAY_SIZE(sta->deflink.tx_stats.msdu_rate_idx) - 1))
+				mcs = ARRAY_SIZE(sta->deflink.tx_stats.msdu_rate_idx) - 1;
+			sta->deflink.tx_stats.msdu_nss[nss]++;
+			sta->deflink.tx_stats.msdu_rate_idx[mcs]++;
+		}
+#endif
+
 		rate_control_tx_status(local, status);
+
 		if (ieee80211_vif_is_mesh(&sta->sdata->vif))
 			ieee80211s_update_metric(local, sta, status);
 	}

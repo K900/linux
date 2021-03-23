@@ -106,7 +106,7 @@ static ssize_t sta_stats_read(struct file *file, char __user *userbuf,
 {
 	struct sta_info *sta = file->private_data;
 	unsigned int len = 0;
-	const int buf_len = 8000;
+	const int buf_len = 12000;
 	char *buf = kzalloc(buf_len, GFP_KERNEL);
 	unsigned long sum;
 	char tmp[60];
@@ -185,6 +185,7 @@ static ssize_t sta_stats_read(struct file *file, char __user *userbuf,
 	PRINT_MY_STATS("rx-bw-40", rx_stats.msdu_40);
 	PRINT_MY_STATS("rx-bw-80", rx_stats.msdu_80);
 	PRINT_MY_STATS("rx-bw-160", rx_stats.msdu_160);
+	PRINT_MY_STATS("rx-bw-he-ru", rx_stats.msdu_he_ru);
 
 	PRINT_MY_STATS("rx-he-total", rx_stats.msdu_he_tot);
 	PRINT_MY_STATS("rx-vht", rx_stats.msdu_vht);
@@ -207,6 +208,27 @@ static ssize_t sta_stats_read(struct file *file, char __user *userbuf,
 	for (i = 0; i < ARRAY_SIZE(rx_stats.msdu_rate_idx); i++) {
 		sprintf(tmp, "rx-rate-idx[%3i]", i);
 		PRINT_MY_STATS(tmp, rx_stats.msdu_rate_idx[i]);
+	}
+
+	len += scnprintf(buf + len, buf_len - len, "\n");
+	PRINT_MY_STATS("tx-bw-20", sta->deflink.tx_stats.msdu_20);
+	PRINT_MY_STATS("tx-bw-40", sta->deflink.tx_stats.msdu_40);
+	PRINT_MY_STATS("tx-bw-80", sta->deflink.tx_stats.msdu_80);
+	PRINT_MY_STATS("tx-bw-160", sta->deflink.tx_stats.msdu_160);
+	PRINT_MY_STATS("tx-bw-he-ru", sta->deflink.tx_stats.msdu_he_ru);
+
+	PRINT_MY_STATS("tx-vht", sta->deflink.tx_stats.msdu_vht);
+	PRINT_MY_STATS("tx-ht", sta->deflink.tx_stats.msdu_ht);
+	PRINT_MY_STATS("tx-legacy", sta->deflink.tx_stats.msdu_legacy);
+
+	for (i = 0; i < ARRAY_SIZE(sta->deflink.tx_stats.msdu_nss); i++) {
+		sprintf(tmp, "tx-msdu-nss[%i]", i);
+		PRINT_MY_STATS(tmp, sta->deflink.tx_stats.msdu_nss[i]);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(sta->deflink.tx_stats.msdu_rate_idx); i++) {
+		sprintf(tmp, "tx-rate-idx[%3i]", i);
+		PRINT_MY_STATS(tmp, sta->deflink.tx_stats.msdu_rate_idx[i]);
 	}
 #endif
 
