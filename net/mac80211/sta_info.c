@@ -2692,6 +2692,12 @@ static void sta_stats_decode_rate(struct ieee80211_local *local, u32 rate,
 
 		sband = local->hw.wiphy->bands[band];
 
+		if (WARN_ON_ONCE(!sband)) {
+			pr_err("stats-decode-rate, sband is null, band: %d  rate: 0x%x\n",
+			       band, rate);
+			break;
+		}
+
 		if (WARN_ON_ONCE(!sband->bitrates))
 			break;
 
