@@ -1374,6 +1374,7 @@ static void ath10k_htt_rx_h_ppdu(struct ath10k *ar,
 	if (is_first_ppdu) {
 		/* New PPDU starts so clear out the old per-PPDU status. */
 		status->freq = 0;
+		status->band = 0;
 		status->rate_idx = 0;
 		status->nss = 0;
 		status->encoding = RX_ENC_LEGACY;
