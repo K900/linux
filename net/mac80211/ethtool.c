@@ -12,6 +12,25 @@
 #include "ieee80211_i.h"
 #include "sta_info.h"
 #include "driver-ops.h"
+#include <asm/div64.h>
+
+static inline __s64 mac_div(__s64 n, __u32 base)
+{
+	if (n < 0) {
+		__u64 tmp = -n;
+		do_div(tmp, base);
+		/* printk("pktgen: pg_div, n: %llu  base: %d  rv: %llu\n",
+		   n, base, tmp); */
+		return -tmp;
+	}
+	else {
+		__u64 tmp = n;
+		do_div(tmp, base);
+		/* printk("pktgen: pg_div, n: %llu  base: %d  rv: %llu\n",
+		   n, base, tmp); */
+		return tmp;
+	}
+}
 
 static int ieee80211_set_ringparam(struct net_device *dev,
 				   struct ethtool_ringparam *rp,
@@ -59,6 +78,9 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"txrate",
 	"rxrate",
 	"signal",
+	"signal_beacon",
+	"signal_chains",
+	"signal_chains_avg",
 	"channel",
 	"noise",
 	"ch_time",
@@ -97,6 +119,7 @@ static void ieee80211_get_stats(struct net_device *dev,
 	struct survey_info survey;
 	struct ieee80211_link_data *link = NULL;
 	int i, q;
+	int z;
 #define STA_STATS_SURVEY_LEN 7
 
 	memset(data, 0, sizeof(u64) * STA_STATS_LEN);
@@ -144,7 +167,6 @@ static void ieee80211_get_stats(struct net_device *dev,
 		data[i++] = sdata->tx_handlers_drop;
 		data[i++] = sta->sta_state;
 
-
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
 			data[i] = 100000ULL *
 				cfg80211_calculate_bitrate(&sinfo.txrate);
@@ -157,7 +179,53 @@ static void ieee80211_get_stats(struct net_device *dev,
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
 			data[i] = (u8)sinfo.signal_avg;
 		i++;
+
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
+			data[i] = (u8)sinfo.rx_beacon_signal_avg;
+		i++;
+
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
+			int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
+			u64 accum = (u8)sinfo.chain_signal[0];
+
+			mn = min_t(int, mn, sinfo.chains);
+			for (z = 1; z < mn; z++) {
+				u64 csz = sinfo.chain_signal[z] & 0xFF;
+				u64 cs = csz << (8 * z);
+
+				accum |= cs;
+			}
+			data[i] = accum;
+		}
+		i++;
+
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
+			int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
+			u64 accum = (u8)sinfo.chain_signal_avg[0];
+
+			for (z = 1; z < mn; z++) {
+				u64 csz = sinfo.chain_signal_avg[z] & 0xFF;
+				u64 cs = csz << (8 * z);
+
+				accum |= cs;
+			}
+			data[i] = accum;
+		}
+		i++;
 	} else {
+		int amt_tx = 0;
+		int amt_rx = 0;
+		int amt_sig = 0;
+		s16 amt_accum_chain[8] = {0};
+		s16 amt_accum_chain_avg[8] = {0};
+		s64 tx_accum = 0;
+		s64 rx_accum = 0;
+		s64 sig_accum = 0;
+		s64 sig_accum_beacon = 0;
+		s64 sig_accum_chain[8] = {0};
+		s64 sig_accum_chain_avg[8] = {0};
+		int start_accum_idx = 0;
+
 		list_for_each_entry(sta, &local->sta_list, list) {
 			/* Make sure this station belongs to the proper dev */
 			if (sta->sdata->dev != dev)
@@ -168,7 +236,84 @@ static void ieee80211_get_stats(struct net_device *dev,
 			i = 0;
 			ADD_STA_STATS(&sta->deflink);
 			data[i++] = sdata->tx_handlers_drop;
+
+			i++; /* skip sta state */
+			start_accum_idx = i;
+
+			if (sinfo.filled & BIT(NL80211_STA_INFO_TX_BITRATE)) {
+				tx_accum += 100000ULL *
+					cfg80211_calculate_bitrate(&sinfo.txrate);
+				amt_tx++;
+			}
+
+			if (sinfo.filled & BIT(NL80211_STA_INFO_RX_BITRATE)) {
+				rx_accum += 100000ULL *
+					cfg80211_calculate_bitrate(&sinfo.rxrate);
+				amt_rx++;
+			}
+
+			if (sinfo.filled & BIT(NL80211_STA_INFO_SIGNAL_AVG)) {
+				sig_accum += sinfo.signal_avg;
+				sig_accum_beacon += sinfo.rx_beacon_signal_avg;
+				amt_sig++;
+			}
+
+			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
+				int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
+
+				mn = min_t(int, mn, sinfo.chains);
+				for (z = 0; z < mn; z++) {
+					sig_accum_chain[z] += sinfo.chain_signal[z];
+					amt_accum_chain[z]++;
+				}
+			}
+			i++;
+
+			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
+				int mn;
+
+				mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
+				mn = min_t(int, mn, sinfo.chains);
+				for (z = 0; z < mn; z++) {
+					sig_accum_chain_avg[z] += sinfo.chain_signal_avg[z];
+					amt_accum_chain_avg[z]++;
+				}
+			}
+			i++;
 		}
+
+		/* Do averaging */
+		i = start_accum_idx;
+
+		if (amt_tx)
+			data[i] = mac_div(tx_accum, amt_tx);
+		i++;
+
+		if (amt_rx)
+			data[i] = mac_div(rx_accum, amt_rx);
+		i++;
+
+		if (amt_sig) {
+			data[i] = (mac_div(sig_accum, amt_sig) & 0xFF);
+			data[i + 1] = (mac_div(sig_accum_beacon, amt_sig) & 0xFF);
+		}
+		i += 2;
+
+		for (z = 0; z < sizeof(u64); z++) {
+			if (amt_accum_chain[z]) {
+				u64 val = mac_div(sig_accum_chain[z], amt_accum_chain[z]);
+
+				val |= 0xFF;
+				data[i] |= (val << (z * 8));
+			}
+			if (amt_accum_chain_avg[z]) {
+				u64 val = mac_div(sig_accum_chain_avg[z], amt_accum_chain_avg[z]);
+
+				val |= 0xFF;
+				data[i + 1] |= (val << (z * 8));
+			}
+		}
+		i += 2;
 	}
 
 do_survey:
@@ -202,10 +347,14 @@ do_survey:
 		} while (channel != survey.channel);
 	}
 
-	if (survey.filled)
-		data[i++] = survey.channel->center_freq;
-	else
-		data[i++] = 0;
+	if (channel) {
+		data[i++] = channel->center_freq;
+	} else {
+		if (local->dflt_chandef.chan)
+			data[i++] = local->dflt_chandef.chan->center_freq;
+		else
+			data[i++] = 0;
+	}
 	if (survey.filled & SURVEY_INFO_NOISE_DBM)
 		data[i++] = (u8)survey.noise;
 	else
