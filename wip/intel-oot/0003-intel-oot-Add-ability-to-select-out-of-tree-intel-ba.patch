@@ -1,0 +1,112 @@
+From 935393a347b4c046c2fa54206e30cf740899318d Mon Sep 17 00:00:00 2001
+From: Ben Greear <greearb@candelatech.com>
+Date: Fri, 21 May 2021 14:50:39 -0700
+Subject: [PATCH 03/15] intel-oot:  Add ability to select out-of-tree intel
+ backports driver.
+
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ drivers/net/wireless/Kconfig                         |  1 +
+ drivers/net/wireless/Makefile                        |  1 +
+ drivers/net/wireless/intel-oot/Kconfig               | 12 +++++-------
+ drivers/net/wireless/intel-oot/iwlwifi/Kconfig       |  4 ++--
+ .../wireless/intel-oot/iwlwifi/Kconfig.noupstream    |  2 +-
+ drivers/net/wireless/intel-oot/iwlwifi/Makefile      |  3 +++
+ 6 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index 7add2002ff4ce..c80ca4ae67b81 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -24,6 +24,7 @@ source "drivers/net/wireless/atmel/Kconfig"
+ source "drivers/net/wireless/broadcom/Kconfig"
+ source "drivers/net/wireless/cisco/Kconfig"
+ source "drivers/net/wireless/intel/Kconfig"
++source "drivers/net/wireless/intel-oot/Kconfig"
+ source "drivers/net/wireless/intersil/Kconfig"
+ source "drivers/net/wireless/marvell/Kconfig"
+ source "drivers/net/wireless/mediatek/Kconfig"
+diff --git a/drivers/net/wireless/Makefile b/drivers/net/wireless/Makefile
+index 80b3244997866..65bd95a50ea3e 100644
+--- a/drivers/net/wireless/Makefile
++++ b/drivers/net/wireless/Makefile
+@@ -9,6 +9,7 @@ obj-$(CONFIG_WLAN_VENDOR_ATMEL) += atmel/
+ obj-$(CONFIG_WLAN_VENDOR_BROADCOM) += broadcom/
+ obj-$(CONFIG_WLAN_VENDOR_CISCO) += cisco/
+ obj-$(CONFIG_WLAN_VENDOR_INTEL) += intel/
++obj-$(CONFIG_WLAN_VENDOR_INTEL_OOT) += intel-oot/
+ obj-$(CONFIG_WLAN_VENDOR_INTERSIL) += intersil/
+ obj-$(CONFIG_WLAN_VENDOR_MARVELL) += marvell/
+ obj-$(CONFIG_WLAN_VENDOR_MEDIATEK) += mediatek/
+diff --git a/drivers/net/wireless/intel-oot/Kconfig b/drivers/net/wireless/intel-oot/Kconfig
+index 58531c1731714..32a3e790be090 100644
+--- a/drivers/net/wireless/intel-oot/Kconfig
++++ b/drivers/net/wireless/intel-oot/Kconfig
+@@ -1,6 +1,6 @@
+ # SPDX-License-Identifier: GPL-2.0-only
+-config WLAN_VENDOR_INTEL
+-	bool "Intel devices"
++config WLAN_VENDOR_INTEL_OOT
++	bool "Intel OOT backport driver"
+	default y
+	help
+	  If you have a wireless card belonging to this class, say Y.
+@@ -10,10 +10,8 @@ config WLAN_VENDOR_INTEL
+	  questions about these cards. If you say Y, you will be asked for
+	  your specific card in the following questions.
+
+-if WLAN_VENDOR_INTEL
++if WLAN_VENDOR_INTEL_OOT
+
+-#source "drivers/net/wireless/intel/ipw2x00/Kconfig"
+-#source "drivers/net/wireless/intel/iwlegacy/Kconfig"
+-source "drivers/net/wireless/intel/iwlwifi/Kconfig"
++source "drivers/net/wireless/intel-oot/iwlwifi/Kconfig"
+
+-endif # WLAN_VENDOR_INTEL
++endif # WLAN_VENDOR_INTEL_OOT
+diff --git a/drivers/net/wireless/intel-oot/iwlwifi/Kconfig b/drivers/net/wireless/intel-oot/iwlwifi/Kconfig
+index 958bad6b5858c..d36f9554f2efb 100644
+--- a/drivers/net/wireless/intel-oot/iwlwifi/Kconfig
++++ b/drivers/net/wireless/intel-oot/iwlwifi/Kconfig
+@@ -3,7 +3,7 @@ config IWLWIFI
+	tristate "Intel Wireless WiFi Next Gen AGN - Wireless-N/Advanced-N/Ultimate-N (iwlwifi) "
+	depends on m
+	depends on PCI && HAS_IOMEM && CFG80211
+-	depends on FW_LOADER
++	select FW_LOADER
+	help
+	  Select to build the driver supporting the:
+
+@@ -158,4 +158,4 @@ endmenu
+
+ endif
+
+-source "drivers/net/wireless/intel/iwlwifi/Kconfig.noupstream"
++source "drivers/net/wireless/intel-oot/iwlwifi/Kconfig.noupstream"
+diff --git a/drivers/net/wireless/intel-oot/iwlwifi/Kconfig.noupstream b/drivers/net/wireless/intel-oot/iwlwifi/Kconfig.noupstream
+index 434c1150adbde..bb7eee17d10ce 100644
+--- a/drivers/net/wireless/intel-oot/iwlwifi/Kconfig.noupstream
++++ b/drivers/net/wireless/intel-oot/iwlwifi/Kconfig.noupstream
+@@ -53,7 +53,7 @@ config IWLWIFI_FORCE_OFDM_RATE
+ config IWLMVM_P2P_OPPPS_TEST_WA
+	bool "Use WA to pass P2P OPPPS certification test"
+	depends on IWLMVM
+-	---help---
++	help
+	  This option enables a WA to pass P2P OPPPS certification test.
+	  This test verifies P2P client power management behavior when
+	  connected to P2P GO that advertises OPPPS. Since P2P client power
+diff --git a/drivers/net/wireless/intel-oot/iwlwifi/Makefile b/drivers/net/wireless/intel-oot/iwlwifi/Makefile
+index 5924fb603e3a9..328364e20a784 100644
+--- a/drivers/net/wireless/intel-oot/iwlwifi/Makefile
++++ b/drivers/net/wireless/intel-oot/iwlwifi/Makefile
+@@ -44,3 +44,6 @@ obj-$(CPTCFG_IWLXVT)	+= xvt/
+ obj-$(CPTCFG_IWLMEI)	+= mei/
+
+ CFLAGS_iwl-devtrace.o := -I$(src)
++
++# Fix the relative-path include issues.
++subdir-ccflags-y += -iquote $(src)
+--
+2.26.3

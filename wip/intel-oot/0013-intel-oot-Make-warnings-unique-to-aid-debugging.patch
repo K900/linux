@@ -1,0 +1,37 @@
+From a5ccbf215fa4815ac753dc993eb098793dda149e Mon Sep 17 00:00:00 2001
+From: Ben Greear <greearb@candelatech.com>
+Date: Mon, 13 Jul 2020 16:43:40 -0700
+Subject: [PATCH 13/15] intel-oot: Make warnings unique to aid debugging.
+
+So we can be certain what code is generating kernel error
+messages.
+
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ drivers/net/wireless/intel-oot/iwlwifi/mvm/fw.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/intel-oot/iwlwifi/mvm/fw.c b/drivers/net/wireless/intel-oot/iwlwifi/mvm/fw.c
+index fc341a8b800d4..b0daf02933df4 100644
+--- a/drivers/net/wireless/intel-oot/iwlwifi/mvm/fw.c
++++ b/drivers/net/wireless/intel-oot/iwlwifi/mvm/fw.c
+@@ -418,7 +418,7 @@ static int iwl_run_unified_mvm_ucode(struct iwl_mvm *mvm)
+	/* Will also start the device */
+	ret = iwl_mvm_load_ucode_wait_alive(mvm, IWL_UCODE_REGULAR);
+	if (ret) {
+-		IWL_ERR(mvm, "Failed to start RT ucode: %d\n", ret);
++		IWL_ERR(mvm, "run-mvm-ucode: Failed to start RT ucode: %d\n", ret);
+		goto error;
+	}
+	iwl_dbg_tlv_time_point(&mvm->fwrt, IWL_FW_INI_TIME_POINT_AFTER_ALIVE,
+@@ -1498,7 +1498,7 @@ int iwl_mvm_up(struct iwl_mvm *mvm)
+
+	ret = iwl_mvm_load_rt_fw(mvm);
+	if (ret) {
+-		IWL_ERR(mvm, "Failed to start RT ucode: %d\n", ret);
++		IWL_ERR(mvm, "mvm-up: Failed to start RT ucode: %d\n", ret);
+		if (ret != -ERFKILL)
+			iwl_fw_dbg_error_collect(&mvm->fwrt,
+						 FW_DBG_TRIGGER_DRIVER);
+--
+2.26.3

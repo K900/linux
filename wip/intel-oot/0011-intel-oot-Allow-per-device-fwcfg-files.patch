@@ -1,0 +1,38 @@
+From 27deed16e2d4cce100517b7ee193a082cedff662 Mon Sep 17 00:00:00 2001
+From: Ben Greear <greearb@candelatech.com>
+Date: Thu, 2 Jul 2020 16:30:16 -0700
+Subject: [PATCH 11/15] intel-oot: Allow per-device fwcfg files.
+
+This allows one to set the NSS and some
+other low-level features for ax200 radios.
+
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ drivers/net/wireless/intel-oot/iwlwifi/iwl-dbg-cfg.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/intel-oot/iwlwifi/iwl-dbg-cfg.c b/drivers/net/wireless/intel-oot/iwlwifi/iwl-dbg-cfg.c
+index 40c36eaef5ccb..515c670543c26 100644
+--- a/drivers/net/wireless/intel-oot/iwlwifi/iwl-dbg-cfg.c
++++ b/drivers/net/wireless/intel-oot/iwlwifi/iwl-dbg-cfg.c
+@@ -246,12 +246,16 @@ void iwl_dbg_cfg_load_ini(struct device *dev, struct iwl_dbg_cfg *dbgcfg)
+	const struct firmware *fw;
+	char *data, *end, *pos;
+	int err;
++	char fname[128];
+
+	if (dbgcfg->loaded)
+		return;
+
+-	/* TODO: maybe add a per-device file? */
+-	err = firmware_request_nowarn(&fw, "iwl-dbg-cfg.ini", dev);
++	snprintf(fname, 127, "iwl-dbg-cfg-%s.ini", dev_name(dev));
++	fname[127] = 0;
++
++	/* TODO: maybe add a per-device file?  Yes, did that. --Ben */
++	err = firmware_request_nowarn(&fw, fname, dev);
+	if (err)
+		return;
+
+--
+2.26.3
