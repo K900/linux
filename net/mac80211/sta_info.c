@@ -836,6 +836,7 @@ __sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 			mandatory = IEEE80211_RATE_MANDATORY_A;
 			break;
 		case NL80211_BAND_60GHZ:
+			sta_dbg(sdata, "WARNING: 60ghz band selected.\n");
 			WARN_ON(1);
 			mandatory = 0;
 			break;
