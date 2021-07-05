@@ -37,6 +37,20 @@
 #include "wme.h"
 #include "rate.h"
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,13,0)
+static inline void ieee80211_rx_stats(struct net_device *dev, u32 len)
+{
+       struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
+
+       u64_stats_update_begin(&tstats->syncp);
+       tstats->rx_packets++;
+       tstats->rx_bytes += len;
+       u64_stats_update_end(&tstats->syncp);
+}
+#define dev_sw_netstats_rx_add ieee80211_rx_stats
+#endif
+
+
 /*
  * monitor mode reception
  *
