@@ -11,7 +11,7 @@
  */
 
 #include <linux/ethtool.h>
-#include <uapi/linux/rfkill.h>
+#include <linux/rfkill.h>
 #include <linux/netdevice.h>
 #include <linux/debugfs.h>
 #include <linux/list.h>
