@@ -17,7 +17,10 @@
 #include <linux/etherdevice.h>
 #include <linux/rcupdate.h>
 #include <linux/export.h>
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,13,0)
 #include <linux/kcov.h>
+#endif
 #include <linux/bitops.h>
 #include <kunit/visibility.h>
 #include <net/mac80211.h>
@@ -5806,7 +5809,9 @@ void ieee80211_rx_list(struct ieee80211_hw *hw, struct ieee80211_sta *pubsta,
 
 	status->rx_flags = 0;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,13,0)
 	kcov_remote_start_common(skb_get_kcov_handle(skb));
+#endif
 
 	/*
 	 * Frames with failed FCS/PLCP checksum are not returned,
@@ -5827,7 +5832,9 @@ void ieee80211_rx_list(struct ieee80211_hw *hw, struct ieee80211_sta *pubsta,
 			__ieee80211_rx_handle_packet(hw, pubsta, skb, list);
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,13,0)
 	kcov_remote_stop();
+#endif
 	return;
  drop:
 	kfree_skb(skb);
