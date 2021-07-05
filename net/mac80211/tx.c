@@ -38,6 +38,21 @@
 #include "wme.h"
 #include "rate.h"
 #include <linux/moduleparam.h>
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,13,0)
+static inline void ieee80211_tx_stats(struct net_device *dev, u32 len)
+{
+       struct pcpu_sw_netstats *tstats = this_cpu_ptr(dev->tstats);
+
+       u64_stats_update_begin(&tstats->syncp);
+       tstats->tx_packets++;
+       tstats->tx_bytes += len;
+       u64_stats_update_end(&tstats->syncp);
+}
+#define dev_sw_netstats_tx_add(a,b,c) ieee80211_tx_stats(a, c)
+#endif
+
 
 /*
  * Maximum number of skbs that may be queued in a pending
