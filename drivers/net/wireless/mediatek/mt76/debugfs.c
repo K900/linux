@@ -3,6 +3,7 @@
  * Copyright (C) 2016 Felix Fietkau <nbd@nbd.name>
  */
 #include "mt76.h"
+#include <linux/version.h>
 
 static int
 mt76_reg_set(void *data, u64 val)
