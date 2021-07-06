@@ -10,6 +10,7 @@
 #include <linux/etherdevice.h>
 #include "mt76.h"
 #include "mt76_connac.h"
+#include <linux/version.h>
 
 enum mt76_sku_type {
 	MT76_SKU_RATE,
