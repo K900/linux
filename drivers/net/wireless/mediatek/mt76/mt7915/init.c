@@ -12,6 +12,8 @@
 #include "coredump.h"
 #include "eeprom.h"
 
+#define MT76_DRIVER_VERSION "6.6.0-ct"
+
 static const struct ieee80211_iface_limit if_limits[] = {
 	{
 		.max = 1,
@@ -1221,6 +1223,9 @@ int mt7915_register_device(struct mt7915_dev *dev)
 {
 	struct mt7915_phy *phy2;
 	int ret;
+
+	dev_info(dev->mt76.dev, "mt7915:  register_device  Driver-Version: %s\n",
+		 MT76_DRIVER_VERSION);
 
 	dev->phy.dev = dev;
 	dev->phy.mt76 = &dev->mt76.phy;
