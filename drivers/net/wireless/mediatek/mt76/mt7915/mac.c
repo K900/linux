@@ -206,12 +206,16 @@ static void mt7915_mac_sta_poll(struct mt7915_dev *dev)
 			u8 offs = 24 + 2 * bw;
 
 			rate->he_gi = (val & (0x3 << offs)) >> offs;
+			msta->wcid.rate_he_gi = rate->he_gi; /* cache for later */
 		} else if (rate->flags &
 			   (RATE_INFO_FLAGS_VHT_MCS | RATE_INFO_FLAGS_MCS)) {
-			if (val & BIT(12 + bw))
+			if (val & BIT(12 + bw)) {
 				rate->flags |= RATE_INFO_FLAGS_SHORT_GI;
-			else
+				msta->wcid.rate_short_gi = 1;
+			} else {
 				rate->flags &= ~RATE_INFO_FLAGS_SHORT_GI;
+				msta->wcid.rate_short_gi = 0;
+			}
 		}
 
 		/* get signal strength of resp frames (CTS/BA/ACK) */
@@ -2097,6 +2101,7 @@ mt7915_dfs_init_radar_specs(struct mt7915_phy *phy)
 		radar_specs = &jp_radar_specs;
 		break;
 	default:
+		WARN_ON_ONCE(true);
 		return -EINVAL;
 	}
 
