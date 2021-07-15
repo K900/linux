@@ -1013,6 +1013,12 @@ struct mt76_dev {
 
 	u8 csa_complete;
 
+	/* Should we request TXS for MT_PACKET_ID_NO_SKB?  Doing so gives better
+	 * costs but causes a great deal more TXS packet processing by driver and
+	 * creation by firmware, so may be a performance drag.
+	 */
+	bool txs_for_no_skb_enabled;
+
 	u32 rxfilter;
 
 	struct delayed_work scan_work;
