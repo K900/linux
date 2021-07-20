@@ -592,7 +592,7 @@ struct link_sta_info {
 		u32 msdu_40;
 		u32 msdu_80;
 		u32 msdu_160;
-		u32 msdu_he_ru;
+		u32 msdu_he; /* From tx_status counters */
 		u32 msdu_vht;
 		u32 msdu_ht;
 		u32 msdu_legacy;
