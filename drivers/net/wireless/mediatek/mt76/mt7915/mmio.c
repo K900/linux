@@ -785,7 +785,7 @@ static int mt7915_mmio_init(struct mt76_dev *mdev,
 
 	mdev->rev = (device_id << 16) |
 		    (mt76_rr(dev, MT_HW_REV) & 0xff);
-	dev_dbg(mdev->dev, "ASIC revision: %04x\n", mdev->rev);
+	dev_info(mdev->dev, "ASIC revision: %04x\n", mdev->rev);
 
 	return 0;
 }
