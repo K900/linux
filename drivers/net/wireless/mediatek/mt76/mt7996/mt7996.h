@@ -434,6 +434,11 @@ struct mt7996_dev {
 	u8 chainshift[__MT_MAX_BAND];
 	u32 hif_idx;
 
+	/* Should we enable group-5 rx descriptor logic?  This may decrease RX
+	 * throughput, but will give per skb rx rate information..
+	 */
+	bool rx_group_5_enable;
+
 	struct work_struct init_work;
 	struct work_struct rc_work;
 	struct work_struct dump_work;

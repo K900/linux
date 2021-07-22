@@ -550,7 +550,7 @@ static void mt7996_set_monitor(struct mt7996_phy *phy, bool enabled)
 		phy->rxfilter &= ~MT_WF_RFCR_DROP_OTHER_UC;
 
 	mt76_rmw_field(dev, MT_DMA_DCR0(phy->mt76->band_idx),
-		       MT_DMA_DCR0_RXD_G5_EN, enabled);
+		       MT_DMA_DCR0_RXD_G5_EN, enabled || dev->rx_group_5_enable);
 	mt76_rmw_field(dev, MT_MDP_DCR0,
 		       MT_MDP_DCR0_RX_HDR_TRANS_EN, !enabled);
 	mt7996_phy_set_rxfilter(phy);
@@ -580,6 +580,9 @@ static int mt7996_add_interface(struct ieee80211_hw *hw,
 
 		if (vif->type == NL80211_IFTYPE_MONITOR)
 			mt7996_set_monitor(phy, true);
+		else if (dev->rx_group_5_enable)
+			mt76_rmw_field(dev, MT_DMA_DCR0(phy->mt76->band_idx),
+				       MT_DMA_DCR0_RXD_G5_EN, true);
 	}
 
 	mt76_vif_init(vif, &mvif->mt76);

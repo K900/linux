@@ -590,6 +590,12 @@ mt7996_mac_init_band(struct mt7996_dev *dev, u8 band)
 	      FIELD_PREP(MT_WTBLOFF_RSCR_RCPI_PARAM, 0x3);
 	mt76_rmw(dev, MT_WTBLOFF_RSCR(band), mask, set);
 
+	/* mt7996: disable rx rate report by default due to hw issues
+	 * TODO:  Verify 7996 needs this disabled by default?
+	 */
+	mt76_rmw_field(dev, MT_DMA_DCR0(band), MT_DMA_DCR0_RXD_G5_EN,
+		       dev->rx_group_5_enable);
+
 	/* MT_TXD5_TX_STATUS_HOST (MPDU format) has higher priority than
 	 * MT_AGG_ACR_PPDU_TXS2H (PPDU format) even though ACR bit is set.
 	 */

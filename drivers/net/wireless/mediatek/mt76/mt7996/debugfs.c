@@ -859,6 +859,38 @@ static const struct file_operations fops_set_rate_override = {
 	.llseek = default_llseek,
 };
 
+static int
+mt7996_rx_group_5_enable_set(void *data, u64 val)
+{
+	struct mt7996_dev *dev = data;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	dev->rx_group_5_enable = !!val;
+
+	/* Enabled if we requested enabled OR if monitor mode is enabled. */
+	mt76_rmw_field(dev, MT_DMA_DCR0(0), MT_DMA_DCR0_RXD_G5_EN,
+		       dev->rx_group_5_enable);
+	mt76_testmode_reset(dev->phy.mt76, true);
+
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
+}
+
+static int
+mt7996_rx_group_5_enable_get(void *data, u64 *val)
+{
+	struct mt7996_dev *dev = data;
+
+	*val = dev->rx_group_5_enable;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_rx_group_5_enable, mt7996_rx_group_5_enable_get,
+			 mt7996_rx_group_5_enable_set, "%lld\n");
+
 static void
 mt7996_hw_queue_read(struct seq_file *s, u32 size,
 		     const struct hw_queue_map *map)
@@ -1145,6 +1177,7 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 	/* TODO: wm fw cpu utilization */
 	debugfs_create_file("fw_util_wa", 0400, dir, dev,
 			    &mt7996_fw_util_wa_fops);
+	debugfs_create_file("rx_group_5_enable", 0600, dir, dev, &fops_rx_group_5_enable);
 	debugfs_create_file("implicit_txbf", 0600, dir, dev,
 			    &fops_implicit_txbf);
 	debugfs_create_devm_seqfile(dev->mt76.dev, "twt_stats", dir,
