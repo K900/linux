@@ -85,18 +85,24 @@ static u16 rs_fw_get_config_flags(struct iwl_mvm *mvm,
 
 	if (mvm->cfg->ht_params.ldpc &&
 	    ((ht_cap->cap & IEEE80211_HT_CAP_LDPC_CODING) ||
-	     (vht_ena && (vht_cap->cap & IEEE80211_VHT_CAP_RXLDPC))))
+	     (vht_ena && (vht_cap->cap & IEEE80211_VHT_CAP_RXLDPC)))) {
+		pr_info("enabling LDPC due to HT Cap");
 		flags |= IWL_TLC_MNG_CFG_FLAGS_LDPC_MSK;
+	}
 
 	/* consider LDPC support in case of HE */
 	if (he_cap->has_he && (he_cap->he_cap_elem.phy_cap_info[1] &
-	    IEEE80211_HE_PHY_CAP1_LDPC_CODING_IN_PAYLOAD))
+			       IEEE80211_HE_PHY_CAP1_LDPC_CODING_IN_PAYLOAD)) {
+		pr_info("enabling LDPC due to HE cap");
 		flags |= IWL_TLC_MNG_CFG_FLAGS_LDPC_MSK;
+	}
 
 	if (sband_he_cap &&
 	    !(sband_he_cap->he_cap_elem.phy_cap_info[1] &
-			IEEE80211_HE_PHY_CAP1_LDPC_CODING_IN_PAYLOAD))
+	      IEEE80211_HE_PHY_CAP1_LDPC_CODING_IN_PAYLOAD)) {
+		pr_info("Disabling LDPC due to not HE-PHY-CAP1");
 		flags &= ~IWL_TLC_MNG_CFG_FLAGS_LDPC_MSK;
+	}
 
 	if (he_cap->has_he &&
 	    (he_cap->he_cap_elem.phy_cap_info[3] &
