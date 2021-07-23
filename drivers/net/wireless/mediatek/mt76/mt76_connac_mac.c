@@ -1232,7 +1232,8 @@ EXPORT_SYMBOL_GPL(mt76_connac2_tx_check_aggr);
 void mt76_connac2_txwi_free(struct mt76_dev *dev, struct mt76_txwi_cache *t,
 			    struct ieee80211_sta *sta,
 			    struct list_head *free_list,
-			    u32 tx_cnt, u32 tx_status, u32 ampdu)
+			    u32 tx_cnt, u32 tx_status, u32 ampdu,
+			    struct mt76_mib_stats *mib)
 {
 	struct mt76_wcid *wcid;
 	__le32 *txwi;
@@ -1319,6 +1320,8 @@ void mt76_connac2_txwi_free(struct mt76_dev *dev, struct mt76_txwi_cache *t,
 	/* Apply the values that this txfree path reports */
 	rate->count = tx_cnt;
 	if (tx_status == 0) {
+		mib->tx_pkts_nic++;
+		mib->tx_bytes_nic += t->skb->len;
 		info->flags |= IEEE80211_TX_STAT_ACK;
 		info->status.ampdu_ack_len = 1;
 	} else {
@@ -1332,14 +1335,14 @@ out:
 }
 EXPORT_SYMBOL_GPL(mt76_connac2_txwi_free);
 
-void mt76_connac2_tx_token_put(struct mt76_dev *dev)
+void mt76_connac2_tx_token_put(struct mt76_dev *dev, struct mt76_mib_stats* mib)
 {
 	struct mt76_txwi_cache *txwi;
 	int id;
 
 	spin_lock_bh(&dev->token_lock);
 	idr_for_each_entry(&dev->token, txwi, id) {
-		mt76_connac2_txwi_free(dev, txwi, NULL, NULL, 1, 0, 1);
+		mt76_connac2_txwi_free(dev, txwi, NULL, NULL, 1, 0, 1, mib);
 		dev->token_count--;
 	}
 	spin_unlock_bh(&dev->token_lock);

@@ -1069,6 +1069,12 @@ struct mt76_dev {
 
 /* per-phy stats.  */
 struct mt76_mib_stats {
+	/* phy wide driver stats */
+	unsigned long tx_pkts_nic; /* tx OK skb */
+	unsigned long tx_bytes_nic; /* tx OK bytes */
+	unsigned long rx_pkts_nic; /* rx OK skb */
+	unsigned long rx_bytes_nic; /* rx OK bytes */
+
 	u32 ack_fail_cnt;
 	u32 fcs_err_cnt;
 	u32 rts_cnt;
