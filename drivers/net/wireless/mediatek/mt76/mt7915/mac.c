@@ -298,6 +298,7 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	u16 seq_ctrl = 0;
 	__le16 fc = 0;
 	int idx;
+	struct mt76_sta_stats *stats = NULL;
 
 	memset(status, 0, sizeof(*status));
 
@@ -330,6 +331,7 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 	if (status->wcid) {
 		msta = container_of(status->wcid, struct mt7915_sta, wcid);
+		stats = &status->wcid->stats;
 		mt76_wcid_add_poll(&dev->mt76, &msta->wcid);
 	}
 
@@ -471,7 +473,7 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		if (!is_mt7915(&dev->mt76) || (rxd1 & MT_RXD1_NORMAL_GROUP_5)) {
 			ret = mt76_connac2_mac_fill_rx_rate(&dev->mt76, status,
 							    sband, rxv, &mode,
-							    &nss);
+							    &nss, stats);
 			if (ret < 0)
 				return ret;
 		} else {

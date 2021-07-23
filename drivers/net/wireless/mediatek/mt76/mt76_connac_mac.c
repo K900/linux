@@ -1056,7 +1056,8 @@ EXPORT_SYMBOL_GPL(mt76_connac2_reverse_frag0_hdr_trans);
 int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 				  struct mt76_rx_status *status,
 				  struct ieee80211_supported_band *sband,
-				  __le32 *rxv, u8 *mode, u8 *nss)
+				  __le32 *rxv, u8 *mode, u8 *nss,
+				  struct mt76_sta_stats *stats)
 {
 	u32 v0, v2;
 	u8 stbc, gi, bw, dcm;
@@ -1132,6 +1133,8 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 
 	switch (bw) {
 	case IEEE80211_STA_RX_BW_20:
+		if (stats)
+			stats->rx_bw_20++;
 		break;
 	case IEEE80211_STA_RX_BW_40:
 		if (*mode & MT_PHY_TYPE_HE_EXT_SU &&
@@ -1139,15 +1142,25 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 			status->bw = RATE_INFO_BW_HE_RU;
 			status->he_ru =
 				NL80211_RATE_INFO_HE_RU_ALLOC_106;
+			if (stats) {
+				stats->rx_bw_he_ru++;
+				stats->rx_ru_106++;
+			}
 		} else {
 			status->bw = RATE_INFO_BW_40;
+			if (stats)
+				stats->rx_bw_40++;
 		}
 		break;
 	case IEEE80211_STA_RX_BW_80:
 		status->bw = RATE_INFO_BW_80;
+		if (stats)
+			stats->rx_bw_80++;
 		break;
 	case IEEE80211_STA_RX_BW_160:
 		status->bw = RATE_INFO_BW_160;
+		if (stats)
+			stats->rx_bw_160++;
 		break;
 	default:
 		return -EINVAL;
@@ -1167,6 +1180,15 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 		*nss >>= 1;
 
 	status->nss = *nss;
+
+	if (stats) {
+		if (*nss > 3)
+			stats->rx_nss[3]++;
+		else
+			stats->rx_nss[*nss - 1]++;
+		if (*mode < __MT_PHY_TYPE_MAX)
+			stats->rx_mode[*mode]++;
+	}
 
 	return 0;
 }
