@@ -576,6 +576,9 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	if (rxv && mode >= MT_PHY_TYPE_HE_SU && !(status->flag & RX_FLAG_8023))
 		mt76_connac2_mac_decode_he_radiotap(&dev->mt76, skb, rxv, mode);
 
+	mib->rx_pkts_nic++;
+	mib->rx_bytes_nic += skb->len;
+
 	if (!status->wcid || !ieee80211_is_data_qos(fc))
 		return 0;
 
@@ -1054,7 +1057,8 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 			if (!txwi)
 				continue;
 
-			mt76_connac2_txwi_free(mdev, txwi, sta, &free_list, tx_cnt, tx_status, ampdu);
+			mt76_connac2_txwi_free(mdev, txwi, sta, &free_list, tx_cnt, tx_status,
+					       ampdu, &dev->phy.mib);
 			/* don't count retries twice, in case we are v3 */
 			tx_cnt = 1;
 		}
@@ -1091,7 +1095,7 @@ mt7915_mac_tx_free_v0(struct mt7915_dev *dev, void *data, int len)
 		/* TODO: Can we report tx_cnt, status, ampdu in this path? */
 		mt76_connac2_txwi_free(mdev, txwi, NULL, &free_list,
 				       1 /* tx_cnt */, 0 /* tx-status-ok */,
-				       1/* ampdu */);
+				       1/* ampdu */, &dev->phy.mib);
 	}
 
 	mt7915_mac_tx_free_done(dev, &free_list, wake);
@@ -1446,7 +1450,7 @@ mt7915_mac_restart(struct mt7915_dev *dev)
 	napi_disable(&dev->mt76.tx_napi);
 
 	/* token reinit */
-	mt76_connac2_tx_token_put(&dev->mt76);
+	mt76_connac2_tx_token_put(&dev->mt76, &dev->phy.mib);
 	idr_init(&dev->mt76.token);
 
 	mt7915_dma_reset(dev, true);
@@ -1653,7 +1657,7 @@ void mt7915_mac_reset_work(struct work_struct *work)
 	if (mt7915_wait_reset_state(dev, MT_MCU_CMD_RESET_DONE)) {
 		mt7915_dma_reset(dev, false);
 
-		mt76_connac2_tx_token_put(&dev->mt76);
+		mt76_connac2_tx_token_put(&dev->mt76, &dev->phy.mib);
 		idr_init(&dev->mt76.token);
 
 		mt76_wr(dev, MT_MCU_INT_EVENT, MT_MCU_INT_EVENT_DMA_INIT);

@@ -76,7 +76,7 @@ int mt7921e_mac_reset(struct mt792x_dev *dev)
 	}
 	napi_disable(&dev->mt76.tx_napi);
 
-	mt76_connac2_tx_token_put(&dev->mt76);
+	mt76_connac2_tx_token_put(&dev->mt76, &dev->phy.mib);
 	idr_init(&dev->mt76.token);
 
 	mt792x_wpdma_reset(dev, true);
