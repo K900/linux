@@ -509,6 +509,7 @@ static void mt7921_mac_tx_free(struct mt792x_dev *dev, void *data, int len)
 	struct mt76_connac_tx_free *free = data;
 	__le32 *tx_info = (__le32 *)(data + sizeof(*free));
 	struct mt76_dev *mdev = &dev->mt76;
+	struct mt792x_phy *phy = &dev->phy;
 	struct mt76_txwi_cache *txwi;
 	struct ieee80211_sta *sta = NULL;
 	struct mt76_wcid *wcid = NULL;
@@ -560,7 +561,8 @@ static void mt7921_mac_tx_free(struct mt792x_dev *dev, void *data, int len)
 		if (!txwi)
 			continue;
 
-		mt76_connac2_txwi_free(mdev, txwi, sta, &free_list, tx_cnt, tx_status, ampdu);
+		mt76_connac2_txwi_free(mdev, txwi, sta, &free_list, tx_cnt, tx_status, ampdu,
+				       &phy->mib);
 	}
 
 	if (wake)
