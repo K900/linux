@@ -370,6 +370,7 @@ struct mt76_sta_stats {
 	unsigned long rx_bw_40;
 	unsigned long rx_bw_80;
 	unsigned long rx_bw_160;
+	unsigned long rx_bw_320;
 	unsigned long rx_bw_he_ru;
 	unsigned long rx_ru_106;
 	unsigned long rx_rate_idx[12];
