@@ -2077,6 +2077,8 @@ void mt76_ethtool_worker(struct mt76_ethtool_worker_info *wi,
 	data[ei++] += stats->rx_bw_40;
 	data[ei++] += stats->rx_bw_80;
 	data[ei++] += stats->rx_bw_160;
+	if (eht)
+		data[ei++] += stats->rx_bw_320;
 	data[ei++] += stats->rx_bw_he_ru;
 	data[ei++] += stats->rx_ru_106;
 

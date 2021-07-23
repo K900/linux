@@ -2197,6 +2197,28 @@ static const char mt7996_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"v_tx_nss_2",
 	"v_tx_nss_3",
 	"v_tx_nss_4",
+
+	/* per-vif rx counters */
+	"v_rx_nss_1",
+	"v_rx_nss_2",
+	"v_rx_nss_3",
+	"v_rx_nss_4",
+	"v_rx_mode_cck",
+	"v_rx_mode_ofdm",
+	"v_rx_mode_ht",
+	"v_rx_mode_ht_gf",
+	"v_rx_mode_vht",
+	"v_rx_mode_he_su",
+	"v_rx_mode_he_ext_su",
+	"v_rx_mode_he_tb",
+	"v_rx_mode_he_mu",
+	"v_rx_bw_20",
+	"v_rx_bw_40",
+	"v_rx_bw_80",
+	"v_rx_bw_160",
+	"v_rx_bw_320",
+	"v_rx_bw_he_ru",
+	"v_rx_ru_106",
 };
 
 #define MT7996_SSTATS_LEN ARRAY_SIZE(mt7996_gstrings_stats)
