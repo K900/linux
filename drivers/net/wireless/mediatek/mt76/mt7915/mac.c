@@ -299,8 +299,11 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	__le16 fc = 0;
 	int idx;
 	struct mt76_sta_stats *stats = NULL;
+	struct mt76_mib_stats *mib = &phy->mib;
 
 	memset(status, 0, sizeof(*status));
+
+	mib->rx_d_skb++;
 
 	if ((rxd1 & MT_RXD1_NORMAL_BAND_IDX) && !phy->mt76->band_idx) {
 		mphy = dev->mt76.phys[MT_BAND1];
@@ -314,8 +317,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	if (!test_bit(MT76_STATE_RUNNING, &mphy->state))
 		return -EINVAL;
 
-	if (rxd2 & MT_RXD2_NORMAL_AMSDU_ERR)
+	if (rxd2 & MT_RXD2_NORMAL_AMSDU_ERR) {
+		mib->rx_d_rxd2_amsdu_err++;
 		return -EINVAL;
+	}
 
 	hdr_trans = rxd2 & MT_RXD2_NORMAL_HDR_TRANS;
 	if (hdr_trans && (rxd1 & MT_RXD1_NORMAL_CM))
@@ -344,8 +349,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	else
 		sband = &mphy->sband_2g.sband;
 
-	if (!sband->channels)
+	if (!sband->channels) {
+		mib->rx_d_null_channels++;
 		return -EINVAL;
+	}
 
 	if ((rxd0 & csum_mask) == csum_mask &&
 	    !(csum_status & (BIT(0) | BIT(2) | BIT(3))))
@@ -366,8 +373,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 	remove_pad = FIELD_GET(MT_RXD2_NORMAL_HDR_OFFSET, rxd2);
 
-	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)
+	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR) {
+		mib->rx_d_max_len_err++;
 		return -EINVAL;
+	}
 
 	rxd += 6;
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_4) {
@@ -379,8 +388,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		seq_ctrl = FIELD_GET(MT_RXD8_SEQ_CTRL, v2);
 
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			mib->rx_d_too_short++;
 			return -EINVAL;
+		}
 	}
 
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_1) {
@@ -410,8 +421,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 			}
 		}
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			mib->rx_d_too_short++;
 			return -EINVAL;
+		}
 	}
 
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_2) {
@@ -432,8 +445,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		}
 
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			mib->rx_d_too_short++;
 			return -EINVAL;
+		}
 	}
 
 	/* RXD Group 3 - P-RXV */
@@ -445,8 +460,10 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 
 		rxv = rxd;
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			mib->rx_d_too_short++;
 			return -EINVAL;
+		}
 
 		v0 = le32_to_cpu(rxv[0]);
 		v1 = le32_to_cpu(rxv[1]);
@@ -466,14 +483,17 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		/* RXD Group 5 - C-RXV */
 		if (rxd1 & MT_RXD1_NORMAL_GROUP_5) {
 			rxd += 18;
-			if ((u8 *)rxd - skb->data >= skb->len)
+			if ((u8 *)rxd - skb->data >= skb->len) {
+				mib->rx_d_too_short++;
 				return -EINVAL;
+			}
 		}
 
 		if (!is_mt7915(&dev->mt76) || (rxd1 & MT_RXD1_NORMAL_GROUP_5)) {
 			ret = mt76_connac2_mac_fill_rx_rate(&dev->mt76, status,
 							    sband, rxv, &mode,
-							    &nss, stats);
+							    &nss, mib,
+							    stats);
 			if (ret < 0)
 				return ret;
 		} else {

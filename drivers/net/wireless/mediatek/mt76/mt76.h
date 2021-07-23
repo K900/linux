@@ -1129,6 +1129,17 @@ struct mt76_mib_stats {
 	u32 tx_amsdu[8];
 	u32 tx_amsdu_cnt;
 
+	/* rx stats from the driver */
+	unsigned long rx_d_skb; /* total skb received in rx path */
+	u32 rx_d_rxd2_amsdu_err;
+	u32 rx_d_null_channels;
+	u32 rx_d_max_len_err;
+	u32 rx_d_too_short;
+	u32 rx_d_bad_ht_rix;
+	u32 rx_d_bad_vht_rix;
+	u32 rx_d_bad_mode;
+	u32 rx_d_bad_bw;
+
 	/* mcu_muru_stats */
 	u32 dl_cck_cnt;
 	u32 dl_ofdm_cnt;
