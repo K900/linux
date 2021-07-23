@@ -2012,7 +2012,7 @@ EXPORT_SYMBOL_GPL(mt76_init_queue);
 void mt76_ethtool_worker(struct mt76_ethtool_worker_info *wi,
 			 struct mt76_sta_stats *stats, bool eht)
 {
-	int i, ei = wi->initial_stat_idx;
+	int i, q, ei = wi->initial_stat_idx;
 	u64 *data = wi->data;
 
 	wi->sta_count++;
@@ -2044,6 +2044,27 @@ void mt76_ethtool_worker(struct mt76_ethtool_worker_info *wi,
 
 	for (i = 0; i < 4; i++)
 		data[ei++] += stats->tx_nss[i];
+
+	/* rx stats */
+	for (q = 0; q < ARRAY_SIZE(stats->rx_nss); q++)
+		data[ei++] += stats->rx_nss[q];
+
+	data[ei++] += stats->rx_mode[MT_PHY_TYPE_CCK];
+	data[ei++] += stats->rx_mode[MT_PHY_TYPE_OFDM];
+	data[ei++] += stats->rx_mode[MT_PHY_TYPE_HT];
+	data[ei++] += stats->rx_mode[MT_PHY_TYPE_HT_GF];
+	data[ei++] += stats->rx_mode[MT_PHY_TYPE_VHT];
+	data[ei++] += stats->rx_mode[MT_PHY_TYPE_HE_SU];
+	data[ei++] += stats->rx_mode[MT_PHY_TYPE_HE_EXT_SU];
+	data[ei++] += stats->rx_mode[MT_PHY_TYPE_HE_TB];
+	data[ei++] += stats->rx_mode[MT_PHY_TYPE_HE_MU];
+
+	data[ei++] += stats->rx_bw_20;
+	data[ei++] += stats->rx_bw_40;
+	data[ei++] += stats->rx_bw_80;
+	data[ei++] += stats->rx_bw_160;
+	data[ei++] += stats->rx_bw_he_ru;
+	data[ei++] += stats->rx_ru_106;
 
 	wi->worker_stat_count = ei - wi->initial_stat_idx;
 }

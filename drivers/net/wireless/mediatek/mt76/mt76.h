@@ -356,6 +356,15 @@ struct mt76_sta_stats {
 	u32 rx_packets;
 	u32 rx_errors;
 	u32 rx_drops;
+	/* This section requires group-5 in rxd to be enabled for 7915. */
+	unsigned long rx_nss[4]; /* rx-nss histogram */
+	unsigned long rx_mode[__MT_PHY_TYPE_MAX]; /* rx mode histogram */
+	unsigned long rx_bw_20;
+	unsigned long rx_bw_40;
+	unsigned long rx_bw_80;
+	unsigned long rx_bw_160;
+	unsigned long rx_bw_he_ru;
+	unsigned long rx_ru_106;
 };
 
 enum mt76_wcid_flags {
