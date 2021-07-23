@@ -1057,6 +1057,7 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 				  struct mt76_rx_status *status,
 				  struct ieee80211_supported_band *sband,
 				  __le32 *rxv, u8 *mode, u8 *nss,
+				  struct mt76_mib_stats *mib,
 				  struct mt76_sta_stats *stats)
 {
 	u32 v0, v2;
@@ -1104,15 +1105,19 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 		*nss = i / 8 + 1;
 		if (gi)
 			status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
-		if (i > 31)
+		if (i > 31) {
+			mib->rx_d_bad_ht_rix++;
 			return -EINVAL;
+		}
 		break;
 	case MT_PHY_TYPE_VHT:
 		status->encoding = RX_ENC_VHT;
 		if (gi)
 			status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
-		if (i > 11)
+		if (i > 11) {
+			mib->rx_d_bad_vht_rix++;
 			return -EINVAL;
+		}
 		break;
 	case MT_PHY_TYPE_HE_MU:
 	case MT_PHY_TYPE_HE_SU:
@@ -1127,6 +1132,7 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 		status->he_dcm = dcm;
 		break;
 	default:
+		mib->rx_d_bad_mode++;
 		return -EINVAL;
 	}
 	status->rate_idx = i;
@@ -1163,6 +1169,7 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 			stats->rx_bw_160++;
 		break;
 	default:
+		mib->rx_d_bad_bw++;
 		return -EINVAL;
 	}
 
