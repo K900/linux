@@ -1399,6 +1399,7 @@ static const char mt7915_gstrings_stats[][ETH_GSTRING_LEN] = {
 
 	/* rx counters */
 	"rx_fifo_full_cnt",
+	"rx_oor_cnt", /* rx ppdu length is bad */
 	"rx_mpdu_cnt",
 	"channel_idle_cnt",
 	"primary_cca_busy_time",
@@ -1627,7 +1628,8 @@ void mt7915_get_et_stats(struct ieee80211_hw *hw,
 		data[ei++] = mib->tx_amsdu[i];
 
 	/* rx counters */
-	data[ei++] = mib->rx_fifo_full_cnt;
+	data[ei++] = mib->rx_fifo_full_cnt; /* group-5 might exacerbate this */
+	data[ei++] = mib->rx_oor_cnt;
 	data[ei++] = mib->rx_mpdu_cnt;
 	data[ei++] = mib->channel_idle_cnt;
 	data[ei++] = mib->primary_cca_busy_time;
