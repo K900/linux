@@ -1109,6 +1109,13 @@ struct mt76_mib_stats {
 
 	u32 tx_rwp_fail_cnt;
 	u32 tx_rwp_need_cnt;
+	u32 tx_mgt_frame_cnt;
+	u32 tx_mgt_frame_retry_cnt;
+	u32 tx_data_frame_retry_cnt;
+	u32 tx_drop_rts_retry_fail_cnt;
+	u32 tx_drop_mpdu_retry_fail_cnt;
+	u32 tx_drop_lto_limit_fail_cnt;
+	u32 tx_dbnss_cnt;
 
 	/* rx stats */
 	u32 rx_fifo_full_cnt;
@@ -1132,6 +1139,9 @@ struct mt76_mib_stats {
 	u32 rx_pfdrop_cnt;
 	u32 rx_vec_queue_overflow_drop_cnt;
 	u32 rx_ba_cnt;
+	u32 rx_partial_beacon_cnt;
+	u32 rx_oppo_ps_rx_dis_drop_cnt;
+	u32 rx_fcs_ok_cnt;
 
 	u32 tx_amsdu[8];
 	u32 tx_amsdu_cnt;
