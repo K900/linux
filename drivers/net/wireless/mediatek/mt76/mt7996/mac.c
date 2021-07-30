@@ -3287,7 +3287,11 @@ void mt7996_mac_work(struct work_struct *work)
 	mutex_lock(&mphy->dev->mutex);
 
 	mt76_update_survey(mphy);
-	if (++mphy->mac_work_count == 5) {
+
+	/* this method is called about every 100ms.  Some pkt counters are 16-bit,
+	 * so poll every 200ms to keep overflows at a minimum.
+	 */
+	if (++mphy->mac_work_count == 2) {
 		mphy->mac_work_count = 0;
 
 		mt7996_mac_update_stats(phy);
