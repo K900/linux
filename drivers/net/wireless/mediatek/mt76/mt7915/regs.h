@@ -72,9 +72,11 @@ enum offs_rev {
 	LPON_UTTR0,
 	LPON_UTTR1,
 	LPON_FRCR,
+	MIB_SDR0,
 	MIB_SDR3,
 	MIB_SDR4,
 	MIB_SDR5,
+	MIB_SDR6,
 	MIB_SDR7,
 	MIB_SDR8,
 	MIB_SDR9,
@@ -100,6 +102,14 @@ enum offs_rev {
 	MIB_SDRVEC,
 	MIB_SDR31,
 	MIB_SDR32,
+	MIB_SDR38,
+	MIB_SDR39,
+	MIB_SDR40,
+	MIB_SDR42,
+	MIB_SDR43,
+	MIB_SDR46,
+	MIB_SDR50,
+	MIB_SDR51,
 	MIB_SDRMUBF,
 	MIB_DR8,
 	MIB_DR9,
@@ -120,6 +130,8 @@ enum offs_rev {
 	PLE_HIF_PG_INFO,
 	AC_OFFSET,
 	ETBF_PAR_RPT0,
+	M0DROPSR00,
+	M0DROPSR01,
 	__MT_OFFS_MAX,
 };
 
@@ -308,7 +320,7 @@ enum offs_rev {
 #define MT_WF_MIB_BASE(_band)		((_band) ? 0x820fd000 : 0x820ed000)
 #define MT_WF_MIB(_band, ofs)		(MT_WF_MIB_BASE(_band) + (ofs))
 
-#define MT_MIB_SDR0(_band)		MT_WF_MIB(_band, 0x010)
+#define MT_MIB_SDR0(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR0))
 #define MT_MIB_SDR0_BERACON_TX_CNT_MASK	GENMASK(15, 0)
 
 #define MT_MIB_SDR3(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR3))
@@ -322,7 +334,7 @@ enum offs_rev {
 /* rx mpdu counter, full 32 bits */
 #define MT_MIB_SDR5(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR5))
 
-#define MT_MIB_SDR6(_band)		MT_WF_MIB(_band, 0x020)
+#define MT_MIB_SDR6(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR6))
 #define MT_MIB_SDR6_CHANNEL_IDL_CNT_MASK	GENMASK(15, 0)
 
 #define MT_MIB_SDR7(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR7))
@@ -422,6 +434,29 @@ enum offs_rev {
 
 /* 36, 37 both DNR */
 
+#define MT_MIB_SDR38(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR38))
+#define MT_MIB_CTRL_TX_CNT		GENMASK(23, 0)
+
+#define MT_MIB_SDR39(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR39))
+#define MT_MIB_MGT_RETRY_CNT		GENMASK(23, 0)
+
+#define MT_MIB_SDR40(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR40))
+#define MT_MIB_DATA_RETRY_CNT		GENMASK(23, 0)
+
+#define MT_MIB_SDR42(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR42))
+#define MT_MIB_RX_PARTIAL_BEACON_BSSID0	GENMASK(15, 0)
+#define MT_MIB_RX_PARTIAL_BEACON_BSSID1	GENMASK(31, 16)
+
+#define MT_MIB_SDR43(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR43))
+#define MT_MIB_RX_PARTIAL_BEACON_BSSID2	GENMASK(15, 0)
+#define MT_MIB_RX_PARTIAL_BEACON_BSSID3	GENMASK(31, 16)
+
+/* This counter shall increment when  PPDUs dropped by the oppo_ps_rx_dis
+ * mechanism
+ */
+#define MT_MIB_SDR46(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR46))
+#define MT_MIB_OPPO_PS_RX_DIS_DROP_COUNT GENMASK(15, 0)
+
 #define MT_MIB_DR8(_band)		MT_WF_MIB(_band, __OFFS(MIB_DR8))
 #define MT_MIB_DR9(_band)		MT_WF_MIB(_band, __OFFS(MIB_DR9))
 #define MT_MIB_DR11(_band)		MT_WF_MIB(_band, __OFFS(MIB_DR11))
@@ -457,6 +492,23 @@ enum offs_rev {
 
 #define MT_MIB_BFCR7(_band)		MT_WF_MIB(_band, 0x7cc)
 #define MT_MIB_BFCR7_BFEE_TX_FB_CPL	GENMASK(15, 0)
+
+/* drop due to retries being exhausted */
+#define MT_MIB_M0DROPSR00(_band)	MT_WF_MIB(_band, __OFFS(M0DROPSR00))
+#define MT_MIB_RTS_RETRY_FAIL_DROP_MASK	GENMASK(15, 0)
+#define MT_MIB_MPDU_RETRY_FAIL_DROP_MASK GENMASK(31, 16)
+
+/* life time out limit */
+#define MT_MIB_M0DROPSR01(_band)	MT_WF_MIB(_band, __OFFS(M0DROPSR01))
+#define MT_MIB_LTO_FAIL_DROP_MASK	GENMASK(15, 0)
+
+/* increment when using double number of spatial streams */
+#define MT_MIB_SDR50(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR50))
+#define MT_MIB_DBNSS_CNT_DROP_MASK	GENMASK(15, 0)
+
+/* NOTE:  Would need to poll this quickly since it is 16-bit */
+#define MT_MIB_SDR51(_band)		MT_WF_MIB(_band, __OFFS(MIB_SDR51))
+#define MT_MIB_RX_FCS_OK_MASK		GENMASK(15, 0)
 
 /* WTBLON TOP */
 #define MT_WTBLON_TOP_BASE		0x820d4000
