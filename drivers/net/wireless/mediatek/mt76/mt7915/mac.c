@@ -1977,6 +1977,39 @@ void mt7915_mac_update_stats(struct mt7915_phy *phy)
 		cnt = mt76_rr(dev, MT_MIB_SDR33(band));
 		mib->tx_pkt_ibf_cnt += FIELD_GET(MT_MIB_SDR33_TX_PKT_IBF_CNT, cnt);
 
+		cnt = mt76_rr(dev, MT_MIB_SDR38(band));
+		mib->tx_mgt_frame_cnt += FIELD_GET(MT_MIB_CTRL_TX_CNT, cnt);
+
+		cnt = mt76_rr(dev, MT_MIB_SDR39(band));
+		mib->tx_mgt_frame_retry_cnt += FIELD_GET(MT_MIB_MGT_RETRY_CNT, cnt);
+
+		cnt = mt76_rr(dev, MT_MIB_SDR40(band));
+		mib->tx_data_frame_retry_cnt += FIELD_GET(MT_MIB_DATA_RETRY_CNT, cnt);
+
+		cnt = mt76_rr(dev, MT_MIB_SDR42(band));
+		mib->rx_partial_beacon_cnt += FIELD_GET(MT_MIB_RX_PARTIAL_BEACON_BSSID0, cnt);
+		mib->rx_partial_beacon_cnt += FIELD_GET(MT_MIB_RX_PARTIAL_BEACON_BSSID1, cnt);
+
+		cnt = mt76_rr(dev, MT_MIB_SDR43(band));
+		mib->rx_partial_beacon_cnt += FIELD_GET(MT_MIB_RX_PARTIAL_BEACON_BSSID2, cnt);
+		mib->rx_partial_beacon_cnt += FIELD_GET(MT_MIB_RX_PARTIAL_BEACON_BSSID3, cnt);
+
+		cnt = mt76_rr(dev, MT_MIB_SDR46(band));
+		mib->rx_oppo_ps_rx_dis_drop_cnt += FIELD_GET(MT_MIB_OPPO_PS_RX_DIS_DROP_COUNT, cnt);
+
+		cnt = mt76_rr(dev, MT_MIB_M0DROPSR00(band));
+		mib->tx_drop_rts_retry_fail_cnt += FIELD_GET(MT_MIB_RTS_RETRY_FAIL_DROP_MASK, cnt);
+		mib->tx_drop_mpdu_retry_fail_cnt += FIELD_GET(MT_MIB_RTS_RETRY_FAIL_DROP_MASK, cnt);
+
+		cnt = mt76_rr(dev, MT_MIB_M0DROPSR01(band));
+		mib->tx_drop_lto_limit_fail_cnt += FIELD_GET(MT_MIB_LTO_FAIL_DROP_MASK, cnt);
+
+		cnt = mt76_rr(dev, MT_MIB_SDR50(band));
+		mib->tx_dbnss_cnt += FIELD_GET(MT_MIB_DBNSS_CNT_DROP_MASK, cnt);
+
+		cnt = mt76_rr(dev, MT_MIB_SDR51(band));
+		mib->rx_fcs_ok_cnt += FIELD_GET(MT_MIB_RX_FCS_OK_MASK, cnt);
+
 		cnt = mt76_rr(dev, MT_ETBF_TX_APP_CNT(band));
 		mib->tx_bf_ibf_ppdu_cnt += FIELD_GET(MT_ETBF_TX_IBF_CNT, cnt);
 		mib->tx_bf_ebf_ppdu_cnt += FIELD_GET(MT_ETBF_TX_EBF_CNT, cnt);

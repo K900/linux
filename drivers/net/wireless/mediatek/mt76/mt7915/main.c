@@ -1396,6 +1396,13 @@ static const char mt7915_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"tx_msdu_pack_6",
 	"tx_msdu_pack_7",
 	"tx_msdu_pack_8",
+	"tx_mgt_frame", /* SDR38, management frame tx counter */
+	"tx_mgt_frame_retry", /* SDR39, management frame retried counter */
+	"tx_data_frame_retry", /* SDR40, data frame retried counter */
+	"tx_drop_rts_retry_fail", /* TX Drop, RTS retries exhausted */
+	"tx_drop_mpdu_retry_fail", /* TX Drop, MPDU retries exhausted */
+	"tx_drop_lto_limit_fail", /* TX drop, Life Time Out limit reached. */
+	"tx_dbnss", /* pkts TX using double number of spatial streams */
 
 	/* rx counters */
 	"rx_fifo_full_cnt",
@@ -1419,6 +1426,9 @@ static const char mt7915_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"rx_pfdrop_cnt",
 	"rx_vec_queue_overflow_drop_cnt",
 	"rx_ba_cnt",
+	"rx_partial_beacon",
+	"rx_oppo_ps_rx_dis_drop",
+	"rx_fcs_ok",
 
 	/* muru mu-mimo and ofdma related stats */
 	"dl_cck_cnt",
@@ -1627,6 +1637,14 @@ void mt7915_get_et_stats(struct ieee80211_hw *hw,
 	for (i = 0; i < ARRAY_SIZE(mib->tx_amsdu); i++)
 		data[ei++] = mib->tx_amsdu[i];
 
+	data[ei++] = mib->tx_mgt_frame_cnt;
+	data[ei++] = mib->tx_mgt_frame_retry_cnt;
+	data[ei++] = mib->tx_data_frame_retry_cnt;
+	data[ei++] = mib->tx_drop_rts_retry_fail_cnt;
+	data[ei++] = mib->tx_drop_mpdu_retry_fail_cnt;
+	data[ei++] = mib->tx_drop_lto_limit_fail_cnt;
+	data[ei++] = mib->tx_dbnss_cnt;
+
 	/* rx counters */
 	data[ei++] = mib->rx_fifo_full_cnt; /* group-5 might exacerbate this */
 	data[ei++] = mib->rx_oor_cnt;
@@ -1649,6 +1667,9 @@ void mt7915_get_et_stats(struct ieee80211_hw *hw,
 	data[ei++] = mib->rx_pfdrop_cnt;
 	data[ei++] = mib->rx_vec_queue_overflow_drop_cnt;
 	data[ei++] = mib->rx_ba_cnt;
+	data[ei++] = mib->rx_partial_beacon_cnt;
+	data[ei++] = mib->rx_oppo_ps_rx_dis_drop_cnt;
+	data[ei++] = mib->rx_fcs_ok_cnt;
 
 	data[ei++] = mib->dl_cck_cnt;
 	data[ei++] = mib->dl_ofdm_cnt;
