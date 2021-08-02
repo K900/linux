@@ -112,6 +112,13 @@ static u16 rs_fw_get_config_flags(struct iwl_mvm *mvm,
 			IEEE80211_HE_PHY_CAP3_DCM_MAX_CONST_TX_MASK))
 		flags |= IWL_TLC_MNG_CFG_FLAGS_HE_DCM_NSS_1_MSK;
 
+	if (he_cap->has_he) {
+		if (!(flags & IWL_TLC_MNG_CFG_FLAGS_LDPC_MSK)) {
+			pr_info("WARNING:  HE capability but LDPC not selected.  Force-enabling.\n");
+			flags |= IWL_TLC_MNG_CFG_FLAGS_LDPC_MSK;
+		}
+	}
+
 	return flags;
 }
 
