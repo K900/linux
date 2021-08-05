@@ -1282,6 +1282,9 @@ mt7915_rate_txpower_get(struct file *file, char __user *user_buf,
 	if (ret)
 		goto out;
 
+	len += scnprintf(buf + len, sz - len,
+			 "Per-chain txpower in 1/2 db units.\n");
+
 	/* Txpower propagation path: TMAC -> TXV -> BBP */
 	len += scnprintf(buf + len, sz - len,
 			 "\nPhy%d Tx power table (channel %d)\n",
