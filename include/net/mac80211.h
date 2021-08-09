@@ -2656,6 +2656,12 @@ struct ieee80211_link_sta {
 	struct ieee80211_sta_txpwr txpwr;
 };
 
+typedef u32 __bitwise ieee80211_conn_flags_t;
+
+enum ieee80211_conn_flags {
+	IEEE80211_CONN_DISABLE_TWT      = (__force ieee80211_conn_flags_t)BIT(0),
+};
+
 /**
  * struct ieee80211_sta - station table entry
  *
