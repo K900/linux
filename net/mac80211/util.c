@@ -2752,6 +2752,12 @@ int ieee80211_put_he_cap(struct sk_buff *skb,
 	/* modify on stack first to calculate 'n' and 'ie_len' correctly */
 	ieee80211_get_adjusted_he_cap(conn, he_cap, &elem);
 
+	/* Apply overrides as needed. */
+	if (conn->conn_flags & IEEE80211_CONN_DISABLE_TWT) {
+		elem.mac_cap_info[0] &= ~(IEEE80211_HE_MAC_CAP0_TWT_REQ);
+		elem.mac_cap_info[0] &= ~(IEEE80211_HE_MAC_CAP0_TWT_RES);
+	}
+
 	n = ieee80211_he_mcs_nss_size(&elem);
 	ie_len = 2 + 1 +
 		 sizeof(he_cap->he_cap_elem) + n +
