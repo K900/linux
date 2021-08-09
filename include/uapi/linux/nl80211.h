@@ -42,6 +42,15 @@
 
 #include <linux/types.h>
 
+/* Candela hacker space. */
+#define CANDELA_VENDOR_ID 0xCD1A
+struct ct_assoc_info {
+#define CT_DISABLE_TWT (1<<0)
+	u32 flags;
+	u32 pad32[7]; /* room to grow */
+} __attribute__((packed));
+
+
 #define NL80211_GENL_NAME "nl80211"
 
 #define NL80211_MULTICAST_GROUP_CONFIG		"config"
