@@ -13289,6 +13289,25 @@ static int nl80211_associate(struct sk_buff *skb, struct genl_info *info)
 	if (nla_get_flag(info->attrs[NL80211_ATTR_DISABLE_UHR]))
 		req.flags |= ASSOC_REQ_DISABLE_UHR;
 
+	if (info->attrs[NL80211_ATTR_VENDOR_ID] &&
+	    info->attrs[NL80211_ATTR_VENDOR_DATA]) {
+		int vid = nla_get_u32(info->attrs[NL80211_ATTR_VENDOR_ID]);
+		void *data = nla_data(info->attrs[NL80211_ATTR_VENDOR_DATA]);
+		int data_len = nla_len(info->attrs[NL80211_ATTR_VENDOR_DATA]);
+		struct ct_assoc_info* cai = (struct ct_assoc_info*)(data);
+
+		if (vid == CANDELA_VENDOR_ID) {
+			if (data_len < sizeof(*cai)) {
+				pr_err("nl80211-assoc, data-len: %d  smaller than sizeof *cai: %d\n",
+				       data_len, (int)(sizeof(*cai)));
+				goto skip_ct_priv;
+			}
+			if (cai->flags & CT_DISABLE_TWT)
+				req.flags |= ASSOC_REQ_DISABLE_TWT;
+		}
+	}
+skip_ct_priv:
+
 	if (info->attrs[NL80211_ATTR_VHT_CAPABILITY_MASK])
 		memcpy(&req.vht_capa_mask,
 		       nla_data(info->attrs[NL80211_ATTR_VHT_CAPABILITY_MASK]),
@@ -14173,6 +14192,25 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 
 	if (nla_get_flag(info->attrs[NL80211_ATTR_DISABLE_UHR]))
 		connect.flags |= ASSOC_REQ_DISABLE_UHR;
+
+	if (info->attrs[NL80211_ATTR_VENDOR_ID] &&
+	    info->attrs[NL80211_ATTR_VENDOR_DATA]) {
+		int vid = nla_get_u32(info->attrs[NL80211_ATTR_VENDOR_ID]);
+		void *data = nla_data(info->attrs[NL80211_ATTR_VENDOR_DATA]);
+		int data_len = nla_len(info->attrs[NL80211_ATTR_VENDOR_DATA]);
+		struct ct_assoc_info* cai = (struct ct_assoc_info*)(data);
+
+		if (vid == CANDELA_VENDOR_ID) {
+			if (data_len < sizeof(*cai)) {
+				pr_err("nl80211-connect, data-len: %d  smaller than sizeof *cai: %d\n",
+				       data_len, (int)(sizeof(*cai)));
+				goto skip_ct_priv;
+			}
+			if (cai->flags & CT_DISABLE_TWT)
+				connect.flags |= ASSOC_REQ_DISABLE_TWT;
+		}
+	}
+	skip_ct_priv:
 
 	if (info->attrs[NL80211_ATTR_VHT_CAPABILITY_MASK])
 		memcpy(&connect.vht_capa_mask,

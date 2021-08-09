@@ -3382,6 +3382,7 @@ struct cfg80211_ml_reconf_req {
  *	flag is not set.
  * @ASSOC_REQ_SPP_AMSDU: SPP A-MSDUs will be used on this connection (if any)
  * @ASSOC_REQ_DISABLE_UHR: Disable UHR
+ * @ASSOC_REQ_DISABLE_TWT:  Disable TWT
  */
 enum cfg80211_assoc_req_flags {
 	ASSOC_REQ_DISABLE_HT			= BIT(0),
@@ -3393,6 +3394,7 @@ enum cfg80211_assoc_req_flags {
 	CONNECT_REQ_MLO_SUPPORT			= BIT(6),
 	ASSOC_REQ_SPP_AMSDU			= BIT(7),
 	ASSOC_REQ_DISABLE_UHR			= BIT(8),
+	ASSOC_REQ_DISABLE_TWT                   = BIT(9),
 };
 
 /**
