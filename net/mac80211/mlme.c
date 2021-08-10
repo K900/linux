@@ -10525,6 +10525,11 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 
 			if (req->flags & ASSOC_REQ_DISABLE_TWT)
 				assoc_data->link[i].conn.conn_flags |= IEEE80211_CONN_DISABLE_TWT;
+			if (req->flags & ASSOC_REQ_DISABLE_160)
+				assoc_data->link[i].conn.bw_limit =
+					min_t(enum ieee80211_conn_bw_limit,
+					      IEEE80211_CONN_BW_LIMIT_80,
+					      assoc_data->link[i].conn.bw_limit);
 
 			ieee80211_determine_our_sta_mode_assoc(sdata, sband,
 							       req, true, i,
@@ -10580,6 +10585,11 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 
 		if (req->flags & ASSOC_REQ_DISABLE_TWT)
 			assoc_data->link[0].conn.conn_flags |= IEEE80211_CONN_DISABLE_TWT;
+		if (req->flags & ASSOC_REQ_DISABLE_160)
+			assoc_data->link[0].conn.bw_limit =
+				min_t(enum ieee80211_conn_bw_limit,
+				      IEEE80211_CONN_BW_LIMIT_80,
+				      assoc_data->link[0].conn.bw_limit);
 
 		ieee80211_determine_our_sta_mode_assoc(sdata, sband, req,
 						       assoc_data->wmm, 0,
