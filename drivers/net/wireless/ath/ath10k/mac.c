@@ -2772,7 +2772,7 @@ static void ath10k_peer_assoc_h_rate_overrides(struct ath10k *ar,
 				if (!(rate_bw_disable_mask & CT_DISABLE_80MHZ))
 					ath10k_set_rate_enabled(hw_rix_80 + hw_nss * 2 * 10, arg->rate_overrides, 1);
 				/* And for NICs that support 160Mhz, set those */
-				if (ok160 && !(rate_bw_disable_mask & CT_DISABLE_160MHZ))
+				if (ok160 && !(rate_bw_disable_mask & ATH_CT_DISABLE_160MHZ))
 					ath10k_set_rate_enabled(hw_rix + hw_nss * 3 * 10, arg->rate_overrides, 1);
 			}
 		}
