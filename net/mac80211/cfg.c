@@ -1592,6 +1592,8 @@ ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 	if (err == 0)
 		_changed |= BSS_CHANGED_AP_PROBE_RESP;
 
+	sdata->vif.bss_conf.he_ofdma_disable = params->he_ofdma_disable;
+
 	if (params->ftm_responder != -1) {
 		link_conf->ftm_responder = params->ftm_responder;
 		err = ieee80211_set_ftm_responder_params(sdata,

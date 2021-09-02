@@ -390,33 +390,6 @@ enum ieee80211_sta_flags {
 	IEEE80211_STA_ENABLE_RRM	= BIT(15),
 };
 
-enum ieee80211_conn_mode {
-	IEEE80211_CONN_MODE_S1G,
-	IEEE80211_CONN_MODE_LEGACY,
-	IEEE80211_CONN_MODE_HT,
-	IEEE80211_CONN_MODE_VHT,
-	IEEE80211_CONN_MODE_HE,
-	IEEE80211_CONN_MODE_EHT,
-	IEEE80211_CONN_MODE_UHR,
-};
-
-#define IEEE80211_CONN_MODE_HIGHEST	IEEE80211_CONN_MODE_UHR
-
-enum ieee80211_conn_bw_limit {
-	IEEE80211_CONN_BW_LIMIT_20,
-	IEEE80211_CONN_BW_LIMIT_40,
-	IEEE80211_CONN_BW_LIMIT_80,
-	IEEE80211_CONN_BW_LIMIT_160, /* also 80+80 */
-	IEEE80211_CONN_BW_LIMIT_320,
-};
-
-struct ieee80211_conn_settings {
-	enum ieee80211_conn_mode mode;
-	enum ieee80211_conn_bw_limit bw_limit;
-	enum ieee80211_conn_flags conn_flags;
-	bool dbe_enabled;
-};
-
 extern const struct ieee80211_conn_settings ieee80211_conn_settings_unlimited;
 
 struct ieee80211_mgd_auth_data {

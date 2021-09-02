@@ -5913,6 +5913,9 @@ static bool ieee80211_assoc_config_link(struct ieee80211_link_data *link,
 	u16 capab_info;
 	bool ret;
 
+	/* Store connection settings where driver can find it. */
+	link_sta->pub->conn_settings = link->u.mgd.conn;
+
 	elems = ieee802_11_parse_elems_full(&parse_params);
 	if (!elems)
 		return false;
@@ -10478,6 +10481,8 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 					min_t(enum ieee80211_conn_bw_limit,
 					      IEEE80211_CONN_BW_LIMIT_80,
 					      assoc_data->link[i].conn.bw_limit);
+			if (req->flags & ASSOC_REQ_DISABLE_OFDMA)
+				assoc_data->link[i].conn.conn_flags |= IEEE80211_CONN_DISABLE_OFDMA;
 
 			ieee80211_determine_our_sta_mode_assoc(sdata, sband,
 							       req, true, i,
@@ -10538,6 +10543,8 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 				min_t(enum ieee80211_conn_bw_limit,
 				      IEEE80211_CONN_BW_LIMIT_80,
 				      assoc_data->link[0].conn.bw_limit);
+		if (req->flags & ASSOC_REQ_DISABLE_OFDMA)
+			assoc_data->link[0].conn.conn_flags |= IEEE80211_CONN_DISABLE_OFDMA;
 
 		ieee80211_determine_our_sta_mode_assoc(sdata, sband, req,
 						       assoc_data->wmm, 0,

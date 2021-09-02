@@ -6852,6 +6852,27 @@ static int nl80211_parse_beacon(struct cfg80211_registered_device *rdev,
 		bcn->he_bss_color_valid = true;
 	}
 
+	if (attrs[NL80211_ATTR_VENDOR_ID] &&
+	    attrs[NL80211_ATTR_VENDOR_DATA]) {
+		int vid = nla_get_u32(attrs[NL80211_ATTR_VENDOR_ID]);
+		void *data = nla_data(attrs[NL80211_ATTR_VENDOR_DATA]);
+		int data_len = nla_len(attrs[NL80211_ATTR_VENDOR_DATA]);
+		struct ct_assoc_info* cai = (struct ct_assoc_info*)(data);
+
+		pr_err("parse-beacon: vendor-id specified.\n");
+
+		if (vid == CANDELA_VENDOR_ID) {
+			if (data_len < 4) { /* flags is first u32 */
+				pr_err("nl80211-assoc, data-len: %d  too small\n",
+				       data_len);
+				goto skip_ct_priv;
+			}
+			if (cai->flags & CT_DISABLE_OFDMA)
+				bcn->he_ofdma_disable = true;
+		}
+	}
+skip_ct_priv:
+
 	if (attrs[NL80211_ATTR_MBSSID_ELEMS]) {
 		struct cfg80211_mbssid_elems *mbssid =
 			nl80211_parse_mbssid_elems(&rdev->wiphy,
@@ -13297,15 +13318,17 @@ static int nl80211_associate(struct sk_buff *skb, struct genl_info *info)
 		struct ct_assoc_info* cai = (struct ct_assoc_info*)(data);
 
 		if (vid == CANDELA_VENDOR_ID) {
-			if (data_len < sizeof(*cai)) {
-				pr_err("nl80211-assoc, data-len: %d  smaller than sizeof *cai: %d\n",
-				       data_len, (int)(sizeof(*cai)));
+			if (data_len < 4) { /* flags is first u32 */
+				pr_err("nl80211-assoc, data-len: %d  too small\n",
+				       data_len);
 				goto skip_ct_priv;
 			}
 			if (cai->flags & CT_DISABLE_TWT)
 				req.flags |= ASSOC_REQ_DISABLE_TWT;
 			if (cai->flags & CT_DISABLE_160MHZ)
 				req.flags |= ASSOC_REQ_DISABLE_160;
+			if (cai->flags & CT_DISABLE_OFDMA)
+				req.flags |= ASSOC_REQ_DISABLE_OFDMA;
 		}
 	}
 skip_ct_priv:
@@ -14212,6 +14235,8 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 				connect.flags |= ASSOC_REQ_DISABLE_TWT;
 			if (cai->flags & CT_DISABLE_160MHZ)
 				connect.flags |= ASSOC_REQ_DISABLE_160;
+			if (cai->flags & CT_DISABLE_OFDMA)
+				connect.flags |= ASSOC_REQ_DISABLE_OFDMA;
 		}
 	}
 	skip_ct_priv:
