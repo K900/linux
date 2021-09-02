@@ -2729,6 +2729,14 @@ ieee80211_get_adjusted_he_cap(const struct ieee80211_conn_settings *conn,
 			~(IEEE80211_HE_PHY_CAP7_STBC_TX_ABOVE_80MHZ |
 			  IEEE80211_HE_PHY_CAP7_STBC_RX_ABOVE_80MHZ);
 	}
+
+	if (conn->conn_flags & IEEE80211_CONN_DISABLE_OFDMA) {
+		pr_info("adjust-he-cap, disabling OFDMA.");
+		elem->mac_cap_info[3] &= ~IEEE80211_HE_MAC_CAP3_OFDMA_RA;
+		elem->mac_cap_info[5] &= ~IEEE80211_HE_MAC_CAP5_HT_VHT_TRIG_FRAME_RX;
+		elem->phy_cap_info[6] &= ~IEEE80211_HE_PHY_CAP6_TRIG_SU_BEAMFORMING_FB;
+		elem->phy_cap_info[6] &= ~IEEE80211_HE_PHY_CAP6_TRIG_MU_BEAMFORMING_PARTIAL_BW_FB;
+	}
 }
 
 int ieee80211_put_he_cap(struct sk_buff *skb,

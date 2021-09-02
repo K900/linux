@@ -868,6 +868,7 @@ struct ieee80211_bss_conf {
 	bool eht_support;
 	bool epcs_support;
 	bool uhr_support;
+	bool he_ofdma_disable; /* Ask driver to disable OFDMA */
 
 	bool csa_active;
 
@@ -2116,6 +2117,7 @@ struct ieee80211_vif_cfg {
 	bool assoc, ibss_joined;
 	bool ibss_creator;
 	bool ps;
+	bool he_ofdma_disable; /* Ask driver to disable OFDMA */
 	u16 aid;
 	u16 eml_cap;
 	u16 eml_med_sync_delay;
@@ -2601,6 +2603,40 @@ struct ieee80211_sta_aggregates {
 	u16 max_tid_amsdu_len[IEEE80211_NUM_TIDS];
 };
 
+enum ieee80211_conn_mode {
+	IEEE80211_CONN_MODE_S1G,
+	IEEE80211_CONN_MODE_LEGACY,
+	IEEE80211_CONN_MODE_HT,
+	IEEE80211_CONN_MODE_VHT,
+	IEEE80211_CONN_MODE_HE,
+	IEEE80211_CONN_MODE_EHT,
+	IEEE80211_CONN_MODE_UHR,
+};
+
+#define IEEE80211_CONN_MODE_HIGHEST	IEEE80211_CONN_MODE_UHR
+
+enum ieee80211_conn_bw_limit {
+	IEEE80211_CONN_BW_LIMIT_20,
+	IEEE80211_CONN_BW_LIMIT_40,
+	IEEE80211_CONN_BW_LIMIT_80,
+	IEEE80211_CONN_BW_LIMIT_160, /* also 80+80 */
+	IEEE80211_CONN_BW_LIMIT_320,
+};
+
+typedef u32 __bitwise ieee80211_conn_flags_t;
+
+enum ieee80211_conn_flags {
+       IEEE80211_CONN_DISABLE_TWT      = (__force ieee80211_conn_flags_t)BIT(0),
+       IEEE80211_CONN_DISABLE_OFDMA    = (__force ieee80211_conn_flags_t)BIT(1),
+};
+
+struct ieee80211_conn_settings {
+	enum ieee80211_conn_mode mode;
+	enum ieee80211_conn_bw_limit bw_limit;
+	enum ieee80211_conn_flags conn_flags;
+	bool dbe_enabled;
+};
+
 /**
  * struct ieee80211_link_sta - station Link specific info
  * All link specific info for a STA link for a non MLD STA(single)
@@ -2654,12 +2690,8 @@ struct ieee80211_link_sta {
 	u8 rx_nss;
 	enum ieee80211_sta_rx_bandwidth bandwidth;
 	struct ieee80211_sta_txpwr txpwr;
-};
-
-typedef u32 __bitwise ieee80211_conn_flags_t;
-
-enum ieee80211_conn_flags {
-	IEEE80211_CONN_DISABLE_TWT      = (__force ieee80211_conn_flags_t)BIT(0),
+	/* User-requested settings. */
+	struct ieee80211_conn_settings conn_settings;
 };
 
 /**
