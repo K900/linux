@@ -879,9 +879,11 @@ mt7915_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_sta *sta,
 	    IEEE80211_HE_PHY_CAP6_TRIG_CQI_FB)
 		cap |= STA_REC_HE_CAP_TRIG_CQI_FK;
 
-	if (elem->phy_cap_info[6] &
-	    IEEE80211_HE_PHY_CAP6_PARTIAL_BW_EXT_RANGE)
-		cap |= STA_REC_HE_CAP_PARTIAL_BW_EXT_RANGE;
+	if (!(sta->deflink.conn_settings.conn_flags & IEEE80211_CONN_DISABLE_OFDMA)) {
+		if (elem->phy_cap_info[6] &
+		    IEEE80211_HE_PHY_CAP6_PARTIAL_BW_EXT_RANGE)
+			cap |= STA_REC_HE_CAP_PARTIAL_BW_EXT_RANGE;
+	}
 
 	if (elem->phy_cap_info[7] &
 	    IEEE80211_HE_PHY_CAP7_HE_SU_MU_PPDU_4XLTF_AND_08_US_GI)
@@ -903,13 +905,15 @@ mt7915_mcu_sta_he_tlv(struct sk_buff *skb, struct ieee80211_sta *sta,
 	    IEEE80211_HE_PHY_CAP8_HE_ER_SU_1XLTF_AND_08_US_GI)
 		cap |= STA_REC_HE_CAP_ER_SU_PPDU_1LTF_8US_GI;
 
-	if (elem->phy_cap_info[9] &
-	    IEEE80211_HE_PHY_CAP9_TX_1024_QAM_LESS_THAN_242_TONE_RU)
-		cap |= STA_REC_HE_CAP_TX_1024QAM_UNDER_RU242;
+	if (!(sta->deflink.conn_settings.conn_flags & IEEE80211_CONN_DISABLE_OFDMA)) {
+		if (elem->phy_cap_info[9] &
+		    IEEE80211_HE_PHY_CAP9_TX_1024_QAM_LESS_THAN_242_TONE_RU)
+			cap |= STA_REC_HE_CAP_TX_1024QAM_UNDER_RU242;
 
-	if (elem->phy_cap_info[9] &
-	    IEEE80211_HE_PHY_CAP9_RX_1024_QAM_LESS_THAN_242_TONE_RU)
-		cap |= STA_REC_HE_CAP_RX_1024QAM_UNDER_RU242;
+		if (elem->phy_cap_info[9] &
+		    IEEE80211_HE_PHY_CAP9_RX_1024_QAM_LESS_THAN_242_TONE_RU)
+			cap |= STA_REC_HE_CAP_RX_1024QAM_UNDER_RU242;
+	}
 
 	he->he_cap = cpu_to_le32(cap);
 
@@ -1260,10 +1264,13 @@ mt7915_mcu_sta_bfer_he(struct ieee80211_sta *sta,
 
 	mt7915_mcu_sta_sounding_rate(bf);
 
-	bf->trigger_su = HE_PHY(CAP6_TRIG_SU_BEAMFORMING_FB,
-				pe->phy_cap_info[6]);
-	bf->trigger_mu = HE_PHY(CAP6_TRIG_MU_BEAMFORMING_PARTIAL_BW_FB,
-				pe->phy_cap_info[6]);
+	/* TODO:  Ryder thinks this probably doesn't need to be disabled */
+	if (!(sta->deflink.conn_settings.conn_flags & IEEE80211_CONN_DISABLE_OFDMA)) {
+		bf->trigger_su = HE_PHY(CAP6_TRIG_SU_BEAMFORMING_FB,
+					pe->phy_cap_info[6]);
+		bf->trigger_mu = HE_PHY(CAP6_TRIG_MU_BEAMFORMING_PARTIAL_BW_FB,
+					pe->phy_cap_info[6]);
+	}
 	snd_dim = HE_PHY(CAP5_BEAMFORMEE_NUM_SND_DIM_UNDER_80MHZ_MASK,
 			 ve->phy_cap_info[5]);
 	sts = HE_PHY(CAP4_BEAMFORMEE_MAX_STS_UNDER_80MHZ_MASK,
