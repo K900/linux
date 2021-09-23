@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/firmware.h>
 #include <linux/of.h>
+#include <linux/of_net.h>
 #include <linux/property.h>
 #include <linux/dmi.h>
 #include <linux/ctype.h>
@@ -4265,6 +4266,9 @@ static int ath10k_core_probe_fw(struct ath10k *ar)
 	}
 
 	device_get_mac_address(ar->dev, ar->mac_addr);
+
+	/* Try to get mac address from device node (from nvmem cell) */
+	of_get_mac_address(ar->dev->of_node, ar->mac_addr);
 
 	ret = ath10k_core_init_firmware_features(ar);
 	if (ret) {
