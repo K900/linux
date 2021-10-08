@@ -7,6 +7,11 @@
 #include "mac.h"
 #include "eeprom.h"
 
+static int fw_debug = 0;
+module_param(fw_debug, int, 0644);
+MODULE_PARM_DESC(fw_debug,
+		 "Set to 1 to enable FW debugging on startup.");
+
 #define fw_name(_dev, name, ...)	({			\
 	char *_fw;						\
 	switch (mt76_chip(&(_dev)->mt76)) {			\
@@ -2439,15 +2444,35 @@ int mt7915_mcu_init_firmware(struct mt7915_dev *dev)
 		return ret;
 
 	set_bit(MT76_STATE_MCU_RUNNING, &dev->mphy.state);
-	ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WM, 0);
-	if (ret)
-		return ret;
-
-	ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WA, 0);
-	if (ret)
-		return ret;
 
 	mt76_connac_mcu_del_wtbl_all(&dev->mt76);
+
+	if (fw_debug) {
+		enum mt_debug debug;
+
+		/* enable debugging on bootup */
+		dev->fw.debug_wm = 1;
+		dev->fw.debug_wa = 1;
+		ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WM, dev->fw.debug_wm);
+		if (ret)
+			return ret;
+		ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WA, dev->fw.debug_wa);
+		if (ret)
+			return ret;
+		for (debug = DEBUG_TXCMD; debug <= DEBUG_RPT_RX; debug++) {
+			ret = mt7915_mcu_fw_dbg_ctrl(dev, debug, 1);
+			if (ret)
+				return ret;
+		}
+	} else {
+		ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WM, 0);
+		if (ret)
+			return ret;
+
+		ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WA, 0);
+		if (ret)
+			return ret;
+	}
 
 	if ((mtk_wed_device_active(&dev->mt76.mmio.wed) &&
 	     is_mt7915(&dev->mt76)) ||
