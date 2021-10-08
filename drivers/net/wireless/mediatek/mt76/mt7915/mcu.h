@@ -490,6 +490,14 @@ enum {
 	MURU_PLATFORM_TYPE_PERF_LEVEL_2,
 };
 
+enum mt_debug {
+	DEBUG_TXCMD = 62,
+	DEBUG_CMD_RPT_TX,
+	DEBUG_CMD_RPT_TRIG,
+	DEBUG_SPL,
+	DEBUG_RPT_RX,
+};
+
 /* tx cmd tx statistics */
 enum {
 	MURU_SET_TXC_TX_STATS_EN = 150,
