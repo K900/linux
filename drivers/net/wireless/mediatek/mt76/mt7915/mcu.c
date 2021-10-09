@@ -1099,7 +1099,7 @@ mt7915_mcu_sta_wtbl_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 	return 0;
 }
 
-static inline bool
+static bool
 mt7915_is_ebf_supported(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 			struct ieee80211_sta *sta, bool bfee)
 {
@@ -1127,12 +1127,15 @@ mt7915_is_ebf_supported(struct mt7915_phy *phy, struct ieee80211_vif *vif,
 	if (sta->deflink.vht_cap.vht_supported) {
 		u32 cap = sta->deflink.vht_cap.cap;
 
-		if (bfee)
+		if (bfee) {
 			return mvif->cap.vht_su_ebfee &&
 			       (cap & IEEE80211_VHT_CAP_SU_BEAMFORMER_CAPABLE);
-		else
+		} else {
+			if (vif->type == NL80211_IFTYPE_STATION)
+				return false;
 			return mvif->cap.vht_su_ebfer &&
 			       (cap & IEEE80211_VHT_CAP_SU_BEAMFORMEE_CAPABLE);
+		}
 	}
 
 	return false;
