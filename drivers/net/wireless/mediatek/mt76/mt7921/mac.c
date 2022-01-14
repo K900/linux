@@ -545,7 +545,8 @@ static void mt7921_mac_tx_free(struct mt792x_dev *dev, void *data, int len)
 	void *end = data + len;
 	LIST_HEAD(free_list);
 	bool wake = false;
-	u8 i, count;
+	u8 i;
+	u16 count;
 
 	/* clean DMA queues and unmap buffers first */
 	mt76_queue_tx_cleanup(dev, dev->mphy.q_tx[MT_TXQ_PSD], false);
