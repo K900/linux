@@ -17,6 +17,10 @@
 #define MT_PLE_BASE			0x820c0000
 #define MT_PLE(ofs)			(MT_PLE_BASE + (ofs))
 
+/* Modify whether txfree struct returns latency or txcount. */
+#define MT_PLE_HOST_RPT0                MT_PLE(0x030)
+#define MT_PLE_HOST_RPT0_TX_LATENCY     BIT(3)
+
 #define MT_PLE_FL_Q0_CTRL		MT_PLE(0x3e0)
 #define MT_PLE_FL_Q1_CTRL		MT_PLE(0x3e4)
 #define MT_PLE_FL_Q2_CTRL		MT_PLE(0x3e8)
