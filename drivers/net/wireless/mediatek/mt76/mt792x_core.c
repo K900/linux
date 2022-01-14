@@ -420,6 +420,10 @@ void mt792x_set_wakeup(struct ieee80211_hw *hw, bool enabled)
 EXPORT_SYMBOL_GPL(mt792x_set_wakeup);
 
 static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
+	"tx_pkts_nic", /* from driver, phy tx-ok skb */
+	"tx_bytes_nic", /* from driver, phy tx-ok bytes */
+	"rx_pkts_nic", /* from driver, phy rx OK skb */
+	"rx_bytes_nic", /* from driver, phy rx OK bytes */
 	/* tx counters */
 	"tx_ampdu_cnt",
 	"tx_mpdu_attempts",
@@ -461,6 +465,18 @@ static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"rx_ampdu_cnt",
 	"rx_ampdu_bytes_cnt",
 	"rx_ba_cnt",
+
+	/* driver rx counters */
+	"d_rx_skb",
+	"d_rx_rxd2_amsdu_err",
+	"d_rx_null_channels",
+	"d_rx_max_len_err",
+	"d_rx_too_short",
+	"d_rx_bad_ht_rix",
+	"d_rx_bad_vht_rix",
+	"d_rx_bad_mode",
+	"d_rx_bad_bw",
+
 	/* per vif counters */
 	"v_tx_mpdu_attempts", /* counting any retries */
 	"v_tx_mpdu_fail",  /* frames that failed even after retry */
@@ -578,6 +594,12 @@ void mt792x_get_et_stats(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	mt792x_mac_update_mib_stats(phy);
 
+	/* driver phy-wide stats */
+	data[ei++] = mib->tx_pkts_nic;
+	data[ei++] = mib->tx_bytes_nic;
+	data[ei++] = mib->rx_pkts_nic;
+	data[ei++] = mib->rx_bytes_nic;
+
 	data[ei++] = mib->tx_ampdu_cnt;
 	data[ei++] = mib->tx_mpdu_attempts_cnt;
 	data[ei++] = mib->tx_mpdu_success_cnt;
@@ -609,6 +631,17 @@ void mt792x_get_et_stats(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	data[ei++] = mib->rx_ampdu_cnt;
 	data[ei++] = mib->rx_ampdu_bytes_cnt;
 	data[ei++] = mib->rx_ba_cnt;
+
+	/* rx stats from driver */
+	data[ei++] = mib->rx_d_skb;
+	data[ei++] = mib->rx_d_rxd2_amsdu_err;
+	data[ei++] = mib->rx_d_null_channels;
+	data[ei++] = mib->rx_d_max_len_err;
+	data[ei++] = mib->rx_d_too_short;
+	data[ei++] = mib->rx_d_bad_ht_rix;
+	data[ei++] = mib->rx_d_bad_vht_rix;
+	data[ei++] = mib->rx_d_bad_mode;
+	data[ei++] = mib->rx_d_bad_bw;
 
 	/* Add values for all stations owned by this vif */
 	wi.initial_stat_idx = ei;

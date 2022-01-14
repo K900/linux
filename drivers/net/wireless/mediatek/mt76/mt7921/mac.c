@@ -199,14 +199,18 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 
 	memset(status, 0, sizeof(*status));
 
+	mib->rx_d_skb++;
+
 	if (rxd1 & MT_RXD1_NORMAL_BAND_IDX)
 		return -EINVAL;
 
 	if (!test_bit(MT76_STATE_RUNNING, &mphy->state))
 		return -EINVAL;
 
-	if (rxd2 & MT_RXD2_NORMAL_AMSDU_ERR)
+	if (rxd2 & MT_RXD2_NORMAL_AMSDU_ERR) {
+		mib->rx_d_rxd2_amsdu_err++;
 		return -EINVAL;
+	}
 
 	hdr_trans = rxd2 & MT_RXD2_NORMAL_HDR_TRANS;
 	if (hdr_trans && (rxd1 & MT_RXD1_NORMAL_CM))
@@ -242,8 +246,10 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 		break;
 	}
 
-	if (!sband->channels)
+	if (!sband->channels) {
+		mib->rx_d_null_channels++;
 		return -EINVAL;
+	}
 
 	if (mt76_is_mmio(&dev->mt76) && (rxd0 & csum_mask) == csum_mask &&
 	    !(csum_status & (BIT(0) | BIT(2) | BIT(3))))
@@ -264,8 +270,10 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 
 	remove_pad = FIELD_GET(MT_RXD2_NORMAL_HDR_OFFSET, rxd2);
 
-	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR)
+	if (rxd2 & MT_RXD2_NORMAL_MAX_LEN_ERROR) {
+		mib->rx_d_max_len_err++;
 		return -EINVAL;
+	}
 
 	rxd += 6;
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_4) {
@@ -277,8 +285,10 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 		qos_ctl = FIELD_GET(MT_RXD8_QOS_CTL, v2);
 
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			mib->rx_d_too_short++;
 			return -EINVAL;
+		}
 	}
 
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_1) {
@@ -308,8 +318,10 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 			}
 		}
 		rxd += 4;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			mib->rx_d_too_short++;
 			return -EINVAL;
+		}
 	}
 
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_2) {
@@ -330,8 +342,10 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 		}
 
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			mib->rx_d_too_short++;
 			return -EINVAL;
+		}
 	}
 
 	/* RXD Group 3 - P-RXV */
@@ -342,8 +356,10 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 
 		rxv = rxd;
 		rxd += 2;
-		if ((u8 *)rxd - skb->data >= skb->len)
+		if ((u8 *)rxd - skb->data >= skb->len) {
+			mib->rx_d_too_short++;
 			return -EINVAL;
+		}
 
 		v0 = le32_to_cpu(rxv[0]);
 		v1 = le32_to_cpu(rxv[1]);
@@ -430,6 +446,15 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 				ieee80211_get_hdrlen_from_skb(skb));
 			skb_pull(skb, 2);
 		}
+
+		if (stats) {
+			if (unlikely(status->nss > 3))
+				stats->rx_nss[3]++;
+			else
+				stats->rx_nss[status->nss - 1]++;
+
+			stats->rx_mode[mode]++;
+		}
 	}
 
 	if (!hdr_trans) {
@@ -455,6 +480,9 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 
 	if (rxv && mode >= MT_PHY_TYPE_HE_SU && !(status->flag & RX_FLAG_8023))
 		mt76_connac2_mac_decode_he_radiotap(&dev->mt76, skb, rxv, mode);
+
+	mib->rx_pkts_nic++;
+	mib->rx_bytes_nic += skb->len;
 
 	if (!status->wcid || !ieee80211_is_data_qos(fc))
 		return 0;
