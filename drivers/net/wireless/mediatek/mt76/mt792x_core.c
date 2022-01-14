@@ -723,6 +723,7 @@ int mt792x_init_wiphy(struct ieee80211_hw *hw)
 	struct wiphy *wiphy = hw->wiphy;
 
 	hw->queues = 4;
+	hw->max_report_rates = 1;
 	if (dev->has_eht) {
 		hw->max_rx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF_EHT;
 		hw->max_tx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF_EHT;
