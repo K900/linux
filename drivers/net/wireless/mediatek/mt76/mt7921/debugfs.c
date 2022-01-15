@@ -311,7 +311,8 @@ static ssize_t mt7921_read_set_rate_override(struct file *file,
 		"cck-mcs: 0=1Mbps, 1=2Mbps, 3=5.5Mbps, 3=11Mbps\n"
 		"ofdm-mcs: 0=6Mbps, 1=9Mbps, 2=12Mbps, 3=18Mbps, 4=24Mbps, 5=36Mbps,"
 		" 6=48Mbps, 7=54Mbps\n"
-		"tpc is not implemented currently, bw is 0-3 for 20-160\n"
+		"tpc: adjust power from defaults, in 1/2 db units 0 - 31, 16 is default\n"
+		"bw is 0-3 for 20-160\n"
 		" For example, wlan0:\n"
 		"echo \"wlan0 tpc=255 sgi=1 mcs=0 nss=1 pream=3 retries=1 dynbw=0 bw=0"
 		" active=1\" > ...mt76/set_rate_override\n";
@@ -525,5 +526,6 @@ int mt7921_init_debugfs(struct mt792x_dev *dev)
 					    mt7921s_sched_quota_read);
 	debugfs_create_file("set_rate_override", 0600, dir,
 			    dev, &fops_set_rate_override);
+	/* TODO:  Add rate_txpower_show */
 	return 0;
 }
