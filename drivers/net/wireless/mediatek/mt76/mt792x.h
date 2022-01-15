@@ -109,6 +109,7 @@ struct mt792x_link_sta {
 	unsigned long last_txs;
 
 	struct mt76_connac_sta_key_conf bip;
+	struct mt76_testmode_data test;
 
 	struct mt792x_sta *sta;
 
