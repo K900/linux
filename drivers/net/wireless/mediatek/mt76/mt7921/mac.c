@@ -112,6 +112,15 @@ static void mt7921_mac_sta_poll(struct mt792x_dev *dev)
 						       rx_cur);
 		}
 
+		/* If we are in tx-override mode, then wtbl doesn't provide useful report
+		 * for the SGI/LGI stuff, so just get it from the override struct.
+		 */
+		if (mlink->test.txo_active) {
+			mlink->wcid.rate_he_gi = mlink->test.tx_rate_sgi;
+			mlink->wcid.rate_short_gi = mlink->test.tx_rate_sgi;
+			continue;
+		}
+
 		/* We don't support reading GI info from txs packets.
 		 * For accurate tx status reporting and AQL improvement,
 		 * we need to make sure that flags match so polling GI
