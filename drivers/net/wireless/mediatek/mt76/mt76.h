@@ -1038,6 +1038,11 @@ struct mt76_dev {
 	 */
 	bool txs_for_no_skb_enabled;
 
+	/* Should we request TXS for all skbs (and properly map to skb)
+	  * Very likely this reduces performance.
+	  */
+	bool txs_for_all_enabled;
+
 	u32 rxfilter;
 
 	struct delayed_work scan_work;
