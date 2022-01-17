@@ -2066,6 +2066,9 @@ void mt76_ethtool_worker(struct mt76_ethtool_worker_info *wi,
 	data[ei++] += stats->rx_bw_he_ru;
 	data[ei++] += stats->rx_ru_106;
 
+	for (q = 0; q<12; q++)
+		data[ei++] += stats->rx_rate_idx[q];
+
 	wi->worker_stat_count = ei - wi->initial_stat_idx;
 }
 EXPORT_SYMBOL_GPL(mt76_ethtool_worker);
