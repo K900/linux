@@ -34,7 +34,8 @@ int mt7921e_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (sta) {
 		struct mt792x_sta *msta = (struct mt792x_sta *)sta->drv_priv;
 
-		if (time_after(jiffies, msta->deflink.last_txs + HZ / 4)) {
+		if (dev->mt76.txs_for_all_enabled ||
+		    time_after(jiffies, msta->deflink.last_txs + HZ / 4)) {
 			info->flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
 			msta->deflink.last_txs = jiffies;
 		}

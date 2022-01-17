@@ -112,6 +112,28 @@ mt7915_txs_for_no_skb_get(void *data, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(fops_txs_for_no_skb, mt7915_txs_for_no_skb_get,
 			 mt7915_txs_for_no_skb_set, "%lld\n");
 
+static int
+mt76_txs_for_all_set(void *data, u64 val)
+{
+	struct mt76_dev *dev = data;
+
+	dev->txs_for_all_enabled = !!val;
+
+	return 0;
+}
+
+static int
+mt76_txs_for_all_get(void *data, u64 *val)
+{
+	struct mt76_dev *dev = data;
+
+	*val = dev->txs_for_all_enabled;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_txs_for_all, mt76_txs_for_all_get,
+			 mt76_txs_for_all_set, "%lld\n");
 
 void mt76_seq_puts_array(struct seq_file *file, const char *str,
 			 s8 *val, int len)
@@ -141,6 +163,7 @@ mt76_register_debugfs_fops(struct mt76_phy *phy,
 	debugfs_create_file_unsafe("napi_threaded", 0600, dir, dev,
 				   &fops_napi_threaded);
 	debugfs_create_file("force_txs", 0600, dir, dev, &fops_txs_for_no_skb);
+	debugfs_create_file("force_txs_all_skb", 0600, dir, dev, &fops_txs_for_all);
 	debugfs_create_blob("eeprom", 0400, dir, &dev->eeprom);
 	if (dev->otp.data)
 		debugfs_create_blob("otp", 0400, dir, &dev->otp);
