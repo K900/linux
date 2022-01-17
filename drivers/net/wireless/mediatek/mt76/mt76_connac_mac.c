@@ -1102,6 +1102,12 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 			*nss = 2;
 		else
 			*nss = 1;
+		if (stats) {
+			if (unlikely(i > 11))
+				stats->rx_rate_idx[11]++;
+			else
+				stats->rx_rate_idx[i]++;
+		}
 		break;
 	case MT_PHY_TYPE_HT_GF:
 	case MT_PHY_TYPE_HT:
@@ -1113,6 +1119,10 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 			mib->rx_d_bad_ht_rix++;
 			return -EINVAL;
 		}
+		if (stats) {
+			int rix = i % 8;
+			stats->rx_rate_idx[rix]++;
+		}
 		break;
 	case MT_PHY_TYPE_VHT:
 		status->encoding = RX_ENC_VHT;
@@ -1122,6 +1132,8 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 			mib->rx_d_bad_vht_rix++;
 			return -EINVAL;
 		}
+		if (stats)
+			stats->rx_rate_idx[i]++;
 		break;
 	case MT_PHY_TYPE_HE_MU:
 	case MT_PHY_TYPE_HE_SU:
@@ -1134,6 +1146,12 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 			status->he_gi = gi;
 
 		status->he_dcm = dcm;
+		if (stats) {
+			if (unlikely(i > 11))
+				stats->rx_rate_idx[11]++;
+			else
+				stats->rx_rate_idx[i]++;
+		}
 		break;
 	default:
 		mib->rx_d_bad_mode++;
