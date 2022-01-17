@@ -347,6 +347,7 @@ struct mt76_sta_stats {
 	u64 tx_nss[4];		/* 1, 2, 3, 4 */
 	u64 tx_mcs[16];		/* mcs idx */
 	u64 tx_bytes;
+
 	/* WED TX */
 	unsigned long tx_attempts; /* Counting any retries. unit: MSDU */
 	unsigned long tx_retries; /* number of times frames were retried */
@@ -365,6 +366,7 @@ struct mt76_sta_stats {
 	unsigned long rx_bw_160;
 	unsigned long rx_bw_he_ru;
 	unsigned long rx_ru_106;
+	unsigned long rx_rate_idx[12];
 };
 
 enum mt76_wcid_flags {
