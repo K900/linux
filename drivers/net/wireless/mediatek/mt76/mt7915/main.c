@@ -1528,6 +1528,18 @@ static const char mt7915_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"v_rx_bw_160",
 	"v_rx_bw_he_ru",
 	"v_rx_ru_106",
+	"v_rx_mcs_0",
+	"v_rx_mcs_1",
+	"v_rx_mcs_2",
+	"v_rx_mcs_3",
+	"v_rx_mcs_4",
+	"v_rx_mcs_5",
+	"v_rx_mcs_6",
+	"v_rx_mcs_7",
+	"v_rx_mcs_8",
+	"v_rx_mcs_9",
+	"v_rx_mcs_10",
+	"v_rx_mcs_11",
 };
 
 #define MT7915_SSTATS_LEN ARRAY_SIZE(mt7915_gstrings_stats)
