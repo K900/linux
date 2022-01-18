@@ -2249,6 +2249,22 @@ static const char mt7996_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"v_rx_mcs_11",
 	"v_rx_mcs_12",
 	"v_rx_mcs_13",
+
+	"rx_ampdu_len:0-1",
+	"rx_ampdu_len:2-10",
+	"rx_ampdu_len:11-19",
+	"rx_ampdu_len:20-28",
+	"rx_ampdu_len:29-37",
+	"rx_ampdu_len:38-46",
+	"rx_ampdu_len:47-55",
+	"rx_ampdu_len:56-79",
+	"rx_ampdu_len:80-103",
+	"rx_ampdu_len:104-127",
+	"rx_ampdu_len:128-151",
+	"rx_ampdu_len:152-175",
+	"rx_ampdu_len:176-199",
+	"rx_ampdu_len:200-223",
+	"rx_ampdu_len:224-247",
 };
 
 #define MT7996_SSTATS_LEN ARRAY_SIZE(mt7996_gstrings_stats)
