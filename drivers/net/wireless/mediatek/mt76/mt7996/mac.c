@@ -705,6 +705,22 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 	if (status->amsdu) {
 		status->first_amsdu = amsdu_info == MT_RXD4_FIRST_AMSDU_FRAME;
 		status->last_amsdu = amsdu_info == MT_RXD4_LAST_AMSDU_FRAME;
+
+		/* Deal with rx ampdu histogram stats */
+		if (status->wcid) {
+			status->wcid->ampdu_chain++;
+			if (status->last_amsdu) {
+				mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+				status->wcid->ampdu_chain = 0;
+			}
+		}
+	} else {
+		/* Deal with rx ampdu histogram stats */
+		if (status->wcid) {
+			status->wcid->ampdu_chain++;
+			mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+			status->wcid->ampdu_chain = 0;
+		}
 	}
 
 	/* IEEE 802.11 fragmentation can only be applied to unicast frames.
