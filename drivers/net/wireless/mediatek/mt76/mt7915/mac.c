@@ -509,6 +509,22 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	if (status->amsdu) {
 		status->first_amsdu = amsdu_info == MT_RXD4_FIRST_AMSDU_FRAME;
 		status->last_amsdu = amsdu_info == MT_RXD4_LAST_AMSDU_FRAME;
+
+		/* Deal with rx ampdu histogram stats */
+		if (status->wcid) {
+			status->wcid->ampdu_chain++;
+			if (status->last_amsdu) {
+				mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+				status->wcid->ampdu_chain = 0;
+			}
+		}
+	} else {
+		/* Deal with rx ampdu histogram stats */
+		if (status->wcid) {
+			status->wcid->ampdu_chain++;
+			mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+			status->wcid->ampdu_chain = 0;
+		}
 	}
 
 	hdr_gap = (u8 *)rxd - skb->data + 2 * remove_pad;

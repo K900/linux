@@ -367,6 +367,7 @@ struct mt76_sta_stats {
 	unsigned long rx_bw_he_ru;
 	unsigned long rx_ru_106;
 	unsigned long rx_rate_idx[12];
+	unsigned long rx_ampdu_len[15];
 };
 
 enum mt76_wcid_flags {
@@ -425,6 +426,7 @@ struct mt76_wcid {
 
 	u32 tx_info;
 	bool sw_iv;
+	u16 ampdu_chain; /* rx ampdu chain count, for stats */
 
 	struct list_head tx_list;
 	struct sk_buff_head tx_pending;
@@ -1231,6 +1233,58 @@ struct mt76_power_limits {
 		s8 ru_bf[7][10];
 	} path;
 };
+
+static inline
+void mt76_inc_ampdu_bucket(int ampdu_len, struct mt76_sta_stats *stats)
+{
+	/*   "rx_ampdu_len:0-1",
+	     "rx_ampdu_len:2-10",
+	     "rx_ampdu_len:11-19",
+	     "rx_ampdu_len:20-28",
+	     "rx_ampdu_len:29-37",
+	     "rx_ampdu_len:38-46",
+	     "rx_ampdu_len:47-55",
+	     "rx_ampdu_len:56-79",
+	     "rx_ampdu_len:80-103",
+	     "rx_ampdu_len:104-127",
+	     "rx_ampdu_len:128-151",
+	     "rx_ampdu_len:152-175",
+	     "rx_ampdu_len:176-199",
+	     "rx_ampdu_len:200-223",
+	     "rx_ampdu_len:224-247",
+	*/
+
+	if (ampdu_len <= 1)
+		stats->rx_ampdu_len[0]++;
+	else if (ampdu_len <= 10)
+		stats->rx_ampdu_len[1]++;
+	else if (ampdu_len <= 19)
+		stats->rx_ampdu_len[2]++;
+	else if (ampdu_len <= 28)
+		stats->rx_ampdu_len[3]++;
+	else if (ampdu_len <= 37)
+		stats->rx_ampdu_len[4]++;
+	else if (ampdu_len <= 46)
+		stats->rx_ampdu_len[5]++;
+	else if (ampdu_len <= 55)
+		stats->rx_ampdu_len[6]++;
+	else if (ampdu_len <= 79)
+		stats->rx_ampdu_len[7]++;
+	else if (ampdu_len <= 103)
+		stats->rx_ampdu_len[8]++;
+	else if (ampdu_len <= 127)
+		stats->rx_ampdu_len[9]++;
+	else if (ampdu_len <= 151)
+		stats->rx_ampdu_len[10]++;
+	else if (ampdu_len <= 175)
+		stats->rx_ampdu_len[11]++;
+	else if (ampdu_len <= 199)
+		stats->rx_ampdu_len[12]++;
+	else if (ampdu_len <= 223)
+		stats->rx_ampdu_len[13]++;
+	else
+		stats->rx_ampdu_len[14]++;
+}
 
 struct mt76_ethtool_worker_info {
 	u64 *data;
