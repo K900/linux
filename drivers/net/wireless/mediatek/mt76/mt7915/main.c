@@ -1473,6 +1473,38 @@ static const char mt7915_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"d_rx_bad_mode",
 	"d_rx_bad_bw",
 
+	/* muru mu-mimo and ofdma related stats */
+	"rx_cck_cnt",
+	"rx_ofdm_cnt",
+	"rx_htmix_cnt",
+	"rx_htgf_cnt",
+	"rx_vht_su_cnt",
+	"rx_vht_2mu_cnt",
+	"rx_vht_3mu_cnt",
+	"rx_vht_4mu_cnt",
+	"rx_he_su_cnt",
+	"rx_he_ext_su_cnt",
+	"rx_he_2ru_cnt",
+	"rx_he_2mu_cnt",
+	"rx_he_3ru_cnt",
+	"rx_he_3mu_cnt",
+	"rx_he_4ru_cnt",
+	"rx_he_4mu_cnt",
+	"rx_he_5to8ru_cnt",
+	"rx_he_9to16ru_cnt",
+	"rx_he_gtr16ru_cnt",
+
+	"tx_hetrig_su_cnt",
+	"tx_hetrig_2ru_cnt",
+	"tx_hetrig_3ru_cnt",
+	"tx_hetrig_4ru_cnt",
+	"tx_hetrig_5to8ru_cnt",
+	"tx_hetrig_9to16ru_cnt",
+	"tx_hetrig_gtr16ru_cnt",
+	"tx_hetrig_2mu_cnt",
+	"tx_hetrig_3mu_cnt",
+	"tx_hetrig_4mu_cnt",
+
 	/* per vif counters */
 	"v_tx_mpdu_attempts", /* counting any retries */
 	"v_tx_mpdu_fail",  /* frames that failed even after retry */
@@ -1739,6 +1771,37 @@ void mt7915_get_et_stats(struct ieee80211_hw *hw,
 	data[ei++] = mib->rx_d_bad_vht_rix;
 	data[ei++] = mib->rx_d_bad_mode;
 	data[ei++] = mib->rx_d_bad_bw;
+
+	data[ei++] = mib->dl_cck_cnt;
+	data[ei++] = mib->dl_ofdm_cnt;
+	data[ei++] = mib->dl_htmix_cnt;
+	data[ei++] = mib->dl_htgf_cnt;
+	data[ei++] = mib->dl_vht_su_cnt;
+	data[ei++] = mib->dl_vht_2mu_cnt;
+	data[ei++] = mib->dl_vht_3mu_cnt;
+	data[ei++] = mib->dl_vht_4mu_cnt;
+	data[ei++] = mib->dl_he_su_cnt;
+	data[ei++] = mib->dl_he_ext_su_cnt;
+	data[ei++] = mib->dl_he_2ru_cnt;
+	data[ei++] = mib->dl_he_2mu_cnt;
+	data[ei++] = mib->dl_he_3ru_cnt;
+	data[ei++] = mib->dl_he_3mu_cnt;
+	data[ei++] = mib->dl_he_4ru_cnt;
+	data[ei++] = mib->dl_he_4mu_cnt;
+	data[ei++] = mib->dl_he_5to8ru_cnt;
+	data[ei++] = mib->dl_he_9to16ru_cnt;
+	data[ei++] = mib->dl_he_gtr16ru_cnt;
+
+	data[ei++] = mib->ul_hetrig_su_cnt;
+	data[ei++] = mib->ul_hetrig_2ru_cnt;
+	data[ei++] = mib->ul_hetrig_3ru_cnt;
+	data[ei++] = mib->ul_hetrig_4ru_cnt;
+	data[ei++] = mib->ul_hetrig_5to8ru_cnt;
+	data[ei++] = mib->ul_hetrig_9to16ru_cnt;
+	data[ei++] = mib->ul_hetrig_gtr16ru_cnt;
+	data[ei++] = mib->ul_hetrig_2mu_cnt;
+	data[ei++] = mib->ul_hetrig_3mu_cnt;
+	data[ei++] = mib->ul_hetrig_4mu_cnt;
 
 	/* Add values for all stations owned by this vif */
 	wi.initial_stat_idx = ei;
