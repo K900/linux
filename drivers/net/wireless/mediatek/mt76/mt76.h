@@ -440,6 +440,7 @@ struct mt76_wcid {
 	struct list_head poll_list;
 
 	struct mt76_wcid *def_wcid;
+	unsigned long last_idr_check_at; /* in jiffies */
 };
 
 struct mt76_txq {
