@@ -179,12 +179,6 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 	struct sk_buff *skb;
 	struct sk_buff *skb2;
 	int id;
-	/* Check twice as often as the timeout value so that we mitigate
-	 * worse-case timeout detection (where we do the check right before
-	 * the per skb timer would have expired and so have to wait another interval
-	 * to detect the skb status timeout.)
-	 */
-	static const int check_interval = MT_TX_STATUS_SKB_TIMEOUT / 2;
 
 	lockdep_assert_held(&dev->status_lock);
 
@@ -193,7 +187,8 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 	/* If we have not checked for stale entries recently,
 	 * then do that check now.
 	 */
-	if (time_is_after_jiffies(wcid->last_idr_check_at + check_interval))
+	if (time_is_after_jiffies(wcid->last_idr_check_at +
+				  dev->stale_skb_status_check))
 		goto out;
 
 	/* look for stale entries in the wcid idr queue */
@@ -205,7 +200,7 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 				continue;
 
 			if (time_is_after_jiffies(cb->jiffies +
-						  MT_TX_STATUS_SKB_TIMEOUT))
+						  dev->stale_skb_status_timeout))
 				continue;
 		}
 
