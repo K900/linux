@@ -2169,13 +2169,15 @@ void mt7915_mac_work(struct work_struct *work)
 	/* this method is called about every 100ms.  Some pkt counters are 16-bit,
 	 * so poll every 200ms to keep overflows at a minimum.
 	 */
-	if (++mphy->mac_work_count == 2) {
-		mphy->mac_work_count = 0;
-
+	if ((++mphy->mac_work_count & 0x1) == 0) {
 		mt7915_mac_update_stats(phy);
 		mt7915_mac_severe_check(phy);
+	}
 
-		if (phy->dev->muru_debug)
+	/* MURU stats are 32-bit, poll them more rarely */
+	if (phy->dev->muru_debug) {
+		/* query these every 4 'ticks' */
+		if ((mphy->mac_work_count & 0x3) == 0)
 			mt7915_mcu_muru_debug_get(phy);
 	}
 
