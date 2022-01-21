@@ -512,7 +512,7 @@ struct mt76_rx_tid {
  * long after that for firmware to send the TXS callback if it is going
  * to do so.)
  */
-#define MT_TX_STATUS_SKB_TIMEOUT	(HZ / 4)
+#define MT_TX_STATUS_SKB_TIMEOUT_DFLT	(HZ / 4)
 
 struct mt76_tx_cb {
 	unsigned long jiffies;
@@ -1047,6 +1047,8 @@ struct mt76_dev {
 	bool txs_for_all_enabled;
 
 	u32 rxfilter;
+	u32 stale_skb_status_check;
+	u32 stale_skb_status_timeout;
 
 	struct delayed_work scan_work;
 	spinlock_t scan_lock;

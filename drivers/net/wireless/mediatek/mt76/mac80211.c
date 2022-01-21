@@ -733,6 +733,14 @@ mt76_alloc_device(struct device *pdev, unsigned int size,
 	for (i = 0; i < ARRAY_SIZE(dev->q_rx); i++)
 		skb_queue_head_init(&dev->rx_skb[i]);
 
+	/* Check twice as often as the timeout value so that we mitigate
+	 * worse-case timeout detection (where we do the check right before
+	 * the per skb timer would have expired and so have to wait another interval
+	 * to detect the skb status timeout.)
+	 */
+	dev->stale_skb_status_check = MT_TX_STATUS_SKB_TIMEOUT_DFLT / 2;
+	dev->stale_skb_status_timeout = MT_TX_STATUS_SKB_TIMEOUT_DFLT;
+
 	dev->wq = alloc_ordered_workqueue("mt76", 0);
 	if (!dev->wq) {
 		ieee80211_free_hw(hw);
