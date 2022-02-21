@@ -2958,21 +2958,23 @@ EXPORT_SYMBOL_GPL(mt76_connac_mcu_del_wtbl_all);
 int mt76_connac_mcu_rdd_cmd(struct mt76_dev *dev, int cmd, u8 index,
 			    u8 rx_sel, u8 val)
 {
-	struct {
-		u8 ctrl;
-		u8 rdd_idx;
-		u8 rdd_rx_sel;
-		u8 val;
-		u8 rsv[4];
-	} __packed req = {
+	int rv;
+	struct rdd_cmd_msg req = {
 		.ctrl = cmd,
 		.rdd_idx = index,
 		.rdd_rx_sel = rx_sel,
 		.val = val,
 	};
 
-	return mt76_mcu_send_msg(dev, MCU_EXT_CMD(SET_RDD_CTRL), &req,
-				 sizeof(req), true);
+	rv = mt76_mcu_send_msg(dev, MCU_EXT_CMD(SET_RDD_CTRL), &req,
+			       sizeof(req), true);
+
+	if (!WARN_ON(index > 1)) {
+		memcpy(&(dev->debug_mcu_rdd_cmd[index]), &req, sizeof(req));
+		dev->debug_mcu_rdd_cmd_rv[index] = rv;
+	}
+
+	return rv;
 }
 EXPORT_SYMBOL_GPL(mt76_connac_mcu_rdd_cmd);
 
