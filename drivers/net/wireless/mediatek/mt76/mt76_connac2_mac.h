@@ -42,6 +42,7 @@ enum {
 #define MT_TX_FREE_COUNT		GENMASK(12, 0)
 /* 0: success, others: dropped */
 #define MT_TX_FREE_STATUS		GENMASK(14, 13)
+#define MT_TX_FREE_HEAD_OF_PAGE         BIT(15)
 #define MT_TX_FREE_MSDU_ID		GENMASK(30, 16)
 #define MT_TX_FREE_PAIR			BIT(31)
 /* will support this field in further revision */
