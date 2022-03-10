@@ -1192,7 +1192,7 @@ static void mt7915_sta_statistics(struct ieee80211_hw *hw,
 		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BYTES64);
 
 		if (!mt7915_mcu_wed_wa_tx_stats(phy->dev, msta->wcid.idx)) {
-			sinfo->tx_packets = msta->wcid.stats.tx_packets;
+			sinfo->tx_packets = msta->wcid.stats.tx_mpdu_ok;
 			sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_PACKETS);
 		}
 
@@ -1448,6 +1448,10 @@ static const char mt7915_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"ul_hetrig_4mu_cnt",
 
 	/* per vif counters */
+	"v_tx_mpdu_attempts", /* counting any retries */
+	"v_tx_mpdu_fail",  /* frames that failed even after retry */
+	"v_tx_mpdu_retry", /* number of times frames were retried */
+	"v_tx_mpdu_ok", /* frames that succeeded, perhaps after retry */
 	"v_tx_mode_cck",
 	"v_tx_mode_ofdm",
 	"v_tx_mode_ht",

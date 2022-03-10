@@ -2017,6 +2017,10 @@ void mt76_ethtool_worker(struct mt76_ethtool_worker_info *wi,
 
 	wi->sta_count++;
 
+	data[ei++] += stats->tx_attempts;
+	data[ei++] += stats->tx_failed;
+	data[ei++] += stats->tx_retries;
+	data[ei++] += stats->tx_mpdu_ok;
 	data[ei++] += stats->tx_mode[MT_PHY_TYPE_CCK];
 	data[ei++] += stats->tx_mode[MT_PHY_TYPE_OFDM];
 	data[ei++] += stats->tx_mode[MT_PHY_TYPE_HT];

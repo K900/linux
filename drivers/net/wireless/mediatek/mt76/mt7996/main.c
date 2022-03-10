@@ -1922,7 +1922,7 @@ static void mt7996_sta_statistics(struct ieee80211_hw *hw,
 		sinfo->rx_bytes = msta_link->wcid.stats.rx_bytes;
 		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_RX_BYTES64);
 
-		sinfo->tx_packets = msta_link->wcid.stats.tx_packets;
+		sinfo->tx_packets = msta_link->wcid.stats.tx_mpdu_ok;
 		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_PACKETS);
 
 		sinfo->rx_packets = msta_link->wcid.stats.rx_packets;

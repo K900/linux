@@ -476,7 +476,8 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 void mt76_connac2_tx_check_aggr(struct ieee80211_sta *sta, __le32 *txwi);
 void mt76_connac2_txwi_free(struct mt76_dev *dev, struct mt76_txwi_cache *t,
 			    struct ieee80211_sta *sta,
-			    struct list_head *free_list);
+			    struct list_head *free_list,
+			    u32 tx_cnt, u32 tx_status, u32 ampdu);
 void mt76_connac2_tx_token_put(struct mt76_dev *dev);
 
 /* connac3 */

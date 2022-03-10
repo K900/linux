@@ -366,6 +366,7 @@ mt7915_init_wiphy(struct mt7915_phy *phy)
 	struct mt7915_dev *dev = phy->dev;
 
 	hw->queues = 4;
+	hw->max_report_rates = 1;
 	hw->max_rx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF_HE;
 	hw->max_tx_aggregation_subframes = IEEE80211_MAX_AMPDU_BUF_HE;
 	hw->netdev_features = NETIF_F_RXCSUM;

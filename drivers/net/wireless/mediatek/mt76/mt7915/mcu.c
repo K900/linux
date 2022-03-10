@@ -4164,10 +4164,13 @@ int mt7915_mcu_wed_wa_tx_stats(struct mt7915_dev *dev, u16 wlan_idx)
 	rcu_read_lock();
 
 	wcid = mt76_wcid_ptr(dev, wlan_idx);
-	if (wcid)
-		wcid->stats.tx_packets += le32_to_cpu(res->tx_packets);
-	else
+	if (wcid) {
+		/* TODO:  Nice if this path reported retries and failures */
+		wcid->stats.tx_attempts += le32_to_cpu(res->tx_packets);
+		wcid->stats.tx_mpdu_ok += le32_to_cpu(res->tx_packets);
+	} else {
 		ret = -EINVAL;
+	}
 
 	rcu_read_unlock();
 out:
