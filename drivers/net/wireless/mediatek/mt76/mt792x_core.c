@@ -462,6 +462,10 @@ static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"rx_ampdu_bytes_cnt",
 	"rx_ba_cnt",
 	/* per vif counters */
+	"v_tx_mpdu_attempts", /* counting any retries */
+	"v_tx_mpdu_fail",  /* frames that failed even after retry */
+	"v_tx_mpdu_retry", /* number of times frames were retried */
+	"v_tx_mpdu_ok", /* frames that succeeded, perhaps after retry */
 	"v_tx_mode_cck",
 	"v_tx_mode_ofdm",
 	"v_tx_mode_ht",

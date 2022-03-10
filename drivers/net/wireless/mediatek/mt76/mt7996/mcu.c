@@ -695,7 +695,9 @@ mt7996_mcu_rx_all_sta_info_event(struct mt7996_dev *dev, struct sk_buff *skb)
 			if (!wcid)
 				break;
 
-			wcid->stats.tx_packets +=
+			wcid->stats.tx_mpdu_ok +=
+				le32_to_cpu(res->msdu_cnt[i].tx_msdu_cnt);
+			wcid->stats.tx_attempts +=
 				le32_to_cpu(res->msdu_cnt[i].tx_msdu_cnt);
 			wcid->stats.rx_packets +=
 				le32_to_cpu(res->msdu_cnt[i].rx_msdu_cnt);
