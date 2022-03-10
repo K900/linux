@@ -65,8 +65,13 @@ mt76_tx_status_unlock(struct mt76_dev *dev, struct sk_buff_head *list)
 		struct mt76_wcid *wcid;
 
 		wcid = __mt76_wcid_ptr(dev, cb->wcid);
+		mtk_dbg(dev, TX, "%s: wcid: %px  cb->wcid: %d\n",
+			__func__, wcid, cb->wcid);
 		if (wcid) {
 			status.sta = wcid_to_sta(wcid);
+			mtk_dbg(dev, TX, "%s: status.sta: %px\n",
+				__func__, status.sta);
+			rs.try_count = 1;
 			if (status.sta && (wcid->rate.flags || wcid->rate.legacy)) {
 				rs.rate_idx = wcid->rate;
 				status.rates = &rs;
@@ -257,14 +262,24 @@ void __mt76_tx_complete_skb(struct mt76_dev *dev, u16 wcid_idx, struct sk_buff *
 	struct ieee80211_tx_status status = {
 		.skb = skb,
 		.free_list = free_list,
+		.info = IEEE80211_SKB_CB(skb),
 	};
 	struct mt76_wcid *wcid = NULL;
 	struct ieee80211_hw *hw;
 	struct sk_buff_head list;
+	struct ieee80211_rate_status status_rate = { 0 };
 
 	rcu_read_lock();
 
 	wcid = __mt76_wcid_ptr(dev, wcid_idx);
+	if (wcid) {
+		status.rates = &status_rate;
+		status.n_rates = 1;
+		status_rate.rate_idx = wcid->rate;
+		status_rate.try_count = 1;
+		status.sta = wcid_to_sta(wcid);
+	}
+
 	mt76_tx_check_non_aql(dev, wcid, skb);
 
 #ifdef CONFIG_NL80211_TESTMODE

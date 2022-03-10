@@ -545,8 +545,10 @@ void mt76_connac2_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 			mt76_connac_lmac_mapping(skb_get_queue_mapping(skb));
 
 		/* mt7915 WA only counts WED path */
-		if (is_mt7915(dev) && mtk_wed_device_active(&dev->mmio.wed))
-			wcid->stats.tx_packets++;
+		if (is_mt7915(dev) && mtk_wed_device_active(&dev->mmio.wed)) {
+			wcid->stats.tx_attempts++;
+			wcid->stats.tx_mpdu_ok++;
+		}
 	}
 
 	val = FIELD_PREP(MT_TXD0_TX_BYTES, skb->len + sz_txd) |
@@ -1174,15 +1176,20 @@ EXPORT_SYMBOL_GPL(mt76_connac2_tx_check_aggr);
 
 void mt76_connac2_txwi_free(struct mt76_dev *dev, struct mt76_txwi_cache *t,
 			    struct ieee80211_sta *sta,
-			    struct list_head *free_list)
+			    struct list_head *free_list,
+			    u32 tx_cnt, u32 tx_status, u32 ampdu)
 {
 	struct mt76_wcid *wcid;
 	__le32 *txwi;
 	u16 wcid_idx;
+	struct ieee80211_tx_info *info;
+	struct ieee80211_tx_rate *rate;
 
 	mt76_connac_txp_skb_unmap(dev, t);
 	if (!t->skb)
 		goto out;
+
+	rcu_read_lock(); /* protect wcid access */
 
 	txwi = (__le32 *)mt76_get_txwi_ptr(dev, t);
 	if (sta) {
@@ -1202,6 +1209,67 @@ void mt76_connac2_txwi_free(struct mt76_dev *dev, struct mt76_txwi_cache *t,
 	if (sta && likely(t->skb->protocol != cpu_to_be16(ETH_P_PAE)))
 		mt76_connac2_tx_check_aggr(sta, txwi);
 
+	info = IEEE80211_SKB_CB(t->skb);
+
+	rate = &info->status.rates[0];
+	rate->idx = -1; /* will over-write below if we found wcid */
+	info->status.rates[1].idx = -1; /* terminate rate list */
+
+	/* force TX_STAT_AMPDU to be set, or mac80211 will ignore status */
+	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU)) {
+		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
+		info->status.ampdu_len = 1;
+	}
+
+	/* update info status based on cached wcid rate info since
+	 * txfree path doesn't give us a lot of info.
+	 */
+	if (wcid) {
+		struct mt76_sta_stats *stats = &wcid->stats;
+
+		if (wcid->rate.flags & RATE_INFO_FLAGS_MCS) {
+			rate->flags |= IEEE80211_TX_RC_MCS;
+			rate->idx = wcid->rate.mcs + wcid->rate.nss * 8;
+		} else if (wcid->rate.flags & RATE_INFO_FLAGS_VHT_MCS) {
+			rate->flags |= IEEE80211_TX_RC_VHT_MCS;
+			rate->idx = (wcid->rate.nss << 4) | wcid->rate.mcs;
+		} else if (wcid->rate.flags & RATE_INFO_FLAGS_HE_MCS) {
+			rate->idx = (wcid->rate.nss << 4) | wcid->rate.mcs;
+		} else {
+			rate->idx = wcid->rate.mcs;
+		}
+		switch (wcid->rate.bw) {
+		case RATE_INFO_BW_160:
+			rate->flags |= IEEE80211_TX_RC_160_MHZ_WIDTH;
+			break;
+		case RATE_INFO_BW_80:
+			rate->flags |= IEEE80211_TX_RC_80_MHZ_WIDTH;
+			break;
+		case RATE_INFO_BW_40:
+			rate->flags |= IEEE80211_TX_RC_40_MHZ_WIDTH;
+			break;
+		}
+
+		stats->tx_attempts += tx_cnt;
+		stats->tx_retries += tx_cnt - 1;
+
+		if (tx_status == 0)
+			stats->tx_mpdu_ok++;
+		else
+			stats->tx_failed++;
+	}
+
+	rcu_read_unlock();
+
+	/* Apply the values that this txfree path reports */
+	rate->count = tx_cnt;
+	if (tx_status == 0) {
+		info->flags |= IEEE80211_TX_STAT_ACK;
+		info->status.ampdu_ack_len = 1;
+	} else {
+		info->flags &= ~IEEE80211_TX_STAT_ACK;
+	}
+
 	__mt76_tx_complete_skb(dev, wcid_idx, t->skb, free_list);
 out:
 	t->skb = NULL;
@@ -1216,7 +1284,7 @@ void mt76_connac2_tx_token_put(struct mt76_dev *dev)
 
 	spin_lock_bh(&dev->token_lock);
 	idr_for_each_entry(&dev->token, txwi, id) {
-		mt76_connac2_txwi_free(dev, txwi, NULL, NULL);
+		mt76_connac2_txwi_free(dev, txwi, NULL, NULL, 1, 0, 1);
 		dev->token_count--;
 	}
 	spin_unlock_bh(&dev->token_lock);
