@@ -342,13 +342,15 @@ enum mt76_phy_type {
 struct mt76_sta_stats {
 	u64 tx_mode[__MT_PHY_TYPE_MAX];
 	u64 tx_bw[5];		/* 20, 40, 80, 160, 320 */
+	/* frames that succeeded, perhaps after retry */
+	unsigned long tx_mpdu_ok;
 	u64 tx_nss[4];		/* 1, 2, 3, 4 */
 	u64 tx_mcs[16];		/* mcs idx */
 	u64 tx_bytes;
 	/* WED TX */
-	u32 tx_packets;		/* unit: MSDU */
-	u32 tx_retries;
-	u32 tx_failed;
+	unsigned long tx_attempts; /* Counting any retries. unit: MSDU */
+	unsigned long tx_retries; /* number of times frames were retried */
+	unsigned long tx_failed; /* failed even after retries */
 	/* WED RX */
 	u64 rx_bytes;
 	u32 rx_packets;
