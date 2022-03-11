@@ -1855,7 +1855,8 @@ nl80211_parse_connkeys(struct cfg80211_registered_device *rdev,
 	return ERR_PTR(err);
 }
 
-static int nl80211_key_allowed(struct wireless_dev *wdev)
+static int nl80211_key_allowed(struct wireless_dev *wdev,
+			       struct genl_info *info)
 {
 	lockdep_assert_wiphy(wdev->wiphy);
 
@@ -1875,6 +1876,7 @@ static int nl80211_key_allowed(struct wireless_dev *wdev)
 		    (wiphy_ext_feature_isset(wdev->wiphy,
 					     NL80211_EXT_FEATURE_ASSOC_FRAME_ENCRYPTION)))
 			return 0;
+		GENL_SET_ERR_MSG(info, "key not allowed, no current_bss");
 		return -ENOLINK;
 	case NL80211_IFTYPE_NAN:
 	case NL80211_IFTYPE_NAN_DATA:
@@ -1893,6 +1895,7 @@ static int nl80211_key_allowed(struct wireless_dev *wdev)
 	case NL80211_IFTYPE_P2P_DEVICE:
 	case NL80211_IFTYPE_WDS:
 	case NUM_NL80211_IFTYPES:
+		GENL_SET_ERR_MSG(info, "key not allowed, bad iftype");
 		return -EINVAL;
 	}
 
@@ -5494,7 +5497,7 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 		if (!wdev->netdev)
 			return -EINVAL;
 
-		err = nl80211_key_allowed(wdev);
+		err = nl80211_key_allowed(wdev, info);
 		if (err)
 			return err;
 
@@ -5519,7 +5522,7 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 		if (!rdev->ops->set_default_mgmt_key)
 			return -EOPNOTSUPP;
 
-		err = nl80211_key_allowed(wdev);
+		err = nl80211_key_allowed(wdev, info);
 		if (err) {
 			pr_info("set-key:  key is not allowed: %d\n", err);
 			return err;
@@ -5546,7 +5549,7 @@ static int nl80211_set_key(struct sk_buff *skb, struct genl_info *info)
 		if (!rdev->ops->set_default_beacon_key)
 			return -EOPNOTSUPP;
 
-		err = nl80211_key_allowed(wdev);
+		err = nl80211_key_allowed(wdev, info);
 		if (err) {
 			pr_info("set-key: key is not allowed (!key.def), err: %d\n", err);
 			return err;
@@ -5637,7 +5640,7 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 		return -EINVAL;
 	}
 
-	err = nl80211_key_allowed(wdev);
+	err = nl80211_key_allowed(wdev, info);
 	if (err)
 		GENL_SET_ERR_MSG(info, "key not allowed");
 
@@ -5695,7 +5698,7 @@ static int nl80211_del_key(struct sk_buff *skb, struct genl_info *info)
 	if (!rdev->ops->del_key)
 		return -EOPNOTSUPP;
 
-	err = nl80211_key_allowed(wdev);
+	err = nl80211_key_allowed(wdev, info);
 
 	if (key.type == NL80211_KEYTYPE_GROUP && mac_addr &&
 	    !(rdev->wiphy.flags & WIPHY_FLAG_IBSS_RSN))
@@ -18341,7 +18344,7 @@ static int nl80211_set_qos_map(struct sk_buff *skb,
 		memcpy(qos_map->up, pos, IEEE80211_QOS_MAP_LEN_MIN);
 	}
 
-	ret = nl80211_key_allowed(dev->ieee80211_ptr);
+	ret = nl80211_key_allowed(dev->ieee80211_ptr, info);
 	if (!ret)
 		ret = rdev_set_qos_map(rdev, dev, qos_map);
 
