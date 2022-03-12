@@ -519,10 +519,10 @@ static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"v_tx_nss_4",
 
 	/* per-vif rx counters */
-	"v_rx_nss1",
-	"v_rx_nss2",
-	"v_rx_nss3",
-	"v_rx_nss4",
+	"v_rx_nss_1",
+	"v_rx_nss_2",
+	"v_rx_nss_3",
+	"v_rx_nss_4",
 	"v_rx_mode_cck",
 	"v_rx_mode_ofdm",
 	"v_rx_mode_ht",
