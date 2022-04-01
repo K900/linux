@@ -2969,7 +2969,7 @@ int mt76_connac_mcu_rdd_cmd(struct mt76_dev *dev, int cmd, u8 index,
 	rv = mt76_mcu_send_msg(dev, MCU_EXT_CMD(SET_RDD_CTRL), &req,
 			       sizeof(req), true);
 
-	if (!WARN_ON(index > 1)) {
+	if (!WARN_ON_ONCE(index > 2)) {
 		memcpy(&(dev->debug_mcu_rdd_cmd[index]), &req, sizeof(req));
 		dev->debug_mcu_rdd_cmd_rv[index] = rv;
 	}
