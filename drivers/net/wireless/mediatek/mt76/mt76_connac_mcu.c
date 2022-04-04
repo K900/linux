@@ -3154,7 +3154,7 @@ int mt76_connac2_load_patch(struct mt76_dev *dev, const char *fw_name)
 	case PATCH_NOT_DL_SEM_SUCCESS:
 		break;
 	default:
-		dev_err(dev->dev, "Failed to get patch semaphore\n");
+		dev_err(dev->dev, "Failed to get patch semaphore: %d\n", sem);
 		return -EAGAIN;
 	}
 
