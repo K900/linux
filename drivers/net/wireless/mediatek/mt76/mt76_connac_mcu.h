@@ -1055,6 +1055,7 @@ enum {
 	MCU_EXT_EVENT_BCC_NOTIFY = 0x75,
 	MCU_EXT_EVENT_WF_RF_PIN_CTRL = 0x9a,
 	MCU_EXT_EVENT_MURU_CTRL = 0x9f,
+	MCU_EXT_EVENT_IGMP_FLOODING = 0xBD, /* Seen on 7915 */
 };
 
 /* unified event table */
