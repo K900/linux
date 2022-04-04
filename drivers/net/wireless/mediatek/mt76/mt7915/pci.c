@@ -100,28 +100,14 @@ static int mt7915_pci_hif2_probe(struct pci_dev *pdev)
 	return 0;
 }
 
-static int mt7915_pci_probe(struct pci_dev *pdev,
-			    const struct pci_device_id *id)
+static int _mt7915_pci_probe(struct pci_dev *pdev,
+			     const struct pci_device_id *id)
 {
 	struct mt7915_hif *hif2 = NULL;
 	struct mt7915_dev *dev;
 	struct mt76_dev *mdev;
 	int irq;
 	int ret;
-
-	ret = pcim_enable_device(pdev);
-	if (ret)
-		return ret;
-
-	ret = pcim_iomap_regions(pdev, BIT(0), pci_name(pdev));
-	if (ret)
-		return ret;
-
-	pci_set_master(pdev);
-
-	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-	if (ret)
-		return ret;
 
 	mt76_pci_disable_aspm(pdev);
 
@@ -177,8 +163,11 @@ static int mt7915_pci_probe(struct pci_dev *pdev,
 	}
 
 	ret = mt7915_register_device(dev);
-	if (ret)
+	if (ret) {
+		dev_err(dev->mt76.dev, "mt7915_register_device failed, ret: %d",
+			ret);
 		goto free_hif2_irq;
+	}
 
 	return 0;
 
@@ -197,6 +186,44 @@ free_wed_or_irq_vector:
 free_device:
 	mt76_free_device(&dev->mt76);
 
+	return ret;
+}
+
+static int mt7915_pci_probe(struct pci_dev *pdev,
+			     const struct pci_device_id *id)
+{
+	int z;
+	int ret;
+
+	ret = pcim_enable_device(pdev);
+	if (ret)
+		return ret;
+
+	ret = pcim_iomap_regions(pdev, BIT(0), pci_name(pdev));
+	if (ret)
+		return ret;
+
+	pci_set_master(pdev);
+
+	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret)
+		return ret;
+
+	for (z = 0; z<3; z++) {
+		ret = _mt7915_pci_probe(pdev, id);
+		if (ret) {
+			dev_err(&pdev->dev, "mt7915_pci_probe had error on try %d/3, ret: %d",
+			       z + 1, ret);
+		} else {
+			/* It is worth a message to let user know we succeeded if
+			 * earlier attempts failed.
+			 */
+			if (z > 0)
+				dev_info(&pdev->dev, "mt7915_pci_probe succeeded on try %d/3",
+					 z + 1);
+			break;
+		}
+	}
 	return ret;
 }
 
