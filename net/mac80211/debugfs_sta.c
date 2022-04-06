@@ -708,65 +708,65 @@ static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
 			vhtc->vht_supported ? "" : "not ");
 	switch (link_sta->op_mode_bw) {
 	case IEEE80211_STA_RX_BW_20:
-		p += scnprintf(p, sizeof(buf) + buf - p, "20Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "20Mhz\n");
 		break;
 	case IEEE80211_STA_RX_BW_40:
-		p += scnprintf(p, sizeof(buf) + buf - p, "40Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "40Mhz\n");
 		break;
 	case IEEE80211_STA_RX_BW_80:
-		p += scnprintf(p, sizeof(buf) + buf - p, "80Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "80Mhz\n");
 		break;
 	case IEEE80211_STA_RX_BW_160:
-		p += scnprintf(p, sizeof(buf) + buf - p, "160Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "160Mhz\n");
 		break;
 	case IEEE80211_STA_RX_BW_320:
 		p += scnprintf(p, sizeof(buf) + buf - p, "320Mhz\n");
 		break;
 	}
 
-	p += scnprintf(p, sizeof(buf) + buf - p, "Chandef-Bandwidth:\t");
+	p += scnprintf(p, bufsz + buf - p, "Chandef-Bandwidth:\t");
 	switch (chandef->width) {
 	case NL80211_CHAN_WIDTH_20_NOHT:
-		p += scnprintf(p, sizeof(buf) + buf - p, "20Mhz-NOHT\n");
+		p += scnprintf(p, bufsz + buf - p, "20Mhz-NOHT\n");
 		break;
 	case NL80211_CHAN_WIDTH_20:
-		p += scnprintf(p, sizeof(buf) + buf - p, "20Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "20Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_40:
-		p += scnprintf(p, sizeof(buf) + buf - p, "40Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "40Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_80:
-		p += scnprintf(p, sizeof(buf) + buf - p, "80Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "80Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_80P80:
-		p += scnprintf(p, sizeof(buf) + buf - p, "80p80Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "80p80Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_160:
-		p += scnprintf(p, sizeof(buf) + buf - p, "160Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "160Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_320:
 		p += scnprintf(p, sizeof(buf) + buf - p, "320Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_1:
-		p += scnprintf(p, sizeof(buf) + buf - p, "1Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "1Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_2:
-		p += scnprintf(p, sizeof(buf) + buf - p, "2Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "2Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_4:
-		p += scnprintf(p, sizeof(buf) + buf - p, "4Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "4Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_5:
-		p += scnprintf(p, sizeof(buf) + buf - p, "5Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "5Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_8:
-		p += scnprintf(p, sizeof(buf) + buf - p, "8Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "8Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_10:
-		p += scnprintf(p, sizeof(buf) + buf - p, "10Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "10Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_16:
-		p += scnprintf(p, sizeof(buf) + buf - p, "16Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "16Mhz\n");
 		break;
 	}
 
