@@ -172,13 +172,14 @@ out:
 }
 EXPORT_SYMBOL_GPL(mt76_tx_status_skb_add);
 
+/* pktid of -1 means flush all */
 struct sk_buff *
 mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 		       struct sk_buff_head *list)
 {
 	struct sk_buff *skb;
 	struct sk_buff *skb2;
-	int id;
+	int id = -1;
 
 	lockdep_assert_held(&dev->status_lock);
 
@@ -186,14 +187,14 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 		skb = idr_remove(&wcid->pktid, pktid);
 		if (skb)
 			goto out;
-	}
 
-	/* If we have not checked for stale entries recently,
-	 * then do that check now.
-	 */
-	if (time_is_after_jiffies(wcid->last_idr_check_at +
-				  dev->stale_skb_status_check))
-		goto out;
+		/* If we have not checked for stale entries recently,
+		 * then do that check now.
+		 */
+		if (time_is_after_jiffies(wcid->last_idr_check_at +
+					  dev->stale_skb_status_check))
+			goto out;
+	}
 
 	/* look for stale entries in the wcid idr queue */
 	idr_for_each_entry(&wcid->pktid, skb2, id) {
@@ -221,7 +222,8 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 out:
 	if (pktid < 0 && WARN_ON(!idr_is_empty(&wcid->pktid))) {
 		idr_for_each_entry(&wcid->pktid, skb, id)
-			printk("wcid %d slot %d was not cleared\n", wcid->idx, id);
+			printk("wcid %d slot %d pktid: %d was not cleared\n",
+			       wcid->idx, id, pktid);
 	}
 
 	if (idr_is_empty(&wcid->pktid))
