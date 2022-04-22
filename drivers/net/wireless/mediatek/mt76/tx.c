@@ -182,7 +182,11 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 
 	lockdep_assert_held(&dev->status_lock);
 
-	skb = idr_remove(&wcid->pktid, pktid);
+	if (pktid >= 0) {
+		skb = idr_remove(&wcid->pktid, pktid);
+		if (skb)
+			goto out;
+	}
 
 	/* If we have not checked for stale entries recently,
 	 * then do that check now.
@@ -204,6 +208,7 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 				continue;
 		}
 
+		WARN_ON(cb->pktid != id);
 		/* It has been too long since DMA_DONE, time out this packet
 		 * and stop waiting for TXS callback.
 		 */
@@ -214,6 +219,11 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 	wcid->last_idr_check_at = jiffies;
 
 out:
+	if (pktid < 0 && WARN_ON(!idr_is_empty(&wcid->pktid))) {
+		idr_for_each_entry(&wcid->pktid, skb, id)
+			printk("wcid %d slot %d was not cleared\n", wcid->idx, id);
+	}
+
 	if (idr_is_empty(&wcid->pktid))
 		list_del_init(&wcid->list);
 
