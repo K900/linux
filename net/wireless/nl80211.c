@@ -6862,7 +6862,7 @@ static int nl80211_parse_beacon(struct cfg80211_registered_device *rdev,
 		int data_len = nla_len(attrs[NL80211_ATTR_VENDOR_DATA]);
 		struct ct_assoc_info* cai = (struct ct_assoc_info*)(data);
 
-		pr_err("parse-beacon: vendor-id specified.\n");
+		/*pr_err("parse-beacon: vendor-id specified.\n");*/
 
 		if (vid == CANDELA_VENDOR_ID) {
 			if (data_len < 4) { /* flags is first u32 */
