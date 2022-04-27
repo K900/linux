@@ -1783,8 +1783,22 @@ static void handle_channel_single_rule(struct wiphy *wiphy,
 		return;
 	}
 
-	chan->dfs_state = NL80211_DFS_USABLE;
-	chan->dfs_state_entered = jiffies;
+	/* HACK:  Work around problem where you have AP on DFS channel and then
+	 * STA on different radio connects on same channel.  That causes regdom to change
+	 * (or the code isn't smart enough to realize it didn't really change),
+	 * because STA gets regdom from its AP, causing CAC to restart,
+	 * which kills the AP interface before CAC can ever be finished.
+	 * This is the one path that hits in my system, there are other places that may
+	 * need latching too, and/or there is probably a better way to fix this.
+	 * --Ben
+	 */
+	if (chan->dfs_state != NL80211_DFS_AVAILABLE) {
+		chan->dfs_state = NL80211_DFS_USABLE;
+		chan->dfs_state_entered = jiffies;
+	} else {
+		pr_info("wiphy %s %pM: freq %d.%03d MHz: NOT setting DFS state back to baseline in single_rule, leave it latched at DFS_AVAILABLE.\n",
+			dev_name(&wiphy->dev), wiphy->perm_addr, chan->center_freq, chan->freq_offset);
+	}
 
 	chan->beacon_found = false;
 	chan->flags = flags | bw_flags | map_regdom_flags(reg_rule->flags);
