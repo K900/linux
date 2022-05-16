@@ -3933,6 +3933,44 @@ static const struct file_operations fops_btcoex = {
 	.open = simple_open
 };
 
+
+static ssize_t ath10k_write_ofdm_peak_power(struct file *file,
+					    const char __user *ubuf,
+					    size_t count, loff_t *ppos)
+{
+	struct ath10k *ar = file->private_data;
+	ssize_t ret;
+	bool val;
+
+	ret = kstrtobool_from_user(ubuf, count, &val);
+	if (ret)
+		return ret;
+
+	ar->debug.use_ofdm_peak_power = val;
+	ath10k_info(ar, "Setting RSSI ofdm_peak_power adjustment to: %d", (int)val);
+
+	return count;
+}
+
+static ssize_t ath10k_read_ofdm_peak_power(struct file *file, char __user *ubuf,
+					   size_t count, loff_t *ppos)
+{
+	char buf[32];
+	struct ath10k *ar = file->private_data;
+	int len = 0;
+
+	len = scnprintf(buf, sizeof(buf) - len, "%d\n",
+			ar->debug.use_ofdm_peak_power);
+
+	return simple_read_from_buffer(ubuf, count, ppos, buf, len);
+}
+
+static const struct file_operations fops_ofdm_peak_power = {
+	.read = ath10k_read_ofdm_peak_power,
+	.write = ath10k_write_ofdm_peak_power,
+	.open = simple_open
+};
+
 static ssize_t ath10k_write_enable_extd_tx_stats(struct file *file,
 						 const char __user *ubuf,
 						 size_t count, loff_t *ppos)
@@ -4393,6 +4431,7 @@ static const struct file_operations fops_reset_htt_stats = {
 
 int ath10k_debug_create(struct ath10k *ar)
 {
+	ar->debug.use_ofdm_peak_power = true;
 	ar->debug.cal_data = vzalloc(ATH10K_DEBUG_CAL_DATA_LEN);
 	if (!ar->debug.cal_data)
 		return -ENOMEM;
@@ -4551,6 +4590,9 @@ int ath10k_debug_register(struct ath10k *ar)
 	if (test_bit(WMI_SERVICE_COEX_GPIO, ar->wmi.svc_map))
 		debugfs_create_file("btcoex", 0644, ar->debug.debugfs_phy, ar,
 				    &fops_btcoex);
+
+	debugfs_create_file("ofdm_peak_power_rssi", 0644, ar->debug.debugfs_phy, ar,
+			    &fops_ofdm_peak_power);
 
 	debugfs_create_file("peers", 0400, ar->debug.debugfs_phy, ar,
 			    &fops_peers);
