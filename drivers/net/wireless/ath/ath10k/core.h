@@ -801,6 +801,11 @@ struct ath10k_debug {
 	struct ath10k_fw_stats fw_stats;
 	struct completion fw_stats_complete;
 	bool fw_stats_done;
+	/* By default, ath10k RSSI is average power instead of OFDM peak power.
+	 * Enable this option to do a conversion to emulate OFDM peak power
+	 * when reporting RSSI.
+	 */
+	bool use_ofdm_peak_power;
 
 	unsigned long htt_stats_mask;
 	unsigned long reset_htt_stats;

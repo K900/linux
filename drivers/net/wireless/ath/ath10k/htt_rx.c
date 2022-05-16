@@ -993,8 +993,9 @@ static void ath10k_htt_rx_h_rates(struct ath10k *ar,
 	struct rx_msdu_end_common *rxd_msdu_end_common;
 	struct rx_ppdu_start *rxd_ppdu_start;
 	struct ieee80211_supported_band *sband;
-	u8 cck, rate, bw, sgi, mcs, nss;
 	u8 *rxd_msdu_payload;
+	u8 cck, rate, bw, sgi, mcs;
+	u8 nss = 0;
 	u8 preamble = 0;
 	u8 group_id;
 	u32 info1, info2, info3;
@@ -1020,7 +1021,7 @@ static void ath10k_htt_rx_h_rates(struct ath10k *ar,
 		 * be undefined check if freq is non-zero.
 		 */
 		if (!status->freq)
-			return;
+			break;
 
 		cck = info1 & RX_PPDU_START_INFO1_L_SIG_RATE_SELECT;
 		rate = MS(info1, RX_PPDU_START_INFO1_L_SIG_RATE);
@@ -1100,7 +1101,6 @@ static void ath10k_htt_rx_h_rates(struct ath10k *ar,
 		}
 
 		status->rate_idx = mcs;
-		status->nss = nss;
 
 		if (sgi)
 			status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
@@ -1111,6 +1111,8 @@ static void ath10k_htt_rx_h_rates(struct ath10k *ar,
 	default:
 		break;
 	}
+
+	status->nss = nss;
 }
 
 static struct ieee80211_channel *
@@ -1245,7 +1247,10 @@ static void ath10k_htt_rx_h_signal(struct ath10k *ar,
 	struct ath10k_hw_params *hw = &ar->hw_params;
 	struct rx_ppdu_start *rxd_ppdu_start = ath10k_htt_rx_desc_get_ppdu_start(hw, rxd);
 	int i;
-
+	static const int adjust_24[4] = {8, 4, 3, 3};
+	static const int adjust_5[4] = {12, 12, 10, 10};
+	static const int adjust_zero[4] = {0, 0, 0, 0};
+	const int* adjust = adjust_zero;
 	int nf = ATH10K_DEFAULT_NOISE_FLOOR;
 	/* wave-1 appears to put garbage in the secondary signal fields, even though the
 	 * descriptor definition makes it look like it should work.  Or possibly some firmware
@@ -1260,6 +1265,31 @@ static void ath10k_htt_rx_h_signal(struct ath10k *ar,
 	s32* nfa = &(pes->chan_nf_0);
 	s32 sums[IEEE80211_MAX_CHAINS];
 	bool has_nf = false;
+
+	/* QCA seems to report a max-power average over the bandwidth, where mtk and intel radios
+	 * report a ofdm peak power.  The ofdm peak power corresponds more closely to tx-power minus
+	 * pathloss, so I think that is preferred output.  After some extensive measurements in
+	 * a fully cabled environment, it looks like these adjustments are appropriate to make
+	 * QCA be similar to MTK7915 and ax210:
+	 * 2.4Ghz:
+	 *  1x1 +8            (+13 to match txpower - pathloss.  Less confident on anything above 1x1 for this column)
+	 *  2x2 +4             +11
+	 *  3x3 +3             +10
+	 *  4x4 +3             +10
+	 * 5Ghz
+	 *  1x1 +12            +18
+	 *  2x2 +12            +18
+	 *  3x3 +10            +18
+	 *  4x4 +10            +18
+	 */
+
+	if (ar->debug.use_ofdm_peak_power) {
+		if (status->band == NL80211_BAND_5GHZ)
+			adjust = adjust_5;
+		else
+			adjust = adjust_24;
+	}
+
 	sums[0] = sums[1] = sums[2] = sums[3] = 0x80;
 
 	/* FIXME:  Need to figure out how to take the secondary 80Mhz noise floor into
@@ -1278,7 +1308,7 @@ static void ath10k_htt_rx_h_signal(struct ath10k *ar,
 			}
 			sums[i] =
 #endif
-			status->chain_signal[i] = nf
+			status->chain_signal[i] = nf + adjust[status->nss]
 				+ (sum_ext ? ath10k_sum_sigs(rxd_ppdu_start->rssi_chains[i].pri20_mhz,
 							     rxd_ppdu_start->rssi_chains[i].ext20_mhz,
 							     rxd_ppdu_start->rssi_chains[i].ext40_mhz,
@@ -1311,10 +1341,10 @@ static void ath10k_htt_rx_h_signal(struct ath10k *ar,
 		 * For wave-2 firmware, value is not defined and is set to zero. */
 		if (rxd_ppdu_start->rssi_comb_ht &&
 		    (rxd_ppdu_start->rssi_comb_ht != 0x80)) {
-			status->signal = nf + rxd_ppdu_start->rssi_comb_ht;
+			status->signal = nf + rxd_ppdu_start->rssi_comb_ht + adjust[status->nss];
 		}
 		else {
-			status->signal = nf + rxd_ppdu_start->rssi_comb;
+			status->signal = nf + rxd_ppdu_start->rssi_comb + adjust[status->nss];
 		}
 	}
 
@@ -1388,9 +1418,9 @@ static void ath10k_htt_rx_h_ppdu(struct ath10k *ar,
 		status->flag |= RX_FLAG_AMPDU_DETAILS | RX_FLAG_AMPDU_LAST_KNOWN;
 		status->ampdu_reference = ar->ampdu_reference;
 
-		ath10k_htt_rx_h_signal(ar, status, rxd);
 		ath10k_htt_rx_h_channel(ar, status, rxd, vdev_id);
 		ath10k_htt_rx_h_rates(ar, status, rxd);
+		ath10k_htt_rx_h_signal(ar, status, rxd);
 	}
 
 	if (is_last_ppdu) {
