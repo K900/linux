@@ -792,6 +792,11 @@ struct ath10k_fw_crash_data {
 	__le32 ram_bss_buf[ATH10K_RAM_BSS_BUF_LEN / sizeof(__le32)];
 };
 
+/* OFDM RSSI adjustments, for nss 1-4 */
+extern const int adjust_24[4];
+extern const int adjust_5[4];
+extern const int adjust_zero[4];
+
 struct ath10k_debug {
 	struct dentry *debugfs_phy;
 

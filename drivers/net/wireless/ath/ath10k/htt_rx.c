@@ -1247,9 +1247,6 @@ static void ath10k_htt_rx_h_signal(struct ath10k *ar,
 	struct ath10k_hw_params *hw = &ar->hw_params;
 	struct rx_ppdu_start *rxd_ppdu_start = ath10k_htt_rx_desc_get_ppdu_start(hw, rxd);
 	int i;
-	static const int adjust_24[4] = {8, 4, 3, 3};
-	static const int adjust_5[4] = {12, 12, 10, 10};
-	static const int adjust_zero[4] = {0, 0, 0, 0};
 	const int* adjust = adjust_zero;
 	int nf = ATH10K_DEFAULT_NOISE_FLOOR;
 	/* wave-1 appears to put garbage in the secondary signal fields, even though the
@@ -1265,23 +1262,6 @@ static void ath10k_htt_rx_h_signal(struct ath10k *ar,
 	s32* nfa = &(pes->chan_nf_0);
 	s32 sums[IEEE80211_MAX_CHAINS];
 	bool has_nf = false;
-
-	/* QCA seems to report a max-power average over the bandwidth, where mtk and intel radios
-	 * report a ofdm peak power.  The ofdm peak power corresponds more closely to tx-power minus
-	 * pathloss, so I think that is preferred output.  After some extensive measurements in
-	 * a fully cabled environment, it looks like these adjustments are appropriate to make
-	 * QCA be similar to MTK7915 and ax210:
-	 * 2.4Ghz:
-	 *  1x1 +8            (+13 to match txpower - pathloss.  Less confident on anything above 1x1 for this column)
-	 *  2x2 +4             +11
-	 *  3x3 +3             +10
-	 *  4x4 +3             +10
-	 * 5Ghz
-	 *  1x1 +12            +18
-	 *  2x2 +12            +18
-	 *  3x3 +10            +18
-	 *  4x4 +10            +18
-	 */
 
 	if (ar->debug.use_ofdm_peak_power) {
 		if (status->band == NL80211_BAND_5GHZ)

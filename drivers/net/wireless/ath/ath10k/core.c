@@ -3608,6 +3608,29 @@ static int ath10k_core_copy_target_iram(struct ath10k *ar)
 	return 0;
 }
 
+
+/* QCA seems to report a max-power average over the bandwidth, where mtk and intel radios
+ * report a ofdm peak power.  The ofdm peak power corresponds more closely to tx-power minus
+ * pathloss, so I think that is preferred output.  After some extensive measurements in
+ * a fully cabled environment, it looks like these adjustments are appropriate to make
+ * QCA be similar to MTK7915 and ax210:
+ * 2.4Ghz:
+ *  1x1 +8            (+13 to match txpower - pathloss.  Less confident on anything above 1x1 for this column)
+ *  2x2 +4             +11
+ *  3x3 +3             +10
+ *  4x4 +3             +10
+ * 5Ghz
+ *  1x1 +12            +18
+ *  2x2 +12            +18
+ *  3x3 +10            +18
+ *  4x4 +10            +18
+ */
+
+/* OFDM RSSI adjustments, for nss 1-4 */
+const int adjust_24[4] = {8, 4, 3, 3};
+const int adjust_5[4] = {12, 12, 10, 10};
+const int adjust_zero[4] = {0, 0, 0, 0};
+
 /* Get noise floor of chain-1, ie for mgmt frames over wmi */
 int ath10k_get_noisefloor(int chain, struct ath10k *ar)
 {

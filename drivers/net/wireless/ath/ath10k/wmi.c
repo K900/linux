@@ -2611,9 +2611,24 @@ wmi_process_mgmt_tx_comp(struct ath10k *ar, struct mgmt_tx_compl_params *param)
 	if (param->status) {
 		info->flags &= ~IEEE80211_TX_STAT_ACK;
 	} else {
+		int adjust = 0;
+
+#ifdef CONFIG_ATH10K_DEBUGFS
+		struct ieee80211_channel *ch = ar->scan_channel;
+		if (!ch)
+			ch = ar->rx_channel;
+
+		if (ar->debug.use_ofdm_peak_power && ch) {
+			if (ch->band == NL80211_BAND_5GHZ)
+				adjust = adjust_5[0];
+			else
+				adjust = adjust_24[0];
+		}
+#endif
+
 		info->flags |= IEEE80211_TX_STAT_ACK;
 		info->status.ack_signal = ath10k_get_noisefloor(0, ar) +
-					  param->ack_rssi;
+					  param->ack_rssi + adjust;
 		info->status.flags |= IEEE80211_TX_STATUS_ACK_SIGNAL_VALID;
 	}
 
