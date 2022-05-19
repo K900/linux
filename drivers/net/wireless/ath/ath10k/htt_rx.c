@@ -1328,10 +1328,10 @@ static void ath10k_htt_rx_h_signal(struct ath10k *ar,
 		}
 	}
 
-	/* ath10k_warn(ar, "rx-h-sig, signal: %d  chains: 0x%x  chain[0]: %d  chain[1]: %d  chain[2]: %d chain[3]: %d has_nf: %d\n",
+	/* ath10k_warn(ar, "rx-h-sig, signal: %d  chains: 0x%x  chain[0]: %d  chain[1]: %d  chain[2]: %d chain[3]: %d has_nf: %d adjust: %d\n",
 		    status->signal, status->chains, status->chain_signal[0],
 		    status->chain_signal[1], status->chain_signal[2],
-		    status->chain_signal[3], has_nf); */
+		    status->chain_signal[3], has_nf, adjust[status->nss]); */
 
 	status->flag &= ~RX_FLAG_NO_SIGNAL_VAL;
 }

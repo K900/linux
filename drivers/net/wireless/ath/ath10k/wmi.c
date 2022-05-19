@@ -2711,6 +2711,7 @@ int ath10k_wmi_event_mgmt_rx(struct ath10k *ar, struct sk_buff *skb)
 	u32 rate;
 	u16 fc;
 	int ret, i;
+	const int* adjust = adjust_zero;
 
 	ret = ath10k_wmi_pull_mgmt_rx(ar, skb, &arg);
 	if (ret) {
@@ -2767,8 +2768,17 @@ int ath10k_wmi_event_mgmt_rx(struct ath10k *ar, struct sk_buff *skb)
 
 	sband = &ar->mac.sbands[status->band];
 
+#ifdef CONFIG_ATH10K_DEBUGFS
+	if (ar->debug.use_ofdm_peak_power) {
+		if (status->band == NL80211_BAND_5GHZ)
+			adjust = adjust_5;
+		else
+			adjust = adjust_24;
+	}
+#endif
+
 	status->freq = ieee80211_channel_to_frequency(channel, status->band);
-	status->signal = snr + ath10k_get_noisefloor(0, ar);
+	status->signal = snr + ath10k_get_noisefloor(0, ar) + adjust[0];
 
 	BUILD_BUG_ON(ARRAY_SIZE(status->chain_signal) != ARRAY_SIZE(arg.rssi));
 
@@ -2778,7 +2788,7 @@ int ath10k_wmi_event_mgmt_rx(struct ath10k *ar, struct sk_buff *skb)
 		ath10k_dbg(ar, ATH10K_DBG_MGMT, "mgmt rssi[%d]:%d\n", i, arg.rssi[i]);
 
 		if (rssi != ATH10K_INVALID_RSSI && rssi != 0) {
-			status->chain_signal[i] = ath10k_get_noisefloor(i, ar) + rssi;
+			status->chain_signal[i] = ath10k_get_noisefloor(i, ar) + rssi + adjust[0];
 			status->chains |= BIT(i);
 		}
 	}
