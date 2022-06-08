@@ -5916,7 +5916,7 @@ static bool vht_set_mcs_mask(struct ieee80211_supported_band *sband,
 	u8 i;
 
 	if (!sband->vht_cap.vht_supported) {
-		pr_err("vht-mcs:  VHT not supported.\n");
+		pr_err("vht-set-mcs-mask:  VHT not supported.\n");
 		return false;
 	}
 
@@ -6318,8 +6318,9 @@ static int nl80211_parse_tx_bitrate_mask(struct genl_info *info,
 					sband,
 					nla_data(tb[NL80211_TXRATE_VHT]),
 					mask->control[band].vht_mcs)) {
-				pr_err("VHT rates invalid, band: %d\n", band);
-				return -EINVAL;
+				pr_err("parse-tx-bitrate-mask: VHT rates invalid, band: %d, will continue.\n", band);
+				/* ignore and cary on
+				return -EINVAL; */
 			}
 		}
 
