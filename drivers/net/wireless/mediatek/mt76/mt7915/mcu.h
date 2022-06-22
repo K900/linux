@@ -540,4 +540,10 @@ enum {
 					 sizeof(struct bss_info_bmc_rate) +\
 					 sizeof(struct bss_info_ext_bss))
 
+/* MURU */
+#define OFDMA_DL                       BIT(0)
+#define OFDMA_UL                       BIT(1)
+#define MUMIMO_DL                      BIT(2)
+#define MUMIMO_UL                      BIT(3)
+
 #endif
