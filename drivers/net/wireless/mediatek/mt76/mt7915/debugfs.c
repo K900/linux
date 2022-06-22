@@ -1644,6 +1644,39 @@ mt7915_rf_regval_set(void *data, u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(fops_rf_regval, mt7915_rf_regval_get,
 			 mt7915_rf_regval_set, "0x%08llx\n");
 
+
+static int mt7915_muru_onoff_get(void *data, u64 *val)
+{
+       struct mt7915_dev *dev = data;
+
+       *val = dev->dbg.muru_onoff;
+
+       printk("mumimo ul:%d, mumimo dl:%d, ofdma ul:%d, ofdma dl:%d\n",
+               !!(dev->dbg.muru_onoff & MUMIMO_UL),
+               !!(dev->dbg.muru_onoff & MUMIMO_DL),
+               !!(dev->dbg.muru_onoff & OFDMA_UL),
+               !!(dev->dbg.muru_onoff & OFDMA_DL));
+
+       return 0;
+}
+
+static int mt7915_muru_onoff_set(void *data, u64 val)
+{
+       struct mt7915_dev *dev = data;
+
+       if (val > 15) {
+               printk("Wrong value! The value is between 0 ~ 15.\n");
+               goto exit;
+       }
+
+       dev->dbg.muru_onoff = val;
+exit:
+       return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_muru_onoff, mt7915_muru_onoff_get,
+                       mt7915_muru_onoff_set, "%llx\n");
+
 int mt7915_init_debugfs(struct mt7915_phy *phy)
 {
 	struct mt7915_dev *dev = phy->dev;
@@ -1694,6 +1727,7 @@ int mt7915_init_debugfs(struct mt7915_phy *phy)
 			   &dev->ignore_radar);
 	debugfs_create_file("set_rate_override", 0600, dir,
 			    dev, &fops_set_rate_override);
+	debugfs_create_file("muru_onoff", 0600, dir, dev, &fops_muru_onoff);
 
 	if (!ext_phy)
 		dev->debugfs_dir = dir;
@@ -1835,7 +1869,6 @@ mt7915_queues_show(struct seq_file *s, void *data)
 
 	return 0;
 }
-
 DEFINE_SHOW_ATTRIBUTE(mt7915_queues);
 
 void mt7915_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
