@@ -750,6 +750,7 @@ static void mt7915_init_work(struct work_struct *work)
 	mt7915_mcu_set_eeprom(dev);
 	mt7915_mac_init(dev);
 	mt7915_txbf_init(dev);
+	dev->dbg.muru_onoff = OFDMA_DL | MUMIMO_UL | MUMIMO_DL;
 }
 
 void mt7915_wfsys_reset(struct mt7915_dev *dev)
