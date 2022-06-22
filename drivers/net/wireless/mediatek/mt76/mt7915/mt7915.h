@@ -301,6 +301,10 @@ struct mt7915_dev {
 		bool restart:1;
 	} recovery;
 
+	struct {
+		u8 muru_onoff;
+	} dbg;
+
 	/* protects coredump data */
 	struct mutex dump_mutex;
 #ifdef CONFIG_DEV_COREDUMP
