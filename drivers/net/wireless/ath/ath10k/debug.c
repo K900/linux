@@ -4431,7 +4431,16 @@ static const struct file_operations fops_reset_htt_stats = {
 
 int ath10k_debug_create(struct ath10k *ar)
 {
-	ar->debug.use_ofdm_peak_power = true;
+	if (_modparam_ofdm_peak_power_rssi == -1) { /* not set */
+		ar->debug.use_ofdm_peak_power = true;
+	}
+	else {
+		if (_modparam_ofdm_peak_power_rssi)
+			ar->debug.use_ofdm_peak_power = true;
+		else
+			ar->debug.use_ofdm_peak_power = false;
+	}
+
 	ar->debug.cal_data = vzalloc(ATH10K_DEBUG_CAL_DATA_LEN);
 	if (!ar->debug.cal_data)
 		return -ENOMEM;

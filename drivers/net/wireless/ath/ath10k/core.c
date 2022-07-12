@@ -53,6 +53,11 @@ module_param_named(override_eeprom_regdomain,
 		   _modparam_override_eeprom_regdomain, int, 0444);
 MODULE_PARM_DESC(override_eeprom_regdomain, "Override regdomain hardcoded in EEPROM with this value (DANGEROUS).");
 
+int _modparam_ofdm_peak_power_rssi = -1;
+module_param_named(ofdm_peak_power_rssi,
+		   _modparam_ofdm_peak_power_rssi, int, 0644);
+MODULE_PARM_DESC(ofdm_peak_power_rssi, "Set default setting for the ofdm_peak_power_rssi.  Enabling ofdm_peak_power_rssi will cause RSSI to be adjusted to more closely match OFDM peak power values.");
+
 module_param_named(debug_mask, ath10k_debug_mask, uint, 0644);
 module_param_named(cryptmode, ath10k_cryptmode_param, uint, 0644);
 module_param(uart_print, bool, 0644);
