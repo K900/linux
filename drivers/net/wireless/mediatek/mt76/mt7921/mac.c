@@ -335,6 +335,7 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 	if (rxd1 & MT_RXD1_NORMAL_GROUP_3) {
 		u32 v0, v1;
 		int ret;
+		u8 nss;
 
 		rxv = rxd;
 		rxd += 2;
@@ -348,7 +349,7 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 			status->enc_flags |= RX_ENC_FLAG_LDPC;
 
 		ret = mt76_connac2_mac_fill_rx_rate(&dev->mt76, status, sband,
-						    rxv, &mode);
+						    rxv, &mode, &nss);
 		if (ret < 0)
 			return ret;
 
@@ -368,12 +369,24 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 				return -EINVAL;
 		}
 
-		status->chains = mphy->antenna_mask;
 		status->chain_signal[0] = to_rssi(MT_PRXV_RCPI0, v1);
 		status->chain_signal[1] = to_rssi(MT_PRXV_RCPI1, v1);
 		status->chain_signal[2] = to_rssi(MT_PRXV_RCPI2, v1);
 		status->chain_signal[3] = to_rssi(MT_PRXV_RCPI3, v1);
 		status->signal = -128;
+
+		if (nss == 1) {
+			if (status->chain_signal[0] >= status->chain_signal[1])
+				status->chains |= BIT(0);
+			else
+				status->chains |= BIT(1);
+		} else if (status->nss == 2) {
+			status->chains = BIT(0) | BIT(1);
+		} else {
+			WARN_ON_ONCE(1); /* this driver is for only 2x2 AFAIK */
+			status->chains = BIT(0);
+		}
+
 		for (i = 0; i < hweight8(mphy->antenna_mask); i++) {
 			if (!(status->chains & BIT(i)) ||
 			    status->chain_signal[i] >= 0)
