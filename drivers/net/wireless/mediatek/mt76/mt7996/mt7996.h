@@ -255,6 +255,8 @@ struct mt7996_sta_link {
 
 	struct mt76_connac_sta_key_conf bip;
 
+	struct mt76_testmode_data test;
+
 	struct {
 		u8 flowid_mask;
 		struct mt7996_twt_flow flow[MT7996_MAX_STA_TWT_AGRT];
