@@ -177,6 +177,15 @@ static void mt7915_mac_sta_poll(struct mt7915_dev *dev)
 						       rx_cur);
 		}
 
+		/* If we are in tx-override mode, then wtbl doesn't provide useful report
+		 * for the SGI/LGI stuff, so just get it from the override struct.
+		 */
+		if (msta->test.txo_active) {
+			msta->wcid.rate_he_gi = msta->test.tx_rate_sgi;
+			msta->wcid.rate_short_gi = msta->test.tx_rate_sgi;
+			continue;
+		}
+
 		/*
 		 * We don't support reading GI info from txs packets.
 		 * For accurate tx status reporting and AQL improvement,
@@ -597,21 +606,32 @@ out:
 }
 
 static void
-mt7915_mac_write_txwi_tm(struct mt7915_phy *phy, __le32 *txwi,
+mt7915_mac_write_txwi_tm(struct mt7915_phy *phy, struct mt76_wcid *wcid, __le32 *txwi,
 			 struct sk_buff *skb)
 {
-#ifdef CONFIG_NL80211_TESTMODE
-	struct mt76_testmode_data *td = &phy->mt76->test;
+	struct mt76_testmode_data *td;
 	const struct ieee80211_rate *r;
-	u8 bw, mode, nss = td->tx_rate_nss;
-	u8 rate_idx = td->tx_rate_idx;
+	struct mt7915_sta *msta;
+	u8 bw, mode, nss;
+	u8 rate_idx;
 	u16 rateval = 0;
 	u32 val;
 	bool cck = false;
 	int band;
+	int xmit_count = 1;
 
-	if (skb != phy->mt76->test.tx_skb)
-		return;
+	msta = container_of(wcid, struct mt7915_sta, wcid);
+
+	if (msta->test.txo_active) {
+		td = &msta->test;
+	} else {
+		if (skb != phy->mt76->test.tx_skb)
+			return;
+		td = &phy->mt76->test;
+	}
+
+	nss = td->tx_rate_nss;
+	rate_idx = td->tx_rate_idx;
 
 	switch (td->tx_rate_mode) {
 	case MT76_TM_TX_MODE_HT:
@@ -652,20 +672,24 @@ mt7915_mac_write_txwi_tm(struct mt7915_phy *phy, __le32 *txwi,
 		break;
 	}
 
-	switch (phy->mt76->chandef.width) {
-	case NL80211_CHAN_WIDTH_40:
-		bw = 1;
-		break;
-	case NL80211_CHAN_WIDTH_80:
-		bw = 2;
-		break;
-	case NL80211_CHAN_WIDTH_80P80:
-	case NL80211_CHAN_WIDTH_160:
-		bw = 3;
-		break;
-	default:
-		bw = 0;
-		break;
+	if (msta->test.txo_active) {
+		bw = td->txbw;
+	} else {
+		switch (phy->mt76->chandef.width) {
+		case NL80211_CHAN_WIDTH_40:
+			bw = 1;
+			break;
+		case NL80211_CHAN_WIDTH_80:
+			bw = 2;
+			break;
+		case NL80211_CHAN_WIDTH_80P80:
+		case NL80211_CHAN_WIDTH_160:
+			bw = 3;
+			break;
+		default:
+			bw = 0;
+			break;
+		}
 	}
 
 	if (td->tx_rate_stbc && nss == 1) {
@@ -679,10 +703,24 @@ mt7915_mac_write_txwi_tm(struct mt7915_phy *phy, __le32 *txwi,
 
 	txwi[2] |= cpu_to_le32(MT_TXD2_FIX_RATE);
 
-	le32p_replace_bits(&txwi[3], 1, MT_TXD3_REM_TX_COUNT);
+	if (msta->test.txo_active) {
+		s8 txp = td->tx_power[0] - 16;
+
+		/* Support per-skb txpower, p.15 of tx doc, DW2 29:24. */
+		le32p_replace_bits(&txwi[2], txp, MT_TXD2_POWER_OFFSET);
+
+		xmit_count = td->tx_xmit_count;
+		if (xmit_count == 0) {
+			xmit_count = 1;
+			txwi[3] |= cpu_to_le32(MT_TXD3_NO_ACK);
+		}
+	}
+
+	le32p_replace_bits(&txwi[3], xmit_count, MT_TXD3_REM_TX_COUNT);
 	if (td->tx_rate_mode < MT76_TM_TX_MODE_HT)
 		txwi[3] |= cpu_to_le32(MT_TXD3_BA_DISABLE);
 
+	/* TODO:  Take tx_dynbw into account in txo mode. */
 	val = MT_TXD6_FIXED_BW |
 	      FIELD_PREP(MT_TXD6_BW, bw) |
 	      FIELD_PREP(MT_TXD6_TX_RATE, rateval) |
@@ -706,9 +744,29 @@ mt7915_mac_write_txwi_tm(struct mt7915_phy *phy, __le32 *txwi,
 
 	txwi[3] &= ~cpu_to_le32(MT_TXD3_SN_VALID);
 	txwi[6] |= cpu_to_le32(val);
-	txwi[7] |= cpu_to_le32(FIELD_PREP(MT_TXD7_SPE_IDX,
-					  phy->test.spe_idx));
-#endif
+
+	if (msta->test.txo_active) {
+		/* see mt7915_tm_set_tx_frames */
+		static const u8 spe_idx_map[] = {0, 0, 1, 0, 3, 2, 4, 0,
+						 9, 8, 6, 10, 16, 12, 18, 0};
+		u32 spe_idx;
+
+		if (td->tx_spe_idx) {
+			spe_idx = td->tx_spe_idx;
+		} else {
+			u8 tx_ant = td->tx_antenna_mask;
+
+			if (!tx_ant) {
+				/* use antenna mask that matches our nss */
+				tx_ant = GENMASK(nss - 1, 0);
+			}
+			spe_idx = spe_idx_map[tx_ant];
+		}
+		txwi[7] |= cpu_to_le32(FIELD_PREP(MT_TXD7_SPE_IDX, spe_idx));
+	} else {
+		txwi[7] |= cpu_to_le32(FIELD_PREP(MT_TXD7_SPE_IDX,
+						  phy->test.spe_idx));
+	}
 }
 
 void mt7915_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
@@ -725,8 +783,30 @@ void mt7915_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 
 	mt76_connac2_mac_write_txwi(dev, txwi, skb, wcid, key, pid, qid, changed);
 
-	if (mt76_testmode_enabled(mphy))
-		mt7915_mac_write_txwi_tm(mphy->priv, txwi, skb);
+#ifdef CONFIG_NL80211_TESTMODE
+	{
+		struct mt7915_sta *msta;
+		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+		__le16 fc;
+		bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
+
+		if (!is_8023)
+			fc = hdr->frame_control;
+
+		msta = container_of(wcid, struct mt7915_sta, wcid);
+		if (mt76_testmode_enabled(mphy) ||
+		    (msta->test.txo_active &&
+		     /* Only do txo overrides for (larger) data frames, this
+		      * generally allows connection mgt frames to pass but still
+		      * lets us force the data packets we care about.
+		      */
+		     skb->len >= 400 &&
+		     (is_8023 ||
+		      ((ieee80211_is_data_qos(fc) || ieee80211_is_data(fc)) &&
+		       (!(ieee80211_is_qos_nullfunc(fc) || ieee80211_is_nullfunc(fc)))))))
+			mt7915_mac_write_txwi_tm(mphy->priv, wcid, txwi, skb);
+	}
+#endif
 }
 
 int mt7915_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
@@ -1009,7 +1089,7 @@ static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 	msta = container_of(wcid, struct mt7915_sta, wcid);
 
 	if (pid == MT_PACKET_ID_WED)
-		mt76_connac2_mac_fill_txs(&dev->mt76, wcid, txs_data);
+		mt76_connac2_mac_fill_txs(&dev->mt76, wcid, txs_data, NULL);
 	else
 		mt76_connac2_mac_add_txs_skb(&dev->mt76, wcid, pid, txs_data);
 
