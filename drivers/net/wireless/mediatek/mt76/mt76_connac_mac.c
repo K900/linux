@@ -1056,10 +1056,10 @@ EXPORT_SYMBOL_GPL(mt76_connac2_reverse_frag0_hdr_trans);
 int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 				  struct mt76_rx_status *status,
 				  struct ieee80211_supported_band *sband,
-				  __le32 *rxv, u8 *mode)
+				  __le32 *rxv, u8 *mode, u8 *nss)
 {
 	u32 v0, v2;
-	u8 stbc, gi, bw, dcm, nss;
+	u8 stbc, gi, bw, dcm;
 	int i, idx;
 	bool cck = false;
 
@@ -1067,7 +1067,7 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 	v2 = le32_to_cpu(rxv[2]);
 
 	idx = i = FIELD_GET(MT_PRXV_TX_RATE, v0);
-	nss = FIELD_GET(MT_PRXV_NSTS, v0) + 1;
+	*nss = FIELD_GET(MT_PRXV_NSTS, v0) + 1;
 
 	if (!is_mt7915(dev)) {
 		stbc = FIELD_GET(MT_PRXV_HT_STBC, v0);
@@ -1092,17 +1092,21 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 		fallthrough;
 	case MT_PHY_TYPE_OFDM:
 		i = mt76_get_rate(dev, sband, i, cck);
+		if (stbc)
+			*nss = 2;
+		else
+			*nss = 1;
 		break;
 	case MT_PHY_TYPE_HT_GF:
 	case MT_PHY_TYPE_HT:
 		status->encoding = RX_ENC_HT;
+		*nss = i / 8 + 1;
 		if (gi)
 			status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
 		if (i > 31)
 			return -EINVAL;
 		break;
 	case MT_PHY_TYPE_VHT:
-		status->nss = nss;
 		status->encoding = RX_ENC_VHT;
 		if (gi)
 			status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
@@ -1113,7 +1117,6 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 	case MT_PHY_TYPE_HE_SU:
 	case MT_PHY_TYPE_HE_EXT_SU:
 	case MT_PHY_TYPE_HE_TB:
-		status->nss = nss;
 		status->encoding = RX_ENC_HE;
 		i &= GENMASK(3, 0);
 
@@ -1153,6 +1156,17 @@ int mt76_connac2_mac_fill_rx_rate(struct mt76_dev *dev,
 	status->enc_flags |= RX_ENC_FLAG_STBC_MASK * stbc;
 	if (*mode < MT_PHY_TYPE_HE_SU && gi)
 		status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
+
+	/* in case stbc is set, the nss value returned by hardware is already
+	 * correct (ie, 2 instead of 1 for 1 spatial stream).  But, at least in cases
+	 * where we are configured for a single antenna, then the second chain RSSI is '17',
+	 * which I take to mean 'not set'.  To keep from adding this to the average rssi up in
+	 * mac80211 rx logic, decrease nss here.
+	 */
+	if (stbc)
+		*nss >>= 1;
+
+	status->nss = *nss;
 
 	return 0;
 }
