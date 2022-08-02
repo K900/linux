@@ -1064,6 +1064,16 @@ struct mt76_dev {
 
 	struct delayed_work scan_work;
 	spinlock_t scan_lock;
+
+	struct {
+		u32 hw_sw_ver;
+		char build_date[16];
+		char wm_fw_ver[12];
+		char wm_build_date[16];
+		char wa_fw_ver[12];
+		char wa_build_date[16];
+	} fw;
+
 	struct {
 		struct cfg80211_scan_request *req;
 		struct ieee80211_channel *chan;

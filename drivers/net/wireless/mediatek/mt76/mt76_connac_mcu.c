@@ -3066,6 +3066,8 @@ int mt76_connac2_load_ram(struct mt76_dev *dev, const char *fw_wm,
 	hdr = (const void *)(fw->data + fw->size - sizeof(*hdr));
 	dev_info(dev->dev, "WM Firmware Version: %.10s, Build Time: %.15s",
 		 hdr->fw_ver, hdr->build_date);
+	strscpy(dev->fw.wm_fw_ver, hdr->fw_ver, 10);
+	strscpy(dev->fw.wm_build_date, hdr->build_date, 15);
 
 	ret = mt76_connac_mcu_send_ram_firmware(dev, hdr, fw->data, false);
 	if (ret) {
@@ -3095,6 +3097,8 @@ int mt76_connac2_load_ram(struct mt76_dev *dev, const char *fw_wm,
 	hdr = (const void *)(fw->data + fw->size - sizeof(*hdr));
 	dev_info(dev->dev, "WA Firmware Version: %.10s, Build Time: %.15s",
 		 hdr->fw_ver, hdr->build_date);
+	strscpy(dev->fw.wa_fw_ver, hdr->fw_ver, 10);
+	strscpy(dev->fw.wa_build_date, hdr->build_date, 15);
 
 	ret = mt76_connac_mcu_send_ram_firmware(dev, hdr, fw->data, true);
 	if (ret) {
@@ -3171,6 +3175,8 @@ int mt76_connac2_load_patch(struct mt76_dev *dev, const char *fw_name)
 	hdr = (const void *)fw->data;
 	dev_info(dev->dev, "HW/SW Version: 0x%x, Build Time: %.16s",
 		 be32_to_cpu(hdr->hw_sw_ver), hdr->build_date);
+	dev->fw.hw_sw_ver = be32_to_cpu(hdr->hw_sw_ver);
+	strscpy(dev->fw.build_date, hdr->build_date, 15);
 
 	for (i = 0; i < be32_to_cpu(hdr->desc.n_region); i++) {
 		struct mt76_connac2_patch_sec *sec;
