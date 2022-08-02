@@ -3,6 +3,7 @@
  * Copyright (C) 2016 Felix Fietkau <nbd@nbd.name>
  */
 #include "mt76.h"
+#include "mt76_connac.h"
 #include <linux/version.h>
 
 static int
@@ -135,6 +136,45 @@ mt76_txs_for_all_get(void *data, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(fops_txs_for_all, mt76_txs_for_all_get,
 			 mt76_txs_for_all_set, "%lld\n");
 
+static int
+mt76_version(struct seq_file *s, void *data)
+{
+	struct mt76_dev *dev = dev_get_drvdata(s->private);
+
+	seq_printf(s, "chipset:       ");
+	if (is_mt7922(dev))
+		seq_printf(s, "7922\n");
+	/* Add specific connac2 radios here */
+	else if (is_connac2(dev))
+		seq_printf(s, "7921\n");
+	else if (is_mt7663(dev))
+		seq_printf(s, "7663\n");
+	else if (is_mt7915(dev))
+		seq_printf(s, "7915\n");
+	else if (is_mt7916(dev))
+		seq_printf(s, "7916\n");
+	else if (is_mt7986(dev))
+		seq_printf(s, "7986\n");
+	else if (is_mt7622(dev))
+		seq_printf(s, "7622\n");
+	else if (is_mt7615(dev))
+		seq_printf(s, "7615\n");
+	else if (is_mt7611(dev))
+		seq_printf(s, "7611\n");
+	else
+		seq_printf(s, "UNKNOWN\n");
+
+	seq_printf(s, "ASIC-Revision: 0x%x\n", dev->rev);
+	seq_printf(s, "hw_sw_ver:     0x%x\n", dev->fw.hw_sw_ver);
+	seq_printf(s, "build_date:    %s\n", dev->fw.build_date);
+	seq_printf(s, "WM-hw_sw_ver:  %s\n", dev->fw.wm_fw_ver);
+	seq_printf(s, "WM-build_date: %s\n", dev->fw.wm_build_date);
+	seq_printf(s, "WA-hw_sw_ver:  %s\n", dev->fw.wa_fw_ver);
+	seq_printf(s, "WA-build_date: %s\n", dev->fw.wa_build_date);
+
+	return 0;
+}
+
 static int mt76_dfs_info_read(struct seq_file *s, void *data)
 {
 	struct mt76_dev *dev = dev_get_drvdata(s->private);
@@ -185,6 +225,7 @@ mt76_register_debugfs_fops(struct mt76_phy *phy,
 	debugfs_create_file("force_txs", 0600, dir, dev, &fops_txs_for_no_skb);
 	debugfs_create_file("force_txs_all_skb", 0600, dir, dev, &fops_txs_for_all);
 	debugfs_create_blob("eeprom", 0400, dir, &dev->eeprom);
+	debugfs_create_devm_seqfile(dev->dev, "version", dir, mt76_version);
 	if (dev->otp.data)
 		debugfs_create_blob("otp", 0400, dir, &dev->otp);
 	debugfs_create_devm_seqfile(dev->dev, "rx-queues", dir,
