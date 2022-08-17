@@ -268,7 +268,7 @@ export CC := $(CHOST)-gcc
 CCACHE_PATH := $(shell which ccache 2>/dev/null)
 ifneq ($(CCACHE_PATH),)
 export KBUILD_BUILD_TIMESTAMP := Fri Jun  5 15:58:00 CEST 2015
-export PATH := $(TOOLCHAIN_PATH)ccache:$(PATH)
+export PATH := $(TOOLCHAIN_PATH)/bin/ccache:$(PATH)
 export CCACHE_SLOPPINESS := file_macro,time_macros
 export CCACHE_DIR ?= $(PWD)/ccache
 endif
@@ -300,16 +300,16 @@ $(BUILD_PATH)/init-cpio-spec.txt: $(TOOLCHAIN_PATH)/.installed $(BUILD_PATH)/ini
 	echo "dir /dev 755 0 0" >> $@
 	echo "nod /dev/console 644 0 0 c 5 1" >> $@
 	echo "dir /bin 755 0 0" >> $@
-	echo "file iperf3 $(IPERF_PATH)/src/iperf3 755 0 0" >> $@
-	echo "file wg $(WIREGUARD_TOOLS_PATH)/src/wg 755 0 0" >> $@
-	echo "file bash $(BASH_PATH)/bash 755 0 0" >> $@
-	echo "file ip $(IPROUTE2_PATH)/ip/ip 755 0 0" >> $@
-	echo "file ss $(IPROUTE2_PATH)/misc/ss 755 0 0" >> $@
-	echo "file ping $(IPUTILS_PATH)/ping 755 0 0" >> $@
-	echo "file ncat $(NMAP_PATH)/ncat/ncat 755 0 0" >> $@
-	echo "file xtables-legacy-multi $(IPTABLES_PATH)/iptables/xtables-legacy-multi 755 0 0" >> $@
-	echo "slink iptables xtables-legacy-multi 777 0 0" >> $@
-	echo "slink ping6 ping 777 0 0" >> $@
+	echo "file /bin/iperf3 $(IPERF_PATH)/src/iperf3 755 0 0" >> $@
+	echo "file /bin/wg $(WIREGUARD_TOOLS_PATH)/src/wg 755 0 0" >> $@
+	echo "file /bin/bash $(BASH_PATH)/bash 755 0 0" >> $@
+	echo "file /bin/ip $(IPROUTE2_PATH)/ip/ip 755 0 0" >> $@
+	echo "file /bin/ss $(IPROUTE2_PATH)/misc/ss 755 0 0" >> $@
+	echo "file /bin/ping $(IPUTILS_PATH)/ping 755 0 0" >> $@
+	echo "file /bin/ncat $(NMAP_PATH)/ncat/ncat 755 0 0" >> $@
+	echo "file /bin/xtables-legacy-multi $(IPTABLES_PATH)/iptables/xtables-legacy-multi 755 0 0" >> $@
+	echo "slink /bin/iptables xtables-legacy-multi 777 0 0" >> $@
+	echo "slink /bin/ping6 ping 777 0 0" >> $@
 	echo "dir /lib 755 0 0" >> $@
 	echo "file /lib/libc.so $(TOOLCHAIN_PATH)/$(CHOST)/lib/libc.so 755 0 0" >> $@
 	echo "slink $$($(CHOST)-readelf -p .interp '$(BUILD_PATH)/init'| grep -o '/lib/.*') libc.so 777 0 0" >> $@
@@ -337,8 +337,8 @@ $(TOOLCHAIN_PATH)/.installed: $(TOOLCHAIN_TAR)
 	flock -s $<.lock tar -C $(BUILD_PATH) -xf $<
 	$(STRIP) -s $(TOOLCHAIN_PATH)/$(CHOST)/lib/libc.so
 ifneq ($(CCACHE_PATH),)
-	mkdir -p $(TOOLCHAIN_PATH)ccache
-	ln -s $(CCACHE_PATH) $(TOOLCHAIN_PATH)ccache/$(CC)
+	mkdir -p $(TOOLCHAIN_PATH)/bin/ccache
+	ln -s $(CCACHE_PATH) $(TOOLCHAIN_PATH)/bin/ccache/$(CC)
 endif
 	touch $@
 

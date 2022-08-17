@@ -124,7 +124,7 @@ libs-y	+= arch/parisc/lib/ $(LIBGCC)
 boot	:= arch/parisc/boot
 
 PALO := $(shell if (which palo 2>&1); then : ; \
-	elif [ -x palo ]; then echo palo; \
+	elif [ -x /sbin/palo ]; then echo /sbin/palo; \
 	fi)
 
 PALOCONF := $(shell if [ -f $(srctree)/palo.conf ]; then echo $(srctree)/palo.conf; \
@@ -197,8 +197,8 @@ define archhelp
 	@echo  '  vmlinuz	- Compressed kernel image (./vmlinuz)'
 	@echo  '  palo		- Bootable image (./lifimage)'
 	@echo  '  install	- Install uncompressed vmlinux kernel using'
-	@echo  '		  (your) ~$(INSTALLKERNEL) or'
-	@echo  '		  (distribution) $(INSTALLKERNEL) or'
+	@echo  '		  (your) ~/bin/$(INSTALLKERNEL) or'
+	@echo  '		  (distribution) /sbin/$(INSTALLKERNEL) or'
 	@echo  '		  copy to $$(INSTALL_PATH)'
 	@echo  '  zinstall	- Install compressed vmlinuz kernel'
 endef

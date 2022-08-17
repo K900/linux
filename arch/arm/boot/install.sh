@@ -1,4 +1,4 @@
-#!sh
+#!/bin/sh
 #
 # This file is subject to the terms and conditions of the GNU General Public
 # License.  See the file "COPYING" in the main directory of this archive
@@ -38,8 +38,8 @@ if [ -f $4/System.map-$1 ]; then
 fi
 cp $3 $4/System.map-$1
 
-if [ -x loadmap ]; then
-  loadmap
+if [ -x /sbin/loadmap ]; then
+  /sbin/loadmap
 else
   echo "You have to install it yourself"
 fi

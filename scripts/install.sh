@@ -1,4 +1,4 @@
-#!sh
+#!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-only
 #
 # Copyright (C) 1995 by Linus Torvalds
@@ -21,8 +21,8 @@ do
 done
 
 # User/arch may have a custom install script
-for file in "${HOME}${INSTALLKERNEL}"		\
-	    "${INSTALLKERNEL}"			\
+for file in "${HOME}/bin/${INSTALLKERNEL}"		\
+	    "/sbin/${INSTALLKERNEL}"			\
 	    "${srctree}/arch/${SRCARCH}/install.sh"	\
 	    "${srctree}/arch/${SRCARCH}/boot/install.sh"
 do

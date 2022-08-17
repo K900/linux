@@ -20,7 +20,7 @@ include ../lib.mk
 $(OUTPUT)/subdir:
 	mkdir -p $@
 $(OUTPUT)/script:
-	echo '#!sh' > $@
+	echo '#!/bin/sh' > $@
 	echo 'exit $$*' >> $@
 	chmod +x $@
 $(OUTPUT)/execveat.symlink: $(OUTPUT)/execveat

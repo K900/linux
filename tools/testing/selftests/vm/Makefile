@@ -160,7 +160,7 @@ $(OUTPUT)/ksm_tests: LDLIBS += -lnuma
 $(OUTPUT)/migration: LDLIBS += -lnuma
 
 local_config.mk local_config.h: check_config.sh
-	sh ./check_config.sh $(CC)
+	/bin/sh ./check_config.sh $(CC)
 
 EXTRA_CLEAN += local_config.mk local_config.h
 

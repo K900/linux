@@ -9,7 +9,7 @@ LLVM_STRIP ?= llvm-strip
 TOOLS_PATH := $(abspath ../../../../tools)
 BPFTOOL_SRC := $(TOOLS_PATH)/bpf/bpftool
 BPFTOOL_OUTPUT := $(abs_out)/bpftool
-DEFAULT_BPFTOOL := $(OUTPUT)bpftool
+DEFAULT_BPFTOOL := $(OUTPUT)/sbin/bpftool
 BPFTOOL ?= $(DEFAULT_BPFTOOL)
 
 LIBBPF_SRC := $(TOOLS_PATH)/lib/bpf

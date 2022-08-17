@@ -1,4 +1,4 @@
-#!sh
+#!/bin/sh
 #
 # This file is subject to the terms and conditions of the GNU General Public
 # License.  See the file "COPYING" in the main directory of this archive
@@ -27,4 +27,4 @@ fi
 cat $2 > $4/vmlinuz
 cp $3 $4/System.map
 
-test -x /usrelilo && /usrelilo
+test -x /usr/sbin/elilo && /usr/sbin/elilo
