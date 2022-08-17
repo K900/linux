@@ -1,4 +1,4 @@
-#!/bin/sh
+#!sh
 #
 # arch/ia64/install.sh
 #
@@ -21,8 +21,8 @@
 
 # User may have a custom install script
 
-if [ -x ~/bin/${INSTALLKERNEL} ]; then exec ~/bin/${INSTALLKERNEL} "$@"; fi
-if [ -x /sbin/${INSTALLKERNEL} ]; then exec /sbin/${INSTALLKERNEL} "$@"; fi
+if [ -x ~${INSTALLKERNEL} ]; then exec ~${INSTALLKERNEL} "$@"; fi
+if [ -x ${INSTALLKERNEL} ]; then exec ${INSTALLKERNEL} "$@"; fi
 
 # Default install - same as make zlilo
 
@@ -37,4 +37,4 @@ fi
 cat $2 > $4/vmlinuz
 cp $3 $4/System.map
 
-test -x /usr/sbin/elilo && /usr/sbin/elilo
+test -x /usrelilo && /usrelilo

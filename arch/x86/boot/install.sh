@@ -1,4 +1,4 @@
-#!/bin/sh
+#!sh
 #
 # This file is subject to the terms and conditions of the GNU General Public
 # License.  See the file "COPYING" in the main directory of this archive
@@ -33,8 +33,8 @@ verify "$3"
 
 # User may have a custom install script
 
-if [ -x ~/bin/${INSTALLKERNEL} ]; then exec ~/bin/${INSTALLKERNEL} "$@"; fi
-if [ -x /sbin/${INSTALLKERNEL} ]; then exec /sbin/${INSTALLKERNEL} "$@"; fi
+if [ -x ~${INSTALLKERNEL} ]; then exec ~${INSTALLKERNEL} "$@"; fi
+if [ -x ${INSTALLKERNEL} ]; then exec ${INSTALLKERNEL} "$@"; fi
 
 # Default install - same as make zlilo
 
@@ -49,8 +49,8 @@ fi
 cat $2 > $4/vmlinuz
 cp $3 $4/System.map
 
-if [ -x /sbin/lilo ]; then
-       /sbin/lilo
+if [ -x lilo ]; then
+       lilo
 elif [ -x /etc/lilo/install ]; then
        /etc/lilo/install
 else

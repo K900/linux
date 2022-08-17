@@ -1,4 +1,4 @@
-#!/bin/sh
+#!sh
 #
 # This file is subject to the terms and conditions of the GNU General Public
 # License.  See the file "COPYING" in the main directory of this archive
@@ -23,8 +23,8 @@ set -e
 
 # User may have a custom install script
 
-if [ -x ~/bin/${INSTALLKERNEL} ]; then exec ~/bin/${INSTALLKERNEL} "$@"; fi
-if [ -x /sbin/${INSTALLKERNEL} ]; then exec /sbin/${INSTALLKERNEL} "$@"; fi
+if [ -x ~${INSTALLKERNEL} ]; then exec ~${INSTALLKERNEL} "$@"; fi
+if [ -x ${INSTALLKERNEL} ]; then exec ${INSTALLKERNEL} "$@"; fi
 
 # Default install
 

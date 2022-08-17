@@ -1,4 +1,4 @@
-#!/bin/sh
+#!sh
 #
 # arch/arm/boot/install.sh
 #
@@ -35,8 +35,8 @@ verify "$2"
 verify "$3"
 
 # User may have a custom install script
-if [ -x ~/bin/${INSTALLKERNEL} ]; then exec ~/bin/${INSTALLKERNEL} "$@"; fi
-if [ -x /sbin/${INSTALLKERNEL} ]; then exec /sbin/${INSTALLKERNEL} "$@"; fi
+if [ -x ~${INSTALLKERNEL} ]; then exec ~${INSTALLKERNEL} "$@"; fi
+if [ -x ${INSTALLKERNEL} ]; then exec ${INSTALLKERNEL} "$@"; fi
 
 if [ "$(basename $2)" = "zImage" ]; then
 # Compressed install
@@ -59,8 +59,8 @@ if [ -f $4/System.map-$1 ]; then
 fi
 cp $3 $4/System.map-$1
 
-if [ -x /sbin/loadmap ]; then
-  /sbin/loadmap
+if [ -x loadmap ]; then
+  loadmap
 else
   echo "You have to install it yourself"
 fi

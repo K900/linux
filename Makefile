@@ -351,7 +351,7 @@ export KCONFIG_CONFIG
 
 # SHELL used by kbuild
 CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
-	  else if [ -x /bin/bash ]; then echo /bin/bash; \
+	  else if [ -x bash ]; then echo bash; \
 	  else echo sh; fi ; fi)
 
 HOST_LFS_CFLAGS := $(shell getconf LFS_CFLAGS 2>/dev/null)
@@ -382,7 +382,7 @@ YACC		= bison
 AWK		= awk
 GENKSYMS	= scripts/genksyms/genksyms
 INSTALLKERNEL  := installkernel
-DEPMOD		= /sbin/depmod
+DEPMOD		= depmod
 PERL		= perl
 PYTHON		= python
 PYTHON2		= python2
@@ -646,7 +646,7 @@ include/config/auto.conf:
 	echo >&2 "         include/generated/autoconf.h or $@ are missing.";\
 	echo >&2 "         Run 'make oldconfig && make prepare' on kernel src to fix it.";	\
 	echo >&2 ;							\
-	/bin/false)
+	false)
 
 endif # may-sync-config
 endif # $(dot-config)
@@ -1084,7 +1084,7 @@ ifneq ($(KBUILD_SRC),)
 	$(Q)if [ -f $(srctree)/.config -o -d $(srctree)/include/config ]; then \
 		echo >&2 "  $(srctree) is not clean, please run 'make mrproper'"; \
 		echo >&2 "  in the '$(srctree)' directory.";\
-		/bin/false; \
+		false; \
 	fi;
 endif
 

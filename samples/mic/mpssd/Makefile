@@ -18,8 +18,8 @@ mpssd: mpssd.c sysfs.c
 	$(CC) $(CFLAGS) mpssd.c sysfs.c -o mpssd -lpthread
 
 install:
-	install mpssd /usr/sbin/mpssd
-	install micctrl /usr/sbin/micctrl
+	install mpssd /usrmpssd
+	install micctrl /usrmicctrl
 
 clean:
 	rm -fr $(PROGS)

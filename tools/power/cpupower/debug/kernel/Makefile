@@ -18,6 +18,6 @@ clean:
 install: default
 	install -d $(KMISC)
 	install -m 644 -c *.ko $(KMISC)
-	/sbin/depmod -a
+	depmod -a
 
 all:	default

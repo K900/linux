@@ -164,7 +164,7 @@ define archhelp
   echo  '  dtbs_install  - Install dtbs to $(INSTALL_DTBS_PATH)'
   echo  '  install       - Install uncompressed kernel'
   echo  '  zinstall      - Install compressed kernel'
-  echo  '                  Install using (your) ~/bin/installkernel or'
-  echo  '                  (distribution) /sbin/installkernel or'
+  echo  '                  Install using (your) ~installkernel or'
+  echo  '                  (distribution) installkernel or'
   echo  '                  install to $$(INSTALL_PATH) and run lilo'
 endef

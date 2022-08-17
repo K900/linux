@@ -149,7 +149,7 @@ bzlilo: $(obj)/bzImage
 	if [ -f $(INSTALL_PATH)/System.map ]; then mv $(INSTALL_PATH)/System.map $(INSTALL_PATH)/System.old; fi
 	cat $(obj)/bzImage > $(INSTALL_PATH)/vmlinuz
 	cp System.map $(INSTALL_PATH)/
-	if [ -x /sbin/lilo ]; then /sbin/lilo; else /etc/lilo/install; fi
+	if [ -x lilo ]; then lilo; else /etc/lilo/install; fi
 
 install:
 	sh $(srctree)/$(src)/install.sh $(KERNELRELEASE) $(obj)/bzImage \

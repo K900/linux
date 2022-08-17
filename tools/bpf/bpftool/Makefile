@@ -104,13 +104,13 @@ clean: $(LIBBPF)-clean
 install: $(OUTPUT)bpftool
 	$(call QUIET_INSTALL, bpftool)
 	$(Q)$(INSTALL) -m 0755 -d $(DESTDIR)$(prefix)/sbin
-	$(Q)$(INSTALL) $(OUTPUT)bpftool $(DESTDIR)$(prefix)/sbin/bpftool
+	$(Q)$(INSTALL) $(OUTPUT)bpftool $(DESTDIR)$(prefix)bpftool
 	$(Q)$(INSTALL) -m 0755 -d $(DESTDIR)$(bash_compdir)
 	$(Q)$(INSTALL) -m 0644 bash-completion/bpftool $(DESTDIR)$(bash_compdir)
 
 uninstall:
 	$(call QUIET_UNINST, bpftool)
-	$(Q)$(RM) $(DESTDIR)$(prefix)/sbin/bpftool
+	$(Q)$(RM) $(DESTDIR)$(prefix)bpftool
 	$(Q)$(RM) $(DESTDIR)$(bash_compdir)/bpftool
 
 doc:

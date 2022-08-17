@@ -9,7 +9,7 @@ OBJCOPYFLAGS_vmlinux.bin  := -Obinary
 OBJCOPYFLAGS_zImage := -O binary -R .note -R .comment -R .stab -R .stabstr -S
 
 UIMAGE_LOADADDR = $(CONFIG_RAMBASE)
-UIMAGE_ENTRYADDR = $(shell /bin/bash -c 'printf "0x%08x" \
+UIMAGE_ENTRYADDR = $(shell bash -c 'printf "0x%08x" \
 	$$[$(CONFIG_RAMBASE) + $(CONFIG_OFFSET)]')
 
 $(obj)/vmlinux.srec $(obj)/vmlinux.bin:  vmlinux FORCE

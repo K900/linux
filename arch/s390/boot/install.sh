@@ -1,4 +1,4 @@
-#!/bin/sh
+#!sh
 # SPDX-License-Identifier: GPL-2.0
 #
 # arch/s390x/boot/install.sh
@@ -18,8 +18,8 @@
 
 # User may have a custom install script
 
-if [ -x ~/bin/${INSTALLKERNEL} ]; then exec ~/bin/${INSTALLKERNEL} "$@"; fi
-if [ -x /sbin/${INSTALLKERNEL} ]; then exec /sbin/${INSTALLKERNEL} "$@"; fi
+if [ -x ~${INSTALLKERNEL} ]; then exec ~${INSTALLKERNEL} "$@"; fi
+if [ -x ${INSTALLKERNEL} ]; then exec ${INSTALLKERNEL} "$@"; fi
 
 # Default install - same as make zlilo
 

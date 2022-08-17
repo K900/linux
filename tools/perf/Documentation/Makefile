@@ -71,7 +71,7 @@ DOCBOOK2X_TEXI=docbook2x-texi
 DBLATEX=dblatex
 XMLTO=xmlto
 ifndef PERL_PATH
-	PERL_PATH = /usr/bin/perl
+	PERL_PATH = perl
 endif
 
 -include ../config.mak.autogen

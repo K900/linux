@@ -123,7 +123,7 @@ lilo:	vmlinux
 	if [ -f $(INSTALL_PATH)/System.map ]; then mv -f $(INSTALL_PATH)/System.map $(INSTALL_PATH)/System.old; fi
 	cat vmlinux > $(INSTALL_PATH)/vmlinux
 	cp System.map $(INSTALL_PATH)/System.map
-	if [ -x /sbin/lilo ]; then /sbin/lilo; else /etc/lilo/install; fi
+	if [ -x lilo ]; then lilo; else /etc/lilo/install; fi
 
 zImage compressed: vmlinux.gz
 

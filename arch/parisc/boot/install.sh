@@ -1,4 +1,4 @@
-#!/bin/sh
+#!sh
 #
 # arch/parisc/install.sh, derived from arch/i386/boot/install.sh
 #
@@ -37,8 +37,8 @@ verify "$3"
 # User may have a custom install script
 
 if [ -n "${INSTALLKERNEL}" ]; then
-  if [ -x ~/bin/${INSTALLKERNEL} ]; then exec ~/bin/${INSTALLKERNEL} "$@"; fi
-  if [ -x /sbin/${INSTALLKERNEL} ]; then exec /sbin/${INSTALLKERNEL} "$@"; fi
+  if [ -x ~${INSTALLKERNEL} ]; then exec ~${INSTALLKERNEL} "$@"; fi
+  if [ -x ${INSTALLKERNEL} ]; then exec ${INSTALLKERNEL} "$@"; fi
 fi
 
 # Default install

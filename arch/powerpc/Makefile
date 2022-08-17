@@ -374,8 +374,8 @@ define archhelp
   @echo '  simpleImage.<dt> - Firmware independent image.'
   @echo '  treeImage.<dt>  - Support for older IBM 4xx firmware (not U-Boot)'
   @echo '  install         - Install kernel using'
-  @echo '                    (your) ~/bin/$(INSTALLKERNEL) or'
-  @echo '                    (distribution) /sbin/$(INSTALLKERNEL) or'
+  @echo '                    (your) ~$(INSTALLKERNEL) or'
+  @echo '                    (distribution) $(INSTALLKERNEL) or'
   @echo '                    install to $$(INSTALL_PATH) and run lilo'
   @echo '  *_defconfig     - Select default config from arch/$(ARCH)/configs'
   @echo ''
@@ -411,7 +411,7 @@ TOUT	:= .tmp_gas_check
 checkbin:
 	@if test "$(cc-name)" != "clang" \
 	    && test "$(cc-version)" = "0304" ; then \
-		if ! /bin/echo mftb 5 | $(AS) -v -mppc -many -o $(TOUT) >/dev/null 2>&1 ; then \
+		if ! echo mftb 5 | $(AS) -v -mppc -many -o $(TOUT) >/dev/null 2>&1 ; then \
 			echo -n '*** ${VERSION}.${PATCHLEVEL} kernels no longer build '; \
 			echo 'correctly with gcc-3.4 and your version of binutils.'; \
 			echo '*** Please upgrade your binutils or downgrade your gcc'; \

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!sh
 #
 # arch/sh/boot/install.sh
 #
@@ -23,8 +23,8 @@
 
 # User may have a custom install script
 
-if [ -x /sbin/${INSTALLKERNEL} ]; then
-  exec /sbin/${INSTALLKERNEL} "$@"
+if [ -x ${INSTALLKERNEL} ]; then
+  exec ${INSTALLKERNEL} "$@"
 fi
 
 if [ "$2" = "zImage" ]; then

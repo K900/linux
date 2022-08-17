@@ -138,7 +138,7 @@ endif
 
 ifdef CONFIG_X86_X32
 	x32_ld_ok := $(call try-run,\
-			/bin/echo -e '1: .quad 1b' | \
+			echo -e '1: .quad 1b' | \
 			$(CC) $(KBUILD_AFLAGS) -c -x assembler -o "$$TMP" - && \
 			$(OBJCOPY) -O elf32-x86-64 "$$TMP" "$$TMPO" && \
 			$(LD) -m elf32_x86_64 "$$TMPO" -o "$$TMP",y,n)
@@ -312,8 +312,8 @@ archclean:
 define archhelp
   echo  '* bzImage      - Compressed kernel image (arch/x86/boot/bzImage)'
   echo  '  install      - Install kernel using'
-  echo  '                  (your) ~/bin/$(INSTALLKERNEL) or'
-  echo  '                  (distribution) /sbin/$(INSTALLKERNEL) or'
+  echo  '                  (your) ~$(INSTALLKERNEL) or'
+  echo  '                  (distribution) $(INSTALLKERNEL) or'
   echo  '                  install to $$(INSTALL_PATH) and run lilo'
   echo  '  fdimage      - Create 1.4MB boot floppy image (arch/x86/boot/fdimage)'
   echo  '  fdimage144   - Create 1.4MB boot floppy image (arch/x86/boot/fdimage)'

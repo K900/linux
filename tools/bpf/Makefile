@@ -89,11 +89,11 @@ clean: bpftool_clean
 install: $(PROGS) bpftool_install
 	$(call QUIET_INSTALL, bpf_jit_disasm)
 	$(Q)$(INSTALL) -m 0755 -d $(DESTDIR)$(prefix)/bin
-	$(Q)$(INSTALL) $(OUTPUT)bpf_jit_disasm $(DESTDIR)$(prefix)/bin/bpf_jit_disasm
+	$(Q)$(INSTALL) $(OUTPUT)bpf_jit_disasm $(DESTDIR)$(prefix)bpf_jit_disasm
 	$(call QUIET_INSTALL, bpf_dbg)
-	$(Q)$(INSTALL) $(OUTPUT)bpf_dbg $(DESTDIR)$(prefix)/bin/bpf_dbg
+	$(Q)$(INSTALL) $(OUTPUT)bpf_dbg $(DESTDIR)$(prefix)bpf_dbg
 	$(call QUIET_INSTALL, bpf_asm)
-	$(Q)$(INSTALL) $(OUTPUT)bpf_asm $(DESTDIR)$(prefix)/bin/bpf_asm
+	$(Q)$(INSTALL) $(OUTPUT)bpf_asm $(DESTDIR)$(prefix)bpf_asm
 
 bpftool:
 	$(call descend,bpftool)

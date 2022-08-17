@@ -46,15 +46,15 @@ $(obj)/romImage: $(obj)/romimage/vmlinux FORCE
 $(obj)/romimage/vmlinux: $(obj)/zImage FORCE
 	$(Q)$(MAKE) $(build)=$(obj)/romimage $@
 
-KERNEL_MEMORY	:= $(shell /bin/bash -c 'printf "0x%08x" \
+KERNEL_MEMORY	:= $(shell bash -c 'printf "0x%08x" \
 		     $$[$(CONFIG_PHYSICAL_START) & 0x1fffffff]')
 
-KERNEL_LOAD	:= $(shell /bin/bash -c 'printf "0x%08x" \
+KERNEL_LOAD	:= $(shell bash -c 'printf "0x%08x" \
 		     $$[$(CONFIG_PAGE_OFFSET)  + \
 			$(KERNEL_MEMORY) + \
 			$(CONFIG_ZERO_PAGE_OFFSET)]')
 
-KERNEL_ENTRY	:= $(shell /bin/bash -c 'printf "0x%08x" \
+KERNEL_ENTRY	:= $(shell bash -c 'printf "0x%08x" \
 		     $$[$(CONFIG_PAGE_OFFSET)  + \
 			$(KERNEL_MEMORY) + \
 			$(CONFIG_ZERO_PAGE_OFFSET) + $(CONFIG_ENTRY_OFFSET)]')
