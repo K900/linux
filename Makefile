@@ -714,7 +714,7 @@ $(KCONFIG_CONFIG):
 	@echo >&2 '*** Please run some configurator (e.g. "make oldconfig" or'
 	@echo >&2 '*** "make menuconfig" or "make xconfig").'
 	@echo >&2 '***'
-	@/bin/false
+	@false
 
 # The actual configuration files used during the build are stored in
 # include/generated/ and include/config/. Update them if .config is newer than
@@ -742,7 +742,7 @@ include/config/auto.conf:
 	echo >&2 "         include/generated/autoconf.h or $@ are missing.";\
 	echo >&2 "         Run 'make oldconfig && make prepare' on kernel src to fix it.";	\
 	echo >&2 ;							\
-	/bin/false)
+	false)
 
 endif # may-sync-config
 endif # need-config
@@ -1298,7 +1298,7 @@ scripts_unifdef: scripts_basic
 # ---------------------------------------------------------------------------
 # Install
 
-# Many distributions have the custom install script, /sbin/installkernel.
+# Many distributions have the custom install script, installkernel.
 # If DKMS is installed, 'make install' will eventually recurse back
 # to this Makefile to build and install external modules.
 # Cancel sub_make_done so that options such as M=, V=, etc. are parsed.

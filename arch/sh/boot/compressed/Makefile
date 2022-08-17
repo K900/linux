@@ -24,11 +24,11 @@ GCOV_PROFILE := n
 # IMAGE_OFFSET is the load offset of the compression loader
 #
 ifeq ($(CONFIG_32BIT),y)
-IMAGE_OFFSET	:= $(shell /bin/bash -c 'printf "0x%08x" \
+IMAGE_OFFSET	:= $(shell bash -c 'printf "0x%08x" \
 		     $$[$(CONFIG_MEMORY_START)  + \
 			$(CONFIG_BOOT_LINK_OFFSET)]')
 else
-IMAGE_OFFSET	:= $(shell /bin/bash -c 'printf "0x%08x" \
+IMAGE_OFFSET	:= $(shell bash -c 'printf "0x%08x" \
 		     $$[$(CONFIG_PAGE_OFFSET)  + \
 			$(KERNEL_MEMORY) + \
 			$(CONFIG_BOOT_LINK_OFFSET)]')

@@ -73,7 +73,7 @@ KCOV_INSTRUMENT := n
 quiet_cmd_vdso_mips_check = VDSOCHK $@
       cmd_vdso_mips_check = if $(OBJDUMP) --disassemble $@ | egrep -h "jalr.*t9" > /dev/null; \
 		       then (echo >&2 "$@: PIC 'jalr t9' calls are not supported"; \
-			     rm -f $@; /bin/false); fi
+			     rm -f $@; false); fi
 
 #
 # Shared build commands.

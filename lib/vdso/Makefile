@@ -19,4 +19,4 @@ endif
 quiet_cmd_vdso_check = VDSOCHK $@
       cmd_vdso_check = if $(OBJDUMP) -R $@ | egrep -h "$(ARCH_REL_TYPE_ABS)"; \
 		       then (echo >&2 "$@: dynamic relocations are not supported"; \
-			     rm -f $@; /bin/false); fi
+			     rm -f $@; false); fi

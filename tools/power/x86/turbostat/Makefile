@@ -25,6 +25,6 @@ clean :
 
 install : turbostat
 	install -d  $(DESTDIR)$(PREFIX)/bin
-	install $(BUILD_OUTPUT)/turbostat $(DESTDIR)$(PREFIX)/bin/turbostat
+	install $(BUILD_OUTPUT)/turbostat $(DESTDIR)$(PREFIX)turbostat
 	install -d  $(DESTDIR)$(PREFIX)/share/man/man8
 	install -m 644 turbostat.8 $(DESTDIR)$(PREFIX)/share/man/man8

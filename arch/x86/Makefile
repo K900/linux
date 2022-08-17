@@ -304,8 +304,8 @@ archclean:
 
 define archhelp
   echo  '* bzImage		- Compressed kernel image (arch/x86/boot/bzImage)'
-  echo  '  install		- Install kernel using (your) ~/bin/$(INSTALLKERNEL) or'
-  echo  '			  (distribution) /sbin/$(INSTALLKERNEL) or install to '
+  echo  '  install		- Install kernel using (your) ~$(INSTALLKERNEL) or'
+  echo  '			  (distribution) $(INSTALLKERNEL) or install to '
   echo  '			  $$(INSTALL_PATH) and run lilo'
   echo  ''
   echo  '  fdimage		- Create 1.4MB boot floppy image (arch/x86/boot/fdimage)'
