@@ -1,0 +1,948 @@
+diff --git a/drivers/net/wireless/mediatek/mt76/dma.c b/drivers/net/wireless/mediatek/mt76/dma.c
+index 40cb91097b2e..fe2124893d15 100644
+--- a/drivers/net/wireless/mediatek/mt76/dma.c
++++ b/drivers/net/wireless/mediatek/mt76/dma.c
+@@ -324,13 +324,20 @@ mt76_dma_tx_queue_skb_raw(struct mt76_dev *dev, struct mt76_queue *q,
+	struct mt76_queue_buf buf = {};
+	dma_addr_t addr;
+
++	/* control msg path, not data frames
++	   mtk_dbg(dev, TXV, "mt76-dma-tx-queue-skb-raw, queued: %d ndesc: %d\n",
++		q->queued, q->ndesc);
++	*/
++
+	if (q->queued + 1 >= q->ndesc - 1)
+		goto error;
+
+	addr = dma_map_single(dev->dma_dev, skb->data, skb->len,
+			      DMA_TO_DEVICE);
+-	if (unlikely(dma_mapping_error(dev->dma_dev, addr)))
++	if (unlikely(dma_mapping_error(dev->dma_dev, addr))) {
++		mtk_dbg(dev, WRN, "mt76-dma-tx-queue-skb-raw, dma mapping error\n");
+		goto error;
++	}
+
+	buf.addr = addr;
+	buf.len = skb->len;
+@@ -366,6 +373,9 @@ mt76_dma_tx_queue_skb(struct mt76_dev *dev, struct mt76_queue *q,
+	u8 *txwi;
+
+	t = mt76_get_txwi(dev);
++
++	mtk_dbg(dev, TXV, "mt76-dma-tx-queue-skb, txwi: %p\n",
++		t);
+	if (!t)
+		goto free_skb;
+
+diff --git a/drivers/net/wireless/mediatek/mt76/mt76.h b/drivers/net/wireless/mediatek/mt76/mt76.h
+index b0852cc9af4e..531f52fa282f 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt76.h
++++ b/drivers/net/wireless/mediatek/mt76/mt76.h
+@@ -735,6 +735,7 @@ struct mt76_dev {
+	spinlock_t cc_lock;
+
+	u32 cur_cc_bss_rx;
++	u32 debug_lvl;
+
+	struct mt76_rx_status rx_ampdu_status;
+	u32 rx_ampdu_len;
+@@ -855,6 +856,22 @@ struct mt76_dev {
+	};
+ };
+
++enum MTK_DEUBG {
++	MTK_DEBUG_TX		= 0x00000001, /* tx path */
++	MTK_DEBUG_TXV		= 0x00000002, /* verbose tx path */
++	MTK_DEBUG_FATAL		= 0x00000004,
++	MTK_DEBUG_WRN		= 0x00000008,
++	MTK_DEBUG_MSG		= 0x00000010, /* messages to/from firmware */
++	MTK_DEBUG_ANY		= 0xffffffff
++};
++
++#define mtk_dbg(mt76, dbg_mask, fmt, ...)				\
++	do {								\
++		if ((mt76)->debug_lvl & MTK_DEBUG_##dbg_mask)		\
++			dev_info((mt76)->dev, fmt, ##__VA_ARGS__); \
++	} while (0)
++
++
+ struct mt76_power_limits {
+	s8 cck[4];
+	s8 ofdm[8];
+diff --git a/drivers/net/wireless/mediatek/mt76/mt76_connac2_mac.h b/drivers/net/wireless/mediatek/mt76/mt76_connac2_mac.h
+index 67ce216fb564..91d1107f0b53 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt76_connac2_mac.h
++++ b/drivers/net/wireless/mediatek/mt76/mt76_connac2_mac.h
+@@ -133,10 +133,12 @@ enum {
+ #define MT_TXS0_TXOP_TIMEOUT		BIT(20)
+ #define MT_TXS0_BIP_ERROR		BIT(19)
+
++#define MT_TXS0_TXOP_LIMIT		BIT(20)
++#define MT_TXS0_BIP_OR_BF_ERROR		BIT(19)
+ #define MT_TXS0_QUEUE_TIMEOUT		BIT(18)
+ #define MT_TXS0_RTS_TIMEOUT		BIT(17)
+ #define MT_TXS0_ACK_TIMEOUT		BIT(16)
+-#define MT_TXS0_ACK_ERROR_MASK		GENMASK(18, 16)
++#define MT_TXS0_ACK_ERROR_MASK		GENMASK(20, 16)
+
+ #define MT_TXS0_TX_STATUS_HOST		BIT(15)
+ #define MT_TXS0_TX_STATUS_MCU		BIT(14)
+@@ -158,6 +160,9 @@ enum {
+
+ #define MT_TXS4_TIMESTAMP		GENMASK(31, 0)
+
++#define MT_TXS6_NOISE_0			GENMASK(31, 0)
++#define MT_TXS7_RCPI_0			GENMASK(31, 0)
++
+ /* RXD DW1 */
+ #define MT_RXD1_NORMAL_WLAN_IDX		GENMASK(9, 0)
+ #define MT_RXD1_NORMAL_GROUP_1		BIT(11)
+diff --git a/drivers/net/wireless/mediatek/mt76/mt76_connac_mac.c b/drivers/net/wireless/mediatek/mt76/mt76_connac_mac.c
+index 5387339fc3c3..60241b44e237 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt76_connac_mac.c
++++ b/drivers/net/wireless/mediatek/mt76/mt76_connac_mac.c
+@@ -573,6 +573,10 @@ bool mt76_connac2_mac_add_txs_skb(struct mt76_dev *dev, struct mt76_wcid *wcid,
+	}
+
+	txs = le32_to_cpu(txs_data[0]);
++	/*
++	txs2 = le32_to_cpu(txs_data[2]);
++	TODO:  Add tx-bf stats in DW2: no-bf, ibf, ebf, mubf?
++	*/
+
+	if (skb) {
+		info = IEEE80211_SKB_CB(skb);
+@@ -584,6 +588,9 @@ bool mt76_connac2_mac_add_txs_skb(struct mt76_dev *dev, struct mt76_wcid *wcid,
+						IEEE80211_TX_STAT_ACK);
+	}
+
++	mtk_dbg(dev, TX, "wcid: %d connac2_mac_add_txs_skb, pid: %d err-msk: 0x%x",
++		wcid->idx, pid, (u32)(txs & MT_TXS0_ACK_ERROR_MASK));
++
+	txrate = FIELD_GET(MT_TXS0_TX_RATE, txs);
+
+	rate.mcs = FIELD_GET(MT_TX_RATE_IDX, txrate);
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7915/mac.c b/drivers/net/wireless/mediatek/mt76/mt7915/mac.c
+index bbaa77af387c..5b388a8cbf82 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7915/mac.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7915/mac.c
+@@ -834,6 +834,9 @@ int mt7915_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
+	u8 *txwi = (u8 *)txwi_ptr;
+	int pid;
+
++	mtk_dbg(&dev->mt76, TXV, "mt7915-tx-prepare-skb, skb-len: %d\n",
++		tx_info->skb->len);
++
+	if (unlikely(tx_info->skb->len <= ETH_HLEN))
+		return -EINVAL;
+
+@@ -855,8 +858,11 @@ int mt7915_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
+	t->skb = tx_info->skb;
+
+	id = mt76_token_consume(mdev, &t);
+-	if (id < 0)
++	if (id < 0) {
++		mtk_dbg(&dev->mt76, TXV, "mt7915-tx-prepare-skb, token_consume error: %d\n",
++			id);
+		return id;
++	}
+
+	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
+	mt7915_mac_write_txwi(mdev, txwi_ptr, tx_info->skb, wcid, pid, key,
+@@ -1138,6 +1144,9 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
+			idx = FIELD_GET(MT_TX_FREE_WLAN_ID, info);
+			wcid = rcu_dereference(dev->mt76.wcid[idx]);
+			sta = wcid_to_sta(wcid);
++
++			mtk_dbg(mdev, TXV, "mt7915-mac-tx-free, new wcid pair, idx: %d sta: %p wcid: %p\n",
++				idx, sta, wcid);
+			if (!sta)
+				continue;
+
+@@ -1154,6 +1163,9 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
+			/* 0 = success, 1 dropped-by-hw, 2 dropped-by-cpu */
+			tx_status = FIELD_GET(MT_TX_FREE_STATUS_V3, info);
+			ampdu = 1;
++
++			mtk_dbg(mdev, TXV, "mt7915-mac-tx-free, v3-DW3, tx-cnt: %d  t_status: %d\n",
++				tx_cnt, tx_status);
+			continue;
+		}
+
+@@ -1172,8 +1184,14 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
+			}
+			count++;
+			txwi = mt76_token_release(mdev, msdu, &wake);
+-			if (!txwi)
++
++			mtk_dbg(mdev, TXV, "mt7915-mac-tx-free, msdu: %d, tx-cnt: %d  t_status: %d count: %d/%d\n",
++				msdu, tx_cnt, tx_status, count, total);
++
++			if (!txwi) {
++				WARN_ON_ONCE(1);
+				continue;
++			}
+
+			mt7915_txwi_free(dev, txwi, sta, &free_list, tx_cnt, tx_status, ampdu);
+
+@@ -1231,6 +1249,9 @@ static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
+	u16 wcidx;
+	u8 pid;
+
++	mtk_dbg(&dev->mt76, TX, "mt7915-mac-add-txs, format: %d\n",
++		le32_get_bits(txs_data[0], MT_TXS0_TXS_FORMAT));
++
+	if (le32_get_bits(txs_data[0], MT_TXS0_TXS_FORMAT) > 1)
+		return;
+
+@@ -1288,7 +1309,12 @@ bool mt7915_rx_check(struct mt76_dev *mdev, void *data, int len)
+	case PKT_TYPE_RX_FW_MONITOR:
+		mt7915_debugfs_rx_fw_monitor(dev, data, len);
+		return false;
++	case PKT_TYPE_RX_EVENT:
++	case PKT_TYPE_NORMAL:
++		/* These are handled elsewhere, do not warn about them. */
++		return true;
+	default:
++		mtk_dbg(mdev, MSG, "mt7915-rx-check, pkt-type: %d not handled.\n", type);
+		return true;
+	}
+ }
+@@ -1334,6 +1360,7 @@ void mt7915_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
+		}
+		fallthrough;
+	default:
++		mtk_dbg(mdev, MSG, "mt7915-mac-queue-rx-skb, unhandled type: %d\n", type);
+		dev_kfree_skb(skb);
+		break;
+	}
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7915/main.c b/drivers/net/wireless/mediatek/mt76/mt7915/main.c
+index 1e8cfbd3c41d..e58605ec3654 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7915/main.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7915/main.c
+@@ -8,6 +8,19 @@
+ #include "mt7915.h"
+ #include "mcu.h"
+
++static u32 debug_lvl = MTK_DEBUG_FATAL | MTK_DEBUG_WRN;
++module_param(debug_lvl, uint, 0644);
++MODULE_PARM_DESC(debug_lvl,
++		 "Enable debugging messages\n"
++		 "0x00001	tx path\n"
++		 "0x00002	tx path verbose\n"
++		 "0x00004	fatal/very-important messages\n"
++		 "0x00008	warning messages\n"
++		 "0x00010	Info about messages to/from firmware\n"
++		 "0xffffffff	any/all\n"
++	);
++
++
+ static bool mt7915_dev_running(struct mt7915_dev *dev)
+ {
+	struct mt7915_phy *phy;
+@@ -27,6 +40,8 @@ static int mt7915_start(struct ieee80211_hw *hw)
+	bool running;
+	int ret;
+
++	dev->mt76.debug_lvl = debug_lvl;
++
+	flush_work(&dev->init_work);
+
+	mutex_lock(&dev->mt76.mutex);
+@@ -771,6 +786,9 @@ static void mt7915_tx(struct ieee80211_hw *hw,
+		wcid = &mvif->sta.wcid;
+	}
+
++	mtk_dbg(&dev->mt76, TXV, "mt7615-tx, wcid: %d\n",
++		wcid->idx);
++
+	mt76_tx(mphy, control->sta, wcid, skb);
+ }
+
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7915/mcu.c b/drivers/net/wireless/mediatek/mt76/mt7915/mcu.c
+index 723422b8c4cf..f8fc5902edea 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7915/mcu.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7915/mcu.c
+@@ -368,6 +368,9 @@ mt7915_mcu_rx_ext_event(struct mt7915_dev *dev, struct sk_buff *skb)
+	struct mt76_connac2_mcu_rxd *rxd;
+
+	rxd = (struct mt76_connac2_mcu_rxd *)skb->data;
++
++	mtk_dbg(&dev->mt76, MSG, "mt7915-mcu-rx-ext-event, ext-eid: %d\n", rxd->ext_eid);
++
+	switch (rxd->ext_eid) {
+	case MCU_EXT_EVENT_THERMAL_PROTECT:
+		mt7915_mcu_rx_thermal_notify(dev, skb);
+@@ -390,7 +393,7 @@ mt7915_mcu_rx_ext_event(struct mt7915_dev *dev, struct sk_buff *skb)
+		break;
+	default:
+		/* in SDK, grep for EventExtEventHandler */
+-		dev_info(dev->mt76.dev, "mt7915, unhandled rx_ext_event: 0x%x", rxd->ext_eid);
++		mtk_dbg(&dev->mt76, WRN, "mt7915, unhandled rx_ext_event: 0x%x", rxd->ext_eid);
+		break;
+	}
+ }
+diff --git a/drivers/net/wireless/mediatek/mt76/tx.c b/drivers/net/wireless/mediatek/mt76/tx.c
+index 2a9d6b086291..38781bd4ea33 100644
+--- a/drivers/net/wireless/mediatek/mt76/tx.c
++++ b/drivers/net/wireless/mediatek/mt76/tx.c
+@@ -257,6 +257,8 @@ void __mt76_tx_complete_skb(struct mt76_dev *dev, u16 wcid_idx, struct sk_buff *
+	struct sk_buff_head list;
+	struct ieee80211_rate_status status_rate = { 0 };
+
++	mtk_dbg(dev, TXV, "mt76-tx-complete-skb, wcid_idx: %d\n",
++		wcid_idx);
+	rcu_read_lock();
+
+	if (wcid_idx < ARRAY_SIZE(dev->wcid)) {
+@@ -316,6 +318,10 @@ __mt76_tx_queue_skb(struct mt76_phy *phy, int qid, struct sk_buff *skb,
+
+	non_aql = !info->tx_time_est;
+	idx = dev->queue_ops->tx_queue_skb(dev, q, qid, skb, wcid, sta);
++
++	mtk_dbg(dev, TXV, "mt76-tx-queue-skb, idx: %d  sta: %p\n",
++		idx, sta);
++
+	if (idx < 0 || !sta)
+		return idx;
+
+@@ -342,6 +348,10 @@ mt76_tx(struct mt76_phy *phy, struct ieee80211_sta *sta,
+	struct mt76_queue *q;
+	int qid = skb_get_queue_mapping(skb);
+
++	mtk_dbg(dev, TXV, "mt76-tx, testmode enabled: %d, sta: %pM wcid: %d skb-len: %d\n",
++		mt76_testmode_enabled(phy), sta->addr, wcid ? wcid->idx : -1, skb->len);
++	WARN_ON_ONCE(1);
++
+	if (mt76_testmode_enabled(phy)) {
+		ieee80211_free_txskb(phy->hw, skb);
+		return;
+@@ -381,8 +391,11 @@ mt76_txq_dequeue(struct mt76_phy *phy, struct mt76_txq *mtxq)
+	struct sk_buff *skb;
+
+	skb = ieee80211_tx_dequeue(phy->hw, txq);
+-	if (!skb)
++	if (!skb) {
++		mtk_dbg(phy->dev, TXV, "mt76-txq-dequeue, ieee80211_tx_dequeue returned NULL, txq: %p  mtxq: %p\n",
++			txq, mtxq);
+		return NULL;
++	}
+
+	info = IEEE80211_SKB_CB(skb);
+	info->hw_queue |= FIELD_PREP(MT_TX_HW_QUEUE_PHY, phy->band_idx);
+@@ -471,15 +484,22 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
+	bool stop = false;
+	int idx;
+
+-	if (test_bit(MT_WCID_FLAG_PS, &wcid->flags))
++	if (test_bit(MT_WCID_FLAG_PS, &wcid->flags)) {
++		mtk_dbg(dev, TXV, "mt76-txq-send-burst, in PS, return 0\n");
+		return 0;
++	}
+
+-	if (atomic_read(&wcid->non_aql_packets) >= MT_MAX_NON_AQL_PKT)
++	if (atomic_read(&wcid->non_aql_packets) >= MT_MAX_NON_AQL_PKT) {
++		mtk_dbg(dev, TXV, "mt76-txq-send-burst, non-aql-pkts too large: %d, return 0\n",
++			atomic_read(&wcid->non_aql_packets));
+		return 0;
++	}
+
+	skb = mt76_txq_dequeue(phy, mtxq);
+-	if (!skb)
++	if (!skb) {
++		mtk_dbg(dev, TXV, "mt76-txq-send-burst, txq-dequeue returned NULL skb, return 0\n");
+		return 0;
++	}
+
+	info = IEEE80211_SKB_CB(skb);
+	if (!(wcid->tx_info & MT_WCID_TX_INFO_SET))
+@@ -489,19 +509,28 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
+	spin_lock(&q->lock);
+	idx = __mt76_tx_queue_skb(phy, qid, skb, wcid, txq->sta, &stop);
+	spin_unlock(&q->lock);
+-	if (idx < 0)
++	if (idx < 0) {
++		mtk_dbg(dev, TXV, "mt76-txq-send-burst, __mt76_tx_queue returned bad idx: %d\n", idx);
+		return idx;
++	}
+
+	do {
+-		if (test_bit(MT76_RESET, &phy->state))
++		if (test_bit(MT76_RESET, &phy->state)) {
++			mtk_dbg(dev, TXV, "mt76-txq-send-burst, in PS, return 0\n");
+			return -EBUSY;
++		}
+
+-		if (stop || mt76_txq_stopped(q))
++		if (stop || mt76_txq_stopped(q)) {
++			mtk_dbg(dev, TXV, "mt76-txq-send-burst, stop: %d or txq-stopped\n",
++				stop);
+			break;
++		}
+
+		skb = mt76_txq_dequeue(phy, mtxq);
+-		if (!skb)
++		if (!skb) {
++			mtk_dbg(dev, TXV, "mt76-txq-send-burst, txq-dequeue returned NULL skb, break out of loop\n");
+			break;
++		}
+
+		info = IEEE80211_SKB_CB(skb);
+		if (!(wcid->tx_info & MT_WCID_TX_INFO_SET))
+@@ -511,8 +540,11 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
+		spin_lock(&q->lock);
+		idx = __mt76_tx_queue_skb(phy, qid, skb, wcid, txq->sta, &stop);
+		spin_unlock(&q->lock);
+-		if (idx < 0)
++		if (idx < 0) {
++			mtk_dbg(dev, TXV, "mt76-txq-send-burst, __mt76_tx_queue_skb returned bad idx: %d in loop, break\n",
++				idx);
+			break;
++		}
+
+		n_frames++;
+	} while (1);
+@@ -537,22 +569,31 @@ mt76_txq_schedule_list(struct mt76_phy *phy, enum mt76_txq_id qid)
+	while (1) {
+		int n_frames = 0;
+
+-		if (test_bit(MT76_RESET, &phy->state))
++		if (test_bit(MT76_RESET, &phy->state)) {
++			mtk_dbg(dev, TXV, "mt76-txq-schedule-list, EBUSY\n");
+			return -EBUSY;
++		}
+
++		mtk_dbg(dev, TXV, "mt76-txq-schedule-list, q->queued: %d q-stopped: %d qid: %d\n",
++			q->queued, mt76_txq_stopped(q), qid);
+		if (dev->queue_ops->tx_cleanup &&
+		    q->queued + 2 * MT_TXQ_FREE_THR >= q->ndesc) {
+			dev->queue_ops->tx_cleanup(dev, q, false);
+		}
+
+		txq = ieee80211_next_txq(phy->hw, qid);
+-		if (!txq)
++		if (!txq) {
++			mtk_dbg(dev, TXV, "mt76-txq-schedule-list, no next txq\n");
+			break;
++		}
+
+		mtxq = (struct mt76_txq *)txq->drv_priv;
+		wcid = rcu_dereference(dev->wcid[mtxq->wcid]);
+-		if (!wcid || test_bit(MT_WCID_FLAG_PS, &wcid->flags))
++		if (!wcid || test_bit(MT_WCID_FLAG_PS, &wcid->flags)) {
++			mtk_dbg(dev, TXV, "mt76-txq-schedule-list, NULL wcid: %p or PS\n",
++				wcid);
+			continue;
++		}
+
+		if (mtxq->send_bar && mtxq->aggr) {
+			struct ieee80211_txq *txq = mtxq_to_txq(mtxq);
+@@ -561,12 +602,16 @@ mt76_txq_schedule_list(struct mt76_phy *phy, enum mt76_txq_id qid)
+			u16 agg_ssn = mtxq->agg_ssn;
+			u8 tid = txq->tid;
+
++			mtk_dbg(dev, TXV, "mt76-txq-schedule-list, calling send_bar\n");
+			mtxq->send_bar = false;
+			ieee80211_send_bar(vif, sta->addr, tid, agg_ssn);
+		}
+
+-		if (!mt76_txq_stopped(q))
++		if (!mt76_txq_stopped(q)) {
+			n_frames = mt76_txq_send_burst(phy, q, mtxq, wcid);
++			mtk_dbg(dev, TXV, "mt76-txq-schedule-list, send-burst, n_frames: %d\n",
++				n_frames);
++		}
+
+		ieee80211_return_txq(phy->hw, txq, false);
+
+@@ -583,8 +628,11 @@ void mt76_txq_schedule(struct mt76_phy *phy, enum mt76_txq_id qid)
+ {
+	int len;
+
+-	if (qid >= 4)
++	if (qid >= 4) {
++		mtk_dbg(phy->dev, TXV, "%mt76-txq-schedule, qid OOR: %d\n",
++			qid);
+		return;
++	}
+
+	local_bh_disable();
+	rcu_read_lock();
+@@ -669,9 +717,12 @@ void mt76_wake_tx_queue(struct ieee80211_hw *hw, struct ieee80211_txq *txq)
+	struct mt76_phy *phy = hw->priv;
+	struct mt76_dev *dev = phy->dev;
+
+-	if (!test_bit(MT76_STATE_RUNNING, &phy->state))
++	if (!test_bit(MT76_STATE_RUNNING, &phy->state)) {
++		mtk_dbg(dev, TXV, "wake-tx-queue, not phy state running");
+		return;
++	}
+
++	mtk_dbg(dev, TXV, "wake txworker, method-ptr: %p", &dev->tx_worker);
+	mt76_worker_schedule(&dev->tx_worker);
+ }
+ EXPORT_SYMBOL_GPL(mt76_wake_tx_queue);
+diff --git a/drivers/net/wireless/mediatek/mt76/util.h b/drivers/net/wireless/mediatek/mt76/util.h
+index 49c52d781f40..07de1a3b9862 100644
+--- a/drivers/net/wireless/mediatek/mt76/util.h
++++ b/drivers/net/wireless/mediatek/mt76/util.h
+@@ -84,12 +84,20 @@ mt76_worker_setup(struct ieee80211_hw *hw, struct mt76_worker *w,
+
+ static inline void mt76_worker_schedule(struct mt76_worker *w)
+ {
+-	if (!w->task)
++	if (!w->task) {
++		pr_info("mt76-worker-schedule, no task, w: %p\n", w);
+		return;
++	}
+
+	if (!test_and_set_bit(MT76_WORKER_SCHEDULED, &w->state) &&
+-	    !test_bit(MT76_WORKER_RUNNING, &w->state))
++	    !test_bit(MT76_WORKER_RUNNING, &w->state)) {
++		pr_info("mt76-worker-schedule, waking task, w: %p\n", w);
+		wake_up_process(w->task);
++	}
++	else {
++		pr_info("mt76-worker-schedule, NOT waking task, state: 0x%lx w: %p\n",
++			w->state, w);
++	}
+ }
+
+ static inline void mt76_worker_disable(struct mt76_worker *w)
+@@ -97,15 +105,19 @@ static inline void mt76_worker_disable(struct mt76_worker *w)
+	if (!w->task)
+		return;
+
++	pr_info("mt76-worker-disable, w: %p\n", w);
+	kthread_park(w->task);
+	WRITE_ONCE(w->state, 0);
+ }
+
+ static inline void mt76_worker_enable(struct mt76_worker *w)
+ {
+-	if (!w->task)
++	if (!w->task) {
++		pr_info("mt76-worker-enable, task is NULL, w: %p\n", w);
+		return;
++	}
+
++	pr_info("mt76-worker-enable, w: %p\n", w);
+	kthread_unpark(w->task);
+	mt76_worker_schedule(w);
+ }
+diff --git a/net/mac80211/driver-ops.h b/net/mac80211/driver-ops.h
+index a9c879611582..c6e4e4c9d2e0 100644
+--- a/net/mac80211/driver-ops.h
++++ b/net/mac80211/driver-ops.h
+@@ -1238,12 +1238,15 @@ static inline void drv_wake_tx_queue(struct ieee80211_local *local,
+
+	/* In reconfig don't transmit now, but mark for waking later */
+	if (local->in_reconfig) {
++		pr_info("drv-wake-tx-queue, in-reconfig.\n");
+		set_bit(IEEE80211_TXQ_STOP_NETIF_TX, &txq->flags);
+		return;
+	}
+
+-	if (!check_sdata_in_driver(sdata))
++	if (!check_sdata_in_driver(sdata)) {
++		pr_info("drv-wake-tx-queue, NOT sdata-in-driver\n");
+		return;
++	}
+
+	trace_drv_wake_tx_queue(local, sdata, txq);
+	local->ops->wake_tx_queue(&local->hw, &txq->txq);
+@@ -1252,6 +1255,8 @@ static inline void drv_wake_tx_queue(struct ieee80211_local *local,
+ static inline void schedule_and_wake_txq(struct ieee80211_local *local,
+					 struct txq_info *txqi)
+ {
++	pr_info("schedule-and-wake-txq, flags: 0x%lx txqi: %p",
++		txqi->flags, txqi);
+	ieee80211_schedule_txq(&local->hw, &txqi->txq);
+	drv_wake_tx_queue(local, txqi);
+ }
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index 181710e7f184..b648b83564e6 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -2042,6 +2042,9 @@ void ieee80211_sta_update_pending_airtime(struct ieee80211_local *local,
+ {
+	int tx_pending;
+
++	pr_info("ieee80211-sta-update-pending-airtime, ac: %d airtime: %d tx-completed: %d\n",
++		ac, tx_airtime, tx_completed);
++
+	if (!wiphy_ext_feature_isset(local->hw.wiphy, NL80211_EXT_FEATURE_AQL))
+		return;
+
+@@ -2064,6 +2067,8 @@ void ieee80211_sta_update_pending_airtime(struct ieee80211_local *local,
+
+	tx_pending = atomic_sub_return(tx_airtime,
+				       &local->aql_total_pending_airtime);
++	pr_info("ieee80211-sta-update-pending-airtime, tx-pending: %d\n",
++		tx_pending);
+	if (WARN_ONCE(tx_pending < 0,
+		      "Device %s AC %d pending airtime underflow: %u, %u",
+		      wiphy_name(local->hw.wiphy), ac, tx_pending,
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index 09ce27919ec7..f96bac963bc3 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -1462,8 +1462,11 @@ static void ieee80211_txq_enqueue(struct ieee80211_local *local,
+	if (unlikely(txqi->txq.tid == IEEE80211_NUM_TIDS)) {
+		IEEE80211_SKB_CB(skb)->control.flags |=
+			IEEE80211_TX_INTCFL_NEED_TXPROCESSING;
++		pr_info("ieee80211_txq_enqueue, mgt frames, add to txqi frags, txqi: %p\n", txqi);
+		__skb_queue_tail(&txqi->frags, skb);
+	} else {
++		pr_info("ieee80211_txq_enqueue, fq_tin_enqueue, flow_idx: %d fq-backlog: %d fq->memory-usage: %d\n",
++			flow_idx, fq->backlog, fq->memory_usage);
+		fq_tin_enqueue(fq, tin, flow_idx, skb,
+			       fq_skb_free_func);
+	}
+@@ -3709,18 +3712,23 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+
+	WARN_ON_ONCE(softirq_count() == 0);
+
+-	if (!ieee80211_txq_airtime_check(hw, txq))
++	if (!ieee80211_txq_airtime_check(hw, txq)) {
++		pr_info("ieee80211_tx_dequeue, txq: %p failed airtime check\n", txq);
+		return NULL;
++	}
+
+ begin:
+	spin_lock_bh(&fq->lock);
+
+	if (test_bit(IEEE80211_TXQ_STOP, &txqi->flags) ||
+-	    test_bit(IEEE80211_TXQ_STOP_NETIF_TX, &txqi->flags))
++	    test_bit(IEEE80211_TXQ_STOP_NETIF_TX, &txqi->flags)) {
++		pr_info("ieee80211_tx_dequeue, txq: %p, stopped\n", txq);
+		goto out;
++	}
+
+	if (vif->txqs_stopped[txq->ac]) {
+		set_bit(IEEE80211_TXQ_STOP_NETIF_TX, &txqi->flags);
++		pr_info("ieee80211_tx_dequeue, txq: %p, stopped-ac: %d, vif: %p\n", txq, txq->ac, vif);
+		goto out;
+	}
+
+@@ -3728,16 +3736,20 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+	skb = __skb_dequeue(&txqi->frags);
+	if (unlikely(skb)) {
+		if (!(IEEE80211_SKB_CB(skb)->control.flags &
+-				IEEE80211_TX_INTCFL_NEED_TXPROCESSING))
++		      IEEE80211_TX_INTCFL_NEED_TXPROCESSING)) {
++			pr_info("ieee80211_tx_dequeue, txq: %p, need txprocessing\n", txq);
+			goto out;
++		}
+		IEEE80211_SKB_CB(skb)->control.flags &=
+			~IEEE80211_TX_INTCFL_NEED_TXPROCESSING;
+	} else {
+		skb = fq_tin_dequeue(fq, tin, fq_tin_dequeue_func);
+	}
+
+-	if (!skb)
++	if (!skb) {
++		pr_info("ieee80211_tx_dequeue, txq: %p, null skb\n", txq);
+		goto out;
++	}
+
+	spin_unlock_bh(&fq->lock);
+
+@@ -3768,6 +3780,7 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+						hdr->addr2)))) {
+			I802_DEBUG_INC(local->tx_handlers_drop_unauth_port);
+			ieee80211_free_txskb(&local->hw, skb);
++			pr_info("ieee80211_tx_dequeue, txq: %p, drop unicast frames to unauth sta\n", txq);
+			goto begin;
+		}
+	}
+@@ -3779,6 +3792,7 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+	r = ieee80211_tx_h_select_key(&tx);
+	if (r != TX_CONTINUE) {
+		ieee80211_free_txskb(&local->hw, skb);
++		pr_info("ieee80211_tx_dequeue, txq: %p, select key failed\n", txq);
+		goto begin;
+	}
+
+@@ -3792,6 +3806,7 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+			r = ieee80211_tx_h_rate_ctrl(&tx);
+			if (r != TX_CONTINUE) {
+				ieee80211_free_txskb(&local->hw, skb);
++				pr_info("ieee80211_tx_dequeue, txq: %p, rate-ctrl failed\n", txq);
+				goto begin;
+			}
+		}
+@@ -3811,11 +3826,14 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+					       tx.key, &tx);
+		if (r != TX_CONTINUE) {
+			ieee80211_free_txskb(&local->hw, skb);
++			pr_info("ieee80211_tx_dequeue, txq: %p, xmit fast finish failed\n", txq);
+			goto begin;
+		}
+	} else {
+-		if (invoke_tx_handlers_late(&tx))
++		if (invoke_tx_handlers_late(&tx)) {
++			pr_info("ieee80211_tx_dequeue, txq: %p, invoke tx handlers failed\n", txq);
+			goto begin;
++		}
+
+		skb = __skb_dequeue(&tx.skbs);
+
+@@ -3830,6 +3848,7 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+	    !ieee80211_hw_check(&local->hw, TX_FRAG_LIST)) {
+		if (skb_linearize(skb)) {
+			ieee80211_free_txskb(&local->hw, skb);
++			pr_info("ieee80211_tx_dequeue, txq: %p, could not linearize\n", txq);
+			goto begin;
+		}
+	}
+@@ -3847,6 +3866,7 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+				vif->hw_queue[skb_get_queue_mapping(skb)];
+		} else if (ieee80211_hw_check(&local->hw, QUEUE_CONTROL)) {
+			ieee80211_free_txskb(&local->hw, skb);
++			pr_info("ieee80211_tx_dequeue, txq: %p, monitor Q-CTRL check failed\n", txq);
+			goto begin;
+		} else {
+			vif = NULL;
+@@ -3871,6 +3891,7 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+
+		airtime = ieee80211_calc_expected_tx_airtime(hw, vif, txq->sta,
+							     skb->len, ampdu);
++		pr_info("ieee80211_tx_dequeue, txq: %p, expected-airtime: %d\n", txq, airtime);
+		if (airtime) {
+			airtime = ieee80211_info_set_tx_time_est(info, airtime);
+			ieee80211_sta_update_pending_airtime(local, tx.sta,
+@@ -3880,11 +3901,13 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
+		}
+	}
+
++	pr_info("ieee80211_tx_dequeue, txq: %p, encap-out return skb above out: %p\n", txq, skb);
+	return skb;
+
+ out:
+	spin_unlock_bh(&fq->lock);
+
++	pr_info("ieee80211_tx_dequeue, txq: %p, return skb: %p\n", txq, skb);
+	return skb;
+ }
+ EXPORT_SYMBOL(ieee80211_tx_dequeue);
+@@ -3913,17 +3936,23 @@ struct ieee80211_txq *ieee80211_next_txq(struct ieee80211_hw *hw, u8 ac)
+		node = rb_next(node);
+	}
+
+-	if (!node)
++	if (!node) {
++		pr_info("ieee80211-next-txq, atf node is null, ac: %d.\n", ac);
+		goto out;
++	}
+
+	txqi = container_of(node, struct txq_info, schedule_order);
+	air_info = to_airtime_info(&txqi->txq);
+
+	if (air_info->v_t > air_sched->v_t &&
+-	    (!first || !airtime_catchup_v_t(air_sched, air_info->v_t, now)))
++	    (!first || !airtime_catchup_v_t(air_sched, air_info->v_t, now))) {
++		pr_info("ieee80211-next-txq, ahead of atf sched, not first.\n");
+		goto out;
++	}
+
+	if (!ieee80211_txq_airtime_check(hw, &txqi->txq)) {
++		pr_info("ieee80211-next-txq, atf check failed, txqi: %p  txq: %p.\n",
++			txqi, &txqi->txq);
+		first = false;
+		goto begin;
+	}
+@@ -3946,6 +3975,9 @@ static void __ieee80211_insert_txq(struct rb_root_cached *root,
+	struct txq_info *__txqi;
+	bool leftmost = true;
+
++	pr_info("__ieee80211-insert-txq, txqi: %p\n",
++		txqi);
++
+	while (*new) {
+		parent = *new;
+		__txqi = rb_entry(parent, struct txq_info, schedule_order);
+@@ -3976,6 +4008,9 @@ void ieee80211_resort_txq(struct ieee80211_hw *hw,
+
+	lockdep_assert_held(&air_sched->lock);
+
++	pr_info("ieee80211-resort-txq, txq: %p\n",
++		txq);
++
+	if (!RB_EMPTY_NODE(&txqi->schedule_order)) {
+		struct airtime_info *a_prev = NULL, *a_next = NULL;
+		struct txq_info *t_prev, *t_next;
+@@ -4019,6 +4054,9 @@ void ieee80211_update_airtime_weight(struct ieee80211_local *local,
+	struct airtime_info *air_info, *tmp;
+	u64 weight_sum = 0;
+
++	pr_info("ieee80211-update-airtime-weight, force: %d\n",
++		force);
++
+	if (unlikely(!now))
+		now = ktime_get_coarse_boottime_ns();
+
+@@ -4051,6 +4089,9 @@ void ieee80211_schedule_txq(struct ieee80211_hw *hw,
+	u8 ac = txq->ac;
+	bool was_active;
+
++	pr_info("ieee80211-schedule-txq, txq: %p ac: %d\n",
++		txq, ac);
++
+	air_sched = &local->airtime[ac];
+	air_info = to_airtime_info(txq);
+
+@@ -4058,8 +4099,11 @@ void ieee80211_schedule_txq(struct ieee80211_hw *hw,
+	was_active = airtime_is_active(air_info, now);
+	airtime_set_active(air_sched, air_info, now);
+
+-	if (!RB_EMPTY_NODE(&txqi->schedule_order))
++	if (!RB_EMPTY_NODE(&txqi->schedule_order)) {
++		pr_info("ieee80211-schedule-txq, txqi: %p schedule-order is not empty, will not update atf or insert txq\n",
++			txqi);
+		goto out;
++	}
+
+	/* If the station has been inactive for a while, catch up its v_t so it
+	 * doesn't get indefinite priority; see comment above the definition of
+@@ -4086,6 +4130,9 @@ static void __ieee80211_unschedule_txq(struct ieee80211_hw *hw,
+	struct airtime_sched_info *air_sched;
+	struct airtime_info *air_info;
+
++	pr_info("ieee80211-unschedule-txq, txq: %p\n",
++		txq);
++
+	air_sched = &local->airtime[txq->ac];
+	air_info = to_airtime_info(&txqi->txq);
+
+@@ -4129,6 +4176,9 @@ void ieee80211_return_txq(struct ieee80211_hw *hw,
+	struct ieee80211_local *local = hw_to_local(hw);
+	struct txq_info *txqi = to_txq_info(txq);
+
++	pr_info("ieee80211-return-txq, txq: %p\n",
++		txq);
++
+	spin_lock_bh(&local->airtime[txq->ac].lock);
+
+	if (!RB_EMPTY_NODE(&txqi->schedule_order) && !force &&
+@@ -4182,6 +4232,8 @@ bool ieee80211_txq_may_transmit(struct ieee80211_hw *hw,
+	bool ret = false;
+	u64 now;
+
++	pr_info("ieee80211-txq-may-transmit, txq: %p\n",
++		txq);
+
+	if (!ieee80211_txq_airtime_check(hw, txq))
+		return false;
+@@ -4224,6 +4276,9 @@ void ieee80211_txq_schedule_start(struct ieee80211_hw *hw, u8 ac)
+	struct ieee80211_local *local = hw_to_local(hw);
+	struct airtime_sched_info *air_sched = &local->airtime[ac];
+
++	pr_info("ieee80211-txq-schedule-start, ac: %d\n",
++		ac);
++
+	spin_lock_bh(&air_sched->lock);
+	air_sched->schedule_pos = NULL;
+	spin_unlock_bh(&air_sched->lock);
+@@ -4448,6 +4503,8 @@ ieee80211_convert_to_unicast(struct sk_buff *skb, struct net_device *dev,
+ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+				       struct net_device *dev)
+ {
++	pr_info("%s dev: %s skb->len: %d\n", __FUNCTION__, dev->name, skb->len);
++
+	if (unlikely(ieee80211_multicast_to_unicast(skb, dev))) {
+		struct sk_buff_head queue;
+
+@@ -4473,13 +4530,18 @@ static bool ieee80211_tx_8023(struct ieee80211_sub_if_data *sdata,
+	unsigned long flags;
+	int q = info->hw_queue;
+
++	pr_info("%s dev: %s skb->len: %d\n", __FUNCTION__, sdata->dev->name, skb->len);
++
+	if (sta)
+		sk_pacing_shift_update(skb->sk, local->hw.tx_sk_pacing_shift);
+
+	ieee80211_tpt_led_trig_tx(local, skb->len);
+
+-	if (ieee80211_queue_skb(local, sdata, sta, skb))
++	if (ieee80211_queue_skb(local, sdata, sta, skb)) {
++		pr_info("%s dev: %s skb->len: %d, queue-skb was true\n",
++			__FUNCTION__, sdata->dev->name, skb->len);
+		return true;
++	}
+
+	spin_lock_irqsave(&local->queue_stop_reason_lock, flags);
+
+@@ -4492,6 +4554,9 @@ static bool ieee80211_tx_8023(struct ieee80211_sub_if_data *sdata,
+
+		spin_unlock_irqrestore(&local->queue_stop_reason_lock, flags);
+
++		pr_info("%s dev: %s skb->len: %d, queue to pending\n",
++			__FUNCTION__, sdata->dev->name, skb->len);
++
+		return false;
+	}
+
+@@ -4516,6 +4581,8 @@ static void ieee80211_8023_xmit(struct ieee80211_sub_if_data *sdata,
+	struct tid_ampdu_tx *tid_tx;
+	u8 tid;
+
++	pr_info("%s dev: %s skb->len: %d\n", __FUNCTION__, dev->name, skb->len);
++
+	if (local->ops->wake_tx_queue) {
+		u16 queue = __ieee80211_select_queue(sdata, sta, skb);
+		skb_set_queue_mapping(skb, queue);
+@@ -4587,6 +4654,8 @@ netdev_tx_t ieee80211_subif_start_xmit_8023(struct sk_buff *skb,
+	struct ieee80211_key *key;
+	struct sta_info *sta;
+
++	pr_info("%s dev: %s skb->len: %d\n", __FUNCTION__, dev->name, skb->len);
++
+	if (unlikely(skb->len < ETH_HLEN)) {
+		kfree_skb(skb);
+		return NETDEV_TX_OK;
+diff --git a/net/mac80211/util.c b/net/mac80211/util.c
+index c768e583aad4..0e812380c005 100644
+--- a/net/mac80211/util.c
++++ b/net/mac80211/util.c
+@@ -370,8 +370,11 @@ static void __ieee80211_wake_txqs(struct ieee80211_sub_if_data *sdata, int ac)
+	local_bh_disable();
+	spin_lock(&fq->lock);
+
+-	if (!test_bit(SDATA_STATE_RUNNING, &sdata->state))
+-		goto out;
++	pr_info("txqs_stopped: ieee80211-wake-txqs, vdev: %s ac: %d  running: %d vif: %p\n",
++		sdata->dev->name, ac, test_bit(SDATA_STATE_RUNNING, &sdata->state), vif);
++
++	//if (!test_bit(SDATA_STATE_RUNNING, &sdata->state))
++//		goto out;
+
+	if (sdata->vif.type == NL80211_IFTYPE_AP)
+		ps = &sdata->bss->ps;
+@@ -398,6 +401,8 @@ static void __ieee80211_wake_txqs(struct ieee80211_sub_if_data *sdata, int ac)
+				continue;
+
+			spin_unlock(&fq->lock);
++			pr_info("ieee80211-wake-txqs, wake txqi: %p txq[%i]\n",
++				txqi, i);
+			drv_wake_tx_queue(local, txqi);
+			spin_lock(&fq->lock);
+		}
+@@ -587,6 +592,8 @@ static void __ieee80211_stop_queue(struct ieee80211_hw *hw, int queue,
+
+	trace_stop_queue(local, queue, reason);
+
++	pr_info("ieee80211-stop-queue called, reason: %d\n", reason);
++
+	if (WARN_ON(queue >= hw->queues))
+		return;
+
+@@ -616,6 +623,8 @@ static void __ieee80211_stop_queue(struct ieee80211_hw *hw, int queue,
+					continue;
+				}
+				spin_lock(&local->fq.lock);
++				pr_info("txqs_stopped: ieee80211-stop-queue, %s stop idx: %d vif: %p\n",
++					sdata->dev->name, ac, &sdata->vif);
+				sdata->vif.txqs_stopped[ac] = true;
+				spin_unlock(&local->fq.lock);
+			}
