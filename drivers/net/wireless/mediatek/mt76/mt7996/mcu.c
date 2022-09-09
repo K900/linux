@@ -769,11 +769,15 @@ mt7996_mcu_rx_ext_event(struct mt7996_dev *dev, struct sk_buff *skb)
 {
 	struct mt7996_mcu_rxd *rxd = (struct mt7996_mcu_rxd *)skb->data;
 
+	mtk_dbg(&dev->mt76, MSG, "mt7996-mcu-rx-ext-event, ext-eid: %d\n", rxd->ext_eid);
+
 	switch (rxd->ext_eid) {
 	case MCU_EXT_EVENT_FW_LOG_2_HOST:
 		mt7996_mcu_rx_log_message(dev, skb);
 		break;
 	default:
+		/* in SDK, grep for EventExtEventHandler */
+		mtk_dbg(&dev->mt76, WRN, "mt7996, unhandled rx_ext_event: 0x%x", rxd->ext_eid);
 		break;
 	}
 }
