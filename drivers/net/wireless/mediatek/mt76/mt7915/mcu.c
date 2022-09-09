@@ -439,6 +439,9 @@ mt7915_mcu_rx_ext_event(struct mt7915_dev *dev, struct sk_buff *skb)
 	struct mt76_connac2_mcu_rxd *rxd;
 
 	rxd = (struct mt76_connac2_mcu_rxd *)skb->data;
+
+	mtk_dbg(&dev->mt76, MSG, "mt7915-mcu-rx-ext-event, ext-eid: %d\n", rxd->ext_eid);
+
 	switch (rxd->ext_eid) {
 	case MCU_EXT_EVENT_THERMAL_PROTECT:
 		mt7915_mcu_rx_thermal_notify(dev, skb);
@@ -461,7 +464,7 @@ mt7915_mcu_rx_ext_event(struct mt7915_dev *dev, struct sk_buff *skb)
 		break;
 	default:
 		/* in SDK, grep for EventExtEventHandler */
-		dev_info(dev->mt76.dev, "mt7915, unhandled rx_ext_event: 0x%x", rxd->ext_eid);
+		mtk_dbg(&dev->mt76, WRN, "mt7915, unhandled rx_ext_event: 0x%x", rxd->ext_eid);
 		break;
 	}
 }

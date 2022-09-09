@@ -610,6 +610,8 @@ mt76_dma_tx_queue_skb_raw(struct mt76_dev *dev, struct mt76_queue *q,
 	struct mt76_queue_buf buf = {};
 	dma_addr_t addr;
 
+	/* control msg path, not data frames */
+
 	if (test_bit(MT76_MCU_RESET, &dev->phy.state))
 		goto error;
 
@@ -618,8 +620,10 @@ mt76_dma_tx_queue_skb_raw(struct mt76_dev *dev, struct mt76_queue *q,
 
 	addr = dma_map_single(dev->dma_dev, skb->data, skb->len,
 			      DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(dev->dma_dev, addr)))
+	if (unlikely(dma_mapping_error(dev->dma_dev, addr))) {
+		mtk_dbg(dev, WRN, "mt76-dma-tx-queue-skb-raw, dma mapping error\n");
 		goto error;
+	}
 
 	buf.addr = addr;
 	buf.len = skb->len;
@@ -663,6 +667,9 @@ mt76_dma_tx_queue_skb(struct mt76_phy *phy, struct mt76_queue *q,
 		goto free_skb;
 
 	t = mt76_get_txwi(dev);
+
+	mtk_dbg(dev, TXV, "mt76-dma-tx-queue-skb, txwi: %p\n",
+		t);
 	if (!t)
 		goto free_skb;
 
