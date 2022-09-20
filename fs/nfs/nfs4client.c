@@ -460,11 +460,21 @@ int nfs4_match_client(struct nfs_client  *pos,  struct nfs_client *new,
 		      struct nfs_client **prev, struct nfs_net *nn)
 {
 	int status;
+	const struct sockaddr *pos_sa;
+	const struct sockaddr *new_sa;
+	pos_sa = (const struct sockaddr *)&pos->srcaddr;
+	new_sa = (const struct sockaddr *)&new->srcaddr;
 
 	if (pos->rpc_ops != new->rpc_ops)
 		return 1;
 
 	if (pos->cl_minorversion != new->cl_minorversion)
+		return 1;
+
+	/* Check to make sure local-IP bindings match,
+	 * but just the IP-addr.
+	 */
+	if (!rpc_cmp_addr(pos_sa, new_sa))
 		return 1;
 
 	/* If "pos" isn't marked ready, we can't trust the
