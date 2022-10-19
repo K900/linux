@@ -1046,7 +1046,8 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 	set_sta_flag(sta, WLAN_STA_INSERTED);
 
 	/* accept BA sessions now */
-	clear_sta_flag(sta, WLAN_STA_BLOCK_BA);
+	if (ieee80211_hw_check(&local->hw, AMPDU_AGGREGATION))
+		clear_sta_flag(sta, WLAN_STA_BLOCK_BA);
 
 	ieee80211_sta_debugfs_add(sta);
 	rate_control_add_sta_debugfs(sta);

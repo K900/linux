@@ -3359,6 +3359,13 @@ static inline void _ieee80211_hw_set(struct ieee80211_hw *hw,
 }
 #define ieee80211_hw_set(hw, flg)	_ieee80211_hw_set(hw, IEEE80211_HW_##flg)
 
+static inline void _ieee80211_hw_clear(struct ieee80211_hw *hw,
+				     enum ieee80211_hw_flags flg)
+{
+	return __clear_bit(flg, hw->flags);
+}
+#define ieee80211_hw_clear(hw, flg)	_ieee80211_hw_clear(hw, IEEE80211_HW_##flg)
+
 /**
  * struct ieee80211_scan_request - hw scan request
  *
@@ -5990,6 +5997,12 @@ void ieee80211_beacon_set_cntdwn(struct ieee80211_vif *vif, u8 counter);
  * notify mac80211 that the channel can be changed.
  */
 void ieee80211_csa_finish(struct ieee80211_vif *vif, unsigned int link_id);
+
+/**
+ * ieee80211_del_all_station - request mac80211 to delete all stations
+ * @hw: pointer obtained from ieee80211_alloc_hw().
+ */
+void ieee80211_del_all_station(struct ieee80211_hw *hw);
 
 /**
  * ieee80211_beacon_cntdwn_is_complete - find out if countdown reached 1
