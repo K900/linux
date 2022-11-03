@@ -1943,6 +1943,8 @@ static void edid_block_status_print(enum edid_block_status status,
 				    const struct edid *block,
 				    int block_num)
 {
+	static int done_once = 0;
+
 	switch (status) {
 	case EDID_BLOCK_OK:
 		break;
@@ -1953,7 +1955,11 @@ static void edid_block_status_print(enum edid_block_status status,
 		pr_debug("EDID block %d pointer is NULL\n", block_num);
 		break;
 	case EDID_BLOCK_ZERO:
-		pr_notice("EDID block %d is all zeroes\n", block_num);
+		if (!done_once) {
+			/* This is spamming my logs to no good purpose. --Ben */
+			pr_notice("EDID block %d is all zeroes\n", block_num);
+			done_once = 1;
+		}
 		break;
 	case EDID_BLOCK_HEADER_CORRUPT:
 		pr_notice("EDID has corrupt header\n");
