@@ -2480,6 +2480,7 @@ int mt7915_mcu_init_firmware(struct mt7915_dev *dev)
 			if (ret)
 				return ret;
 		}
+		dev_info(dev->mt76.dev, "mt7915: enabled wm/wa debugging on init\n");
 	} else {
 		ret = mt7915_mcu_fw_log_2_host(dev, MCU_FW_LOG_WM, 0);
 		if (ret)
