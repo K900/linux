@@ -1486,8 +1486,8 @@ static int ath10k_htt_tx_32(struct ath10k_htt *htt,
 	if (unlikely(info->flags & IEEE80211_TX_CTL_TX_OFFCHAN))
 		freq = ar->scan.roc_freq;
 
-	else if (unlikely((arvif && arvif->txo_active)
-			  || (info->control.flags & IEEE80211_TX_CTRL_RATE_INJECT))) {
+	else if (unlikely((!is_eth) && ((arvif && arvif->txo_active)
+					|| (info->control.flags & IEEE80211_TX_CTRL_RATE_INJECT)))) {
 		if (test_bit(ATH10K_FW_FEATURE_HAS_TX_RC_CT,
 			     ar->running_fw->fw_file.fw_features)) {
 			__le16 fc = hdr->frame_control;
@@ -1608,7 +1608,7 @@ skip_fixed_rate:
 	prefetch_len = min(htt->prefetch_len, msdu->len);
 	prefetch_len = roundup(prefetch_len, 4);
 
-	if (ar->eeprom_overrides.tx_debug & 0x3) {
+	if (ar->eeprom_overrides.tx_debug & 0x3 && !is_eth) {
 		ath10k_warn(ar,
 			    "htt tx, is-action: %d  deauth: %d  disassoc: %d  has-protected: %d  nohwcrypt: %d txmode: %d data-qos: %d\n",
 			    ieee80211_is_action(hdr->frame_control), ieee80211_is_deauth(hdr->frame_control),
@@ -1621,8 +1621,6 @@ skip_fixed_rate:
 		      (sizeof(struct ath10k_htt_txbuf_32) * msdu_id);
 
 	if (!(is_eth || (skb_cb->flags & ATH10K_SKB_F_NO_HWCRYPT))) {
-		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)msdu->data;
-
 		if (ieee80211_is_robust_mgmt_frame_tx(hdr) &&
 		    ieee80211_has_protected(hdr->frame_control)) {
 			skb_put(msdu, IEEE80211_CCMP_MIC_LEN);

@@ -315,6 +315,7 @@ void ath10k_htt_rx_free(struct ath10k_htt *htt)
 				  sizeof(*htt->rx_ring.alloc_idx.vaddr),
 				  htt->rx_ring.alloc_idx.vaddr,
 				  htt->rx_ring.alloc_idx.paddr);
+		htt->rx_ring.alloc_idx.vaddr = NULL;
 		htt->rx_ring.alloc_idx.paddr = 0;
 		htt->rx_ring.alloc_idx.vaddr = NULL;
 	}
