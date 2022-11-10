@@ -2117,7 +2117,6 @@ struct ieee80211_vif_cfg {
 	bool assoc, ibss_joined;
 	bool ibss_creator;
 	bool ps;
-	bool he_ofdma_disable; /* Ask driver to disable OFDMA */
 	u16 aid;
 	u16 eml_cap;
 	u16 eml_med_sync_delay;
