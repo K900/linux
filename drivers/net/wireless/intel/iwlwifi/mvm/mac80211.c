@@ -1543,9 +1543,11 @@ int iwl_mvm_post_channel_switch(struct ieee80211_hw *hw,
 
 		if (!fw_has_capa(&mvm->fw->ucode_capa,
 				 IWL_UCODE_TLV_CAPA_CHANNEL_SWITCH_CMD)) {
-			ret = iwl_mvm_enable_beacon_filter(mvm, vif);
-			if (ret)
-				goto out_unlock;
+			if (mvmvif->bf_enabled) {
+				ret = iwl_mvm_enable_beacon_filter(mvm, vif);
+				if (ret)
+					goto out_unlock;
+			}
 
 			iwl_mvm_stop_session_protection(mvm, vif);
 		}
@@ -2677,7 +2679,8 @@ iwl_mvm_bss_info_changed_station_common(struct iwl_mvm *mvm,
 		iwl_mvm_stop_session_protection(mvm, vif);
 
 		iwl_mvm_sf_update(mvm, vif, false);
-		WARN_ON(iwl_mvm_enable_beacon_filter(mvm, vif));
+		if (mvmvif->bf_enabled)
+			WARN_ON(iwl_mvm_enable_beacon_filter(mvm, vif));
 	}
 
 	if (changes & (BSS_CHANGED_PS | BSS_CHANGED_P2P_PS | BSS_CHANGED_QOS |
@@ -3876,7 +3879,8 @@ iwl_mvm_sta_state_assoc_to_authorized(struct iwl_mvm *mvm,
 					   NL80211_TDLS_ENABLE_LINK);
 	} else {
 		/* enable beacon filtering */
-		WARN_ON(iwl_mvm_enable_beacon_filter(mvm, vif));
+		if (mvmvif->bf_enabled)
+			WARN_ON(iwl_mvm_enable_beacon_filter(mvm, vif));
 
 		mvmvif->authorized = 1;
 
@@ -6029,9 +6033,32 @@ void iwl_mvm_mac_sta_statistics(struct ieee80211_hw *hw,
 	struct iwl_mvm_sta *mvmsta = iwl_mvm_sta_from_mac80211(sta);
 	int i;
 
-	if (mvmsta->deflink.avg_energy) {
-		sinfo->signal_avg = -(s8)mvmsta->deflink.avg_energy;
+	if (iwl_mvm_has_new_rx_api(mvm)) { /* rxmq logic */
+		/* Grab chain signal avg, mac80211 cannot do it because
+		 * this driver uses RSS.  Grab signal_avg here too because firmware
+		 * appears go not do DB summing and/or has other bugs. --Ben
+		 */
 		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG);
+		sinfo->signal_avg = -ewma_signal_read(&mvmsta->rx_avg_signal);
+
+		if (!mvmvif->bf_enabled) {
+			/* The firmware reliably reports different signal (2db weaker in my case)
+			 * than if I calculate it from the rx-status.  So, fill that here.
+			 * Beacons are only received if you turn off beacon filtering, however.
+			 */
+			sinfo->filled |= BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG);
+			sinfo->rx_beacon_signal_avg = -ewma_signal_read(&mvmsta->rx_avg_beacon_signal);
+		}
+
+		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG);
+		sinfo->chain_signal_avg[0] = -ewma_signal_read(&mvmsta->rx_avg_chain_signal[0]);
+		sinfo->chain_signal_avg[1] = -ewma_signal_read(&mvmsta->rx_avg_chain_signal[1]);
+	}
+	else {
+		if (mvmsta->deflink.avg_energy) {
+			sinfo->signal_avg = -(s8)mvmsta->deflink.avg_energy;
+			sinfo->filled |= BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG);
+		}
 	}
 
 	if (iwl_mvm_has_tlc_offload(mvm)) {
@@ -6062,11 +6089,14 @@ void iwl_mvm_mac_sta_statistics(struct ieee80211_hw *hw,
 			mvmvif->link[i]->beacon_stats.accu_num_beacons;
 
 	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_BEACON_RX);
-	if (mvmvif->deflink.beacon_stats.avg_signal) {
-		/* firmware only reports a value after RXing a few beacons */
-		sinfo->rx_beacon_signal_avg =
-			mvmvif->deflink.beacon_stats.avg_signal;
-		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG);
+
+	if (!(sinfo->filled & BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG))) {
+		if (mvmvif->deflink.beacon_stats.avg_signal) {
+			/* firmware only reports a value after RXing a few beacons */
+			sinfo->rx_beacon_signal_avg =
+				mvmvif->deflink.beacon_stats.avg_signal;
+			sinfo->filled |= BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG);
+		}
 	}
 }
 
