@@ -299,13 +299,38 @@ static void iwl_mvm_get_signal_strength(struct iwl_mvm *mvm,
 					struct ieee80211_hdr *hdr,
 					struct ieee80211_rx_status *rx_status,
 					u32 rate_n_flags, int energy_a,
-					int energy_b)
+					int energy_b, struct ieee80211_sta *sta,
+					bool is_beacon, bool my_beacon)
 {
 	int max_energy;
+	struct iwl_mvm_sta *mvmsta = NULL;
+
+	rx_status->chains = u32_get_bits(rate_n_flags, RATE_MCS_ANT_AB_MSK);
+
+	if (sta && !(is_beacon && !my_beacon)) {
+		mvmsta = iwl_mvm_sta_from_mac80211(sta);
+		/* In cases of OFDM encodings (and maybe other cases), energy is
+		 * reported for each chain, but we do not want to average the weak
+		 * chain since it will average in a false weak reading.
+		 */
+		if (rx_status->nss >= 2) {
+			if (energy_a)
+				ewma_signal_add(&mvmsta->rx_avg_chain_signal[0], energy_a);
+			if (energy_b)
+				ewma_signal_add(&mvmsta->rx_avg_chain_signal[1], energy_b);
+		} else {
+			if (energy_a && (energy_a >= energy_b))
+				ewma_signal_add(&mvmsta->rx_avg_chain_signal[0], energy_a);
+			else if (energy_b)
+				ewma_signal_add(&mvmsta->rx_avg_chain_signal[1], energy_b);
+		}
+	}
 
 	energy_a = energy_a ? -energy_a : S8_MIN;
 	energy_b = energy_b ? -energy_b : S8_MIN;
-	max_energy = max(energy_a, energy_b);
+
+	/* use DB summing to get better RSSI reporting */
+	max_energy = iwl_mvm_sum_sigs_2(energy_a, energy_b);
 
 	IWL_DEBUG_STATS(mvm, "energy In A %d B %d, and max %d\n",
 			energy_a, energy_b, max_energy);
@@ -314,9 +339,17 @@ static void iwl_mvm_get_signal_strength(struct iwl_mvm *mvm,
 		return;
 
 	rx_status->signal = max_energy;
-	rx_status->chains = u32_get_bits(rate_n_flags, RATE_MCS_ANT_AB_MSK);
 	rx_status->chain_signal[0] = energy_a;
 	rx_status->chain_signal[1] = energy_b;
+
+	if (mvmsta) {
+		if (is_beacon) {
+			if (my_beacon)
+				ewma_signal_add(&mvmsta->rx_avg_beacon_signal, -max_energy);
+		} else {
+			ewma_signal_add(&mvmsta->rx_avg_signal, -max_energy);
+		}
+	}
 }
 
 static int iwl_mvm_rx_mgmt_prot(struct ieee80211_sta *sta,
@@ -1978,13 +2011,16 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 				   struct ieee80211_hdr *hdr,
 				   struct sk_buff *skb,
 				   struct iwl_mvm_rx_phy_data *phy_data,
-				   int queue)
+				   int queue,
+				   struct ieee80211_sta *sta)
 {
 	struct ieee80211_rx_status *rx_status = IEEE80211_SKB_RXCB(skb);
 	u32 rate_n_flags = phy_data->rate_n_flags;
 	u8 stbc = u32_get_bits(rate_n_flags, RATE_MCS_STBC_MSK);
 	u32 format = rate_n_flags & RATE_MCS_MOD_TYPE_MSK;
 	bool is_sgi;
+	bool is_beacon;
+	bool my_beacon = false;
 
 	phy_data->info_type = IWL_RX_PHY_INFO_TYPE_NONE;
 
@@ -2030,8 +2066,16 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 
 	rx_status->freq = ieee80211_channel_to_frequency(phy_data->channel,
 							 rx_status->band);
-	iwl_mvm_get_signal_strength(mvm, desc, hdr, rx_status, rate_n_flags,
-				    phy_data->energy_a, phy_data->energy_b);
+
+	is_beacon = hdr && (ieee80211_is_beacon(hdr->frame_control));
+	if (is_beacon && sta) {
+		/* see if it is beacon destined for us */
+		if (memcmp(sta->addr, hdr->addr2, ETH_ALEN) == 0)
+			my_beacon = true;
+	}
+
+	iwl_mvm_get_signal_strength(mvm, desc, hdr, rx_status, rate_n_flags, phy_data->energy_a,
+				    phy_data->energy_b, sta, is_beacon, my_beacon);
 
 	/* using TLV format and must be after all fixed len fields */
 	if (format == RATE_MCS_MOD_TYPE_EHT)
@@ -2068,6 +2112,7 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 	case RATE_MCS_MOD_TYPE_HT:
 		rx_status->encoding = RX_ENC_HT;
 		rx_status->rate_idx = RATE_HT_MCS_INDEX(rate_n_flags);
+		rx_status->nss = rx_status->rate_idx / 8 + 1;
 		rx_status->enc_flags |= stbc << RX_ENC_FLAG_STBC_SHIFT;
 		break;
 	case RATE_MCS_MOD_TYPE_VHT:
@@ -2091,6 +2136,7 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 					rate_n_flags, rx_status->band);
 		}
 
+		rx_status->nss = 1;
 		break;
 		}
 	}
@@ -2277,7 +2323,7 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 		goto out;
 	}
 
-	iwl_mvm_rx_fill_status(mvm, desc, hdr, skb, &phy_data, queue);
+	iwl_mvm_rx_fill_status(mvm, desc, hdr, skb, &phy_data, queue, sta);
 
 	if (sta) {
 		struct iwl_mvm_sta *mvmsta = iwl_mvm_sta_from_mac80211(sta);
@@ -2497,7 +2543,7 @@ void iwl_mvm_rx_monitor_no_data(struct iwl_mvm *mvm, struct napi_struct *napi,
 	rx_status->band = phy_data.channel > 14 ? NL80211_BAND_5GHZ :
 		NL80211_BAND_2GHZ;
 
-	iwl_mvm_rx_fill_status(mvm, NULL, NULL, skb, &phy_data, queue);
+	iwl_mvm_rx_fill_status(mvm, NULL, NULL, skb, &phy_data, queue, sta);
 
 	/* no more radio tap info should be put after this point.
 	 *
