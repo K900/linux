@@ -1259,6 +1259,20 @@ struct mt76_power_limits {
 	} path;
 };
 
+static inline const char *mt76_bus_str(enum mt76_bus_type bus)
+{
+	switch (bus) {
+	case MT76_BUS_MMIO:
+		return "mmio";
+	case MT76_BUS_USB:
+		return "usb";
+	case MT76_BUS_SDIO:
+		return "sdio";
+	}
+
+	return "unknown";
+}
+
 static inline
 void mt76_inc_ampdu_bucket(int ampdu_len, struct mt76_sta_stats *stats)
 {
