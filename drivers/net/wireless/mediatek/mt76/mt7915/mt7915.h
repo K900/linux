@@ -5,6 +5,7 @@
 #define __MT7915_H
 
 #include <linux/interrupt.h>
+#include <linux/firmware.h>
 #include <linux/ktime.h>
 #include "../mt76_connac.h"
 #include "regs.h"
@@ -25,6 +26,8 @@
 
 #define MT7915_RX_RING_SIZE		1536
 #define MT7915_RX_MCU_RING_SIZE		512
+
+#define MT7915_FIRMWARE_BD		"mediatek"
 
 #define MT7915_FIRMWARE_WA		"mediatek/mt7915_wa.bin"
 #define MT7915_FIRMWARE_WM		"mediatek/mt7915_wm.bin"
@@ -318,6 +321,13 @@ struct mt7915_dev {
 	u8 dpd_chan_num_2g;
 	u8 dpd_chan_num_5g;
 	u8 dpd_chan_num_6g;
+
+	struct {
+#define MT7915_FWCFG_HIGH_BAND	BIT(1)
+
+		u32 flags; /* let us know which fields have been set */
+		u32 high_band;	/* sets upper-band to use ('5' or '6')GHz */
+	} fwcfg;
 
 	struct {
 		u8 debug_wm;

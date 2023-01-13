@@ -120,6 +120,28 @@ out:
 	return ret;
 }
 
+static const struct firmware
+*mt7915_eeprom_load_file(struct mt7915_dev *dev, const char *dir, const char *file)
+{
+	char filename[100];
+	const struct firmware *fw = NULL;
+	int ret;
+
+	if (!file)
+		return ERR_PTR(-ENOENT);
+
+	if (!dir)
+		dir = ".";
+
+	snprintf(filename, sizeof(filename), "%s/%s", dir, file);
+	ret = request_firmware(&fw, filename, dev->mt76.dev);
+
+	if (ret)
+		return ERR_PTR(ret);
+
+	return fw;
+}
+
 static int mt7915_eeprom_load(struct mt7915_dev *dev)
 {
 	int ret;
@@ -156,6 +178,122 @@ static int mt7915_eeprom_load(struct mt7915_dev *dev)
 	return mt7915_check_eeprom(dev);
 }
 
+static int mt7915_fetch_fwcfg_file(struct mt7915_dev *dev)
+{
+	char filename[100];
+	const struct firmware *fw;
+	const char *buf;
+	size_t i = 0;
+	char val[100];
+	size_t key_idx;
+	size_t val_idx;
+	char c;
+	long t;
+
+	dev->fwcfg.flags = 0;
+
+	/* fwcfg-<bus>-<id>.txt */
+	scnprintf(filename, sizeof(filename), "fwcfg-%s-%s.txt",
+		  mt76_bus_str(dev->mt76.bus->type), dev_name(dev->mt76.dev));
+
+	fw = mt7915_eeprom_load_file(dev, MT7915_FIRMWARE_BD, filename);
+	if (IS_ERR(fw))
+		return PTR_ERR(fw);
+
+	/* Now, attempt to parse results.
+	 * Format is key=value
+	 */
+	buf = (const char *)(fw->data);
+	while (i < fw->size) {
+start_again:
+		/* First, eat space, or entire line if we have # as first char */
+		c = buf[i];
+		while (isspace(c)) {
+			i++;
+			if (i >= fw->size)
+				goto done;
+			c = buf[i];
+		}
+		/* Eat comment ? */
+		if (c == '#') {
+			i++;
+			while (i < fw->size) {
+				c = buf[i];
+				i++;
+				if (c == '\n')
+					goto start_again;
+			}
+			/* Found no newline, must be done. */
+			goto done;
+		}
+
+		/* If here, we have start of token, store it in 'filename' to save space */
+		key_idx = 0;
+		while (i < fw->size) {
+			c = buf[i];
+			if (c == '=') {
+				i++;
+				c = buf[i];
+				/* Eat any space after the '=' sign. */
+				while (i < fw->size) {
+					if (!isspace(c))
+						break;
+					i++;
+					c = buf[i];
+				}
+				break;
+			}
+			if (isspace(c)) {
+				i++;
+				continue;
+			}
+			filename[key_idx] = c;
+			key_idx++;
+			if (key_idx >= sizeof(filename)) {
+				/* Too long, bail out. */
+				goto done;
+			}
+			i++;
+		}
+		filename[key_idx] = 0; /* null terminate */
+
+		/* We have found the key, now find the value */
+		val_idx = 0;
+		while (i < fw->size) {
+			c = buf[i];
+			if (isspace(c))
+				break;
+			val[val_idx] = c;
+			val_idx++;
+			if (val_idx >= sizeof(val)) {
+				/* Too long, bail out. */
+				goto done;
+			}
+			i++;
+		}
+		val[val_idx] = 0; /* null terminate value */
+
+		/* We have key and value now. */
+		dev_warn(dev->mt76.dev, "fwcfg key: %s  val: %s\n",
+			 filename, val);
+
+		/* Assign key and values as appropriate */
+		if (strcasecmp(filename, "high_band") == 0) {
+			if (kstrtol(val, 0, &t) == 0) {
+				dev->fwcfg.high_band = t;
+				dev->fwcfg.flags |= MT7915_FWCFG_HIGH_BAND;
+			}
+		} else {
+			dev_warn(dev->mt76.dev, "Unknown fwcfg key name -:%s:-, val: %s\n",
+				 filename, val);
+		}
+	}
+
+done:
+	release_firmware(fw);
+	return 0;
+}
+
 static void mt7915_eeprom_parse_band_config(struct mt7915_phy *phy)
 {
 	struct mt7915_dev *dev = phy->dev;
@@ -167,6 +305,29 @@ static void mt7915_eeprom_parse_band_config(struct mt7915_phy *phy)
 	val = FIELD_GET(MT_EE_WIFI_CONF0_BAND_SEL, val);
 
 	if (!is_mt7915(&dev->mt76)) {
+		/* fwcfg intervention to set upper band to 5GHz or 6GHz */
+		if ((dev->fwcfg.flags & MT7915_FWCFG_HIGH_BAND) &&
+		    val == MT_EE_V2_BAND_SEL_5GHZ_6GHZ) {
+			dev_info(dev->mt76.dev, "FWCFG: Overriding 7916 high_band with %luGHz\n",
+				 (unsigned long)dev->fwcfg.high_band);
+
+			if (dev->fwcfg.high_band == 5) {
+				u8p_replace_bits(&eeprom[MT_EE_WIFI_CONF + band],
+						 MT_EE_V2_BAND_SEL_5GHZ,
+						 MT_EE_WIFI_CONF0_BAND_SEL);
+			}
+			if (dev->fwcfg.high_band == 6) {
+				u8p_replace_bits(&eeprom[MT_EE_WIFI_CONF + band],
+						 MT_EE_V2_BAND_SEL_6GHZ,
+						 MT_EE_WIFI_CONF0_BAND_SEL);
+			}
+
+			/* force to buffer mode */
+			dev->flash_mode = true;
+			val = eeprom[MT_EE_WIFI_CONF + band];
+			val = FIELD_GET(MT_EE_WIFI_CONF0_BAND_SEL, val);
+		}
+
 		switch (val) {
 		case MT_EE_V2_BAND_SEL_5GHZ:
 			phy->mt76->cap.has_5ghz = true;
@@ -268,7 +429,11 @@ int mt7915_eeprom_init(struct mt7915_dev *dev)
 {
 	int ret;
 
+	/* First, see if we have a special config file for this firmware */
+	mt7915_fetch_fwcfg_file(dev);
+
 	ret = mt7915_eeprom_load(dev);
+
 	if (ret < 0) {
 		if (ret != -EINVAL)
 			return ret;
