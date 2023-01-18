@@ -167,6 +167,8 @@ mt76_version(struct seq_file *s, void *data)
 	seq_printf(s, "ASIC-Revision: 0x%x\n", dev->rev);
 	seq_printf(s, "hw_sw_ver:     0x%x\n", dev->fw.hw_sw_ver);
 	seq_printf(s, "build_date:    %s\n", dev->fw.build_date);
+	seq_printf(s, "bus:           %s\n", dev_name(dev->dev));
+	seq_printf(s, "fwcfg:         fwcfg-%s-%s.txt\n", mt76_bus_str(dev->bus->type), dev_name(dev->dev));
 	seq_printf(s, "WM-hw_sw_ver:  %s\n", dev->fw.wm_fw_ver);
 	seq_printf(s, "WM-build_date: %s\n", dev->fw.wm_build_date);
 	seq_printf(s, "WA-hw_sw_ver:  %s\n", dev->fw.wa_fw_ver);
