@@ -291,9 +291,17 @@ mt792x_dma_reset(struct mt792x_dev *dev, bool force)
 {
 	int i, err;
 
-	err = mt792x_dma_disable(dev, force);
-	if (err)
-		return err;
+	for (i = 0; i < 3; i++) {
+		err = mt792x_dma_disable(dev, force);
+		if (err)
+			dev_info(dev->mt76.dev,
+				 "mt792x_dma_disable failed: %d (try %d/3)", err, i);
+		else
+			break;
+	}
+
+	if (err < 0)
+               return err; /* all dma disable retries failed */
 
 	/* reset hw queues */
 	for (i = 0; i < __MT_TXQ_MAX; i++)
@@ -307,7 +315,11 @@ mt792x_dma_reset(struct mt792x_dev *dev, bool force)
 
 	mt76_tx_status_check(&dev->mt76, true);
 
-	return mt792x_dma_enable(dev);
+	err = mt792x_dma_enable(dev);
+	if (err != 0)
+		dev_info(dev->mt76.dev,
+			 "mt792x_dma_enable failed: %d", err);
+	return err;
 }
 
 int mt792x_wpdma_reset(struct mt792x_dev *dev, bool force)
@@ -326,8 +338,11 @@ int mt792x_wpdma_reset(struct mt792x_dev *dev, bool force)
 
 	if (force) {
 		err = mt792x_wfsys_reset(dev);
-		if (err)
+		if (err) {
+			dev_info(dev->mt76.dev,
+				 "mt792x_wfsys_reset failed: %d", err);
 			return err;
+		}
 	}
 	err = mt792x_dma_reset(dev, force);
 	if (err)
@@ -531,8 +546,11 @@ static int mt792x_wfsys_reset_default(struct mt792x_dev *dev)
 	mt76_set(dev, addr, WFSYS_SW_RST_B);
 
 	if (!__mt76_poll_msec(&dev->mt76, addr, WFSYS_SW_INIT_DONE,
-			      WFSYS_SW_INIT_DONE, 500))
+			      WFSYS_SW_INIT_DONE, 500)) {
+		dev_info(dev->mt76.dev,
+			 "%s failed with timeout", __func__);
 		return -ETIMEDOUT;
+	}
 
 	return 0;
 }
