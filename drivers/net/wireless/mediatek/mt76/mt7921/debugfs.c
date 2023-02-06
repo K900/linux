@@ -3,6 +3,9 @@
 
 #include "mt7921.h"
 
+extern bool mt7921_disable_pm;
+extern bool mt7921_disable_deep_sleep;
+
 static int
 mt7921_reg_set(void *data, u64 val)
 {
@@ -150,7 +153,7 @@ mt7921_pm_set(void *data, u64 val)
 
 	mutex_lock(&dev->mt76.mutex);
 
-	if (val == pm->enable_user)
+	if (val == pm->enable_user && val == pm->enable)
 		goto out;
 
 	if (!pm->enable_user) {
@@ -196,11 +199,11 @@ mt7921_deep_sleep_set(void *data, u64 val)
 		return -EOPNOTSUPP;
 
 	mt792x_mutex_acquire(dev);
-	if (pm->ds_enable_user == enable)
+	if (pm->ds_enable_user == enable && pm->ds_enable == enable)
 		goto out;
 
 	pm->ds_enable_user = enable;
-	pm->ds_enable = enable && !monitor;
+	pm->ds_enable = enable && !monitor && !mt7921_disable_deep_sleep;
 	mt76_connac_mcu_set_deep_sleep(&dev->mt76, pm->ds_enable);
 out:
 	mt792x_mutex_release(dev);
