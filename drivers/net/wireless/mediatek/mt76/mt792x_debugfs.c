@@ -142,6 +142,10 @@ int mt792x_pm_stats(struct seq_file *s, void *data)
 		   jiffies_to_msecs(doze_time));
 
 	seq_printf(s, "low power wakes: %9d\n", pm->stats.lp_wake);
+	seq_printf(s, "pm.enable: %d\n", pm->enable);
+	seq_printf(s, "pm.user_enable: %d\n", pm->enable_user);
+	seq_printf(s, "pm.deep_sleep_enable: %d\n", pm->ds_enable);
+	seq_printf(s, "pm.user_deep_sleep_enable: %d\n", pm->ds_enable_user);
 
 	return 0;
 }
