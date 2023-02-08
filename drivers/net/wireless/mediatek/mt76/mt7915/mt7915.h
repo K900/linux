@@ -326,7 +326,7 @@ struct mt7915_dev {
 #define MT7915_FWCFG_HIGH_BAND	BIT(1)
 
 		u32 flags; /* let us know which fields have been set */
-		u32 high_band;	/* sets upper-band to use ('5' or '6')GHz */
+		u32 high_band;	/* sets upper-band to use ('5' or '6', 0 means no change (5 + 6))GHz */
 	} fwcfg;
 
 	struct {
