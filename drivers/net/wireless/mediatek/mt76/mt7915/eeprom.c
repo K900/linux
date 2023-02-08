@@ -307,6 +307,7 @@ static void mt7915_eeprom_parse_band_config(struct mt7915_phy *phy)
 	if (!is_mt7915(&dev->mt76)) {
 		/* fwcfg intervention to set upper band to 5GHz or 6GHz */
 		if ((dev->fwcfg.flags & MT7915_FWCFG_HIGH_BAND) &&
+		    (dev->fwcfg.high_band != 0) &&
 		    val == MT_EE_V2_BAND_SEL_5GHZ_6GHZ) {
 			dev_info(dev->mt76.dev, "FWCFG: Overriding 7916 high_band with %luGHz\n",
 				 (unsigned long)dev->fwcfg.high_band);
