@@ -7489,7 +7489,8 @@ static void ieee80211_handle_beacon_sig(struct ieee80211_link_data *link,
 					struct ieee80211_if_managed *ifmgd,
 					struct ieee80211_bss_conf *bss_conf,
 					struct ieee80211_local *local,
-					struct ieee80211_rx_status *rx_status)
+					struct ieee80211_rx_status *rx_status,
+					const char* tx_bssid)
 {
 	struct ieee80211_sub_if_data *sdata = link->sdata;
 
@@ -7506,8 +7507,8 @@ static void ieee80211_handle_beacon_sig(struct ieee80211_link_data *link,
 	}
 
 	if (debug_beacon_rssi) {
-		sdata_info(sdata, "rcvd beacon, signal: %d  ewma-avg: %ld\n",
-			   rx_status->signal,
+		sdata_info(sdata, "rcvd beacon from %pM, signal: %d  ewma-avg: %ld\n",
+			   tx_bssid, rx_status->signal,
 			   -ewma_beacon_signal_read(&link->u.mgd.ave_beacon_signal));
 	}
 	ewma_beacon_signal_add(&link->u.mgd.ave_beacon_signal,
@@ -8195,7 +8196,7 @@ static void ieee80211_rx_mgmt_beacon(struct ieee80211_link_data *link,
 
 	if (!(rx_status->flag & RX_FLAG_NO_SIGNAL_VAL))
 		ieee80211_handle_beacon_sig(link, ifmgd, bss_conf,
-					    local, rx_status);
+					    local, rx_status, bssid);
 
 	if (ifmgd->flags & IEEE80211_STA_CONNECTION_POLL) {
 		mlme_dbg_ratelimited(sdata,
