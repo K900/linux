@@ -250,6 +250,7 @@ struct mt792x_dev {
 	struct mt792x_phy phy;
 
 	struct work_struct reset_work;
+	bool hw_registered:1;
 	bool hw_full_reset:1;
 	bool hw_init_done:1;
 	bool fw_assert:1;
