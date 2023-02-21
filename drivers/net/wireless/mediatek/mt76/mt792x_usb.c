@@ -516,7 +516,8 @@ void mt792xu_disconnect(struct usb_interface *usb_intf)
 		return;
 	}
 
-	mt76_unregister_device(&dev->mt76);
+	if (dev->hw_registered)
+		mt76_unregister_device(&dev->mt76);
 	mt792xu_cleanup(dev);
 	set_bit(MT76_REMOVED, &dev->mphy.state);
 
