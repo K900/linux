@@ -343,6 +343,11 @@ mt7915_mcu_rx_radar_detected(struct mt7915_dev *dev, struct sk_buff *skb)
 
 	r = (struct mt7915_mcu_rdd_report *)skb->data;
 
+	dev_info(dev->mt76.dev, "rx-radar-detected: rdd-idx: %d long_detected: %d const_prf_det %d staggered_prf_det: %d"
+		 " radar_type_idx: %d periodic_pulse_num: %d  long_pulse_num: %d hw_pulse_num: %d",
+		 r->rdd_idx, r->long_detected, r->constant_prf_detected, r->staggered_prf_detected,
+		 r->radar_type_idx, r->periodic_pulse_num, r->long_pulse_num, r->hw_pulse_num);
+
 	switch (r->rdd_idx) {
 	case MT_RDD_IDX_BAND0:
 		break;
