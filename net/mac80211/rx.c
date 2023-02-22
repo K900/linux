@@ -2804,7 +2804,7 @@ ieee80211_deliver_skb(struct ieee80211_rx_data *rx)
 
 	dev_sw_netstats_rx_add(dev, skb->len);
 
-	if (rx->sta) {
+	if (rx->link_sta) {
 		/* The seqno index has the same property as needed
 		 * for the rx_msdu field, i.e. it is IEEE80211_NUM_TIDS
 		 * for non-QoS-data frames. Here we know it's a data
