@@ -127,8 +127,13 @@ static int mt7921_init_hardware(struct mt792x_dev *dev)
 	}
 
 	if (i == MT792x_MCU_INIT_RETRY_COUNT) {
-		dev_err(dev->mt76.dev, "hardware init failed\n");
+		dev_err(dev->mt76.dev, "hardware init failed %i/%i\n",
+			i, MT7921_MCU_INIT_RETRY_COUNT);
 		return ret;
+	}
+	else if (i != 0) {
+		dev_err(dev->mt76.dev, "hardware init success on try %i/%i\n",
+			i, MT7921_MCU_INIT_RETRY_COUNT);
 	}
 
 	return 0;
