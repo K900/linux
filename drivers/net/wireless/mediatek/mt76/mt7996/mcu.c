@@ -108,6 +108,66 @@ static bool sr_scene_detect = true;
 module_param(sr_scene_detect, bool, 0644);
 MODULE_PARM_DESC(sr_scene_detect, "Enable firmware scene detection algorithm");
 
+int mt7996_mcu_get_tx_power_info(struct mt7996_phy *phy, u8 category, void *event)
+{
+	struct mt7996_dev *dev = phy->dev;
+	struct tx_power_ctrl req = {
+		.tag = cpu_to_le16(UNI_TXPOWER_SHOW_INFO),
+		.len = cpu_to_le16(sizeof(req) - 4),
+		.power_ctrl_id = UNI_TXPOWER_SHOW_INFO,
+		.show_info_category = category,
+		.band_idx = phy->mt76->band_idx,
+	};
+	struct sk_buff *skb;
+	int ret;
+
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76,
+					MCU_WM_UNI_CMD_QUERY(TXPOWER),
+					&req, sizeof(req), true, &skb);
+	if (ret)
+		return ret;
+
+	memcpy(event, skb->data, sizeof(struct mt7996_mcu_txpower_event));
+
+	dev_kfree_skb(skb);
+
+	return 0;
+}
+
+int mt7996_mcu_set_tx_power_ctrl(struct mt7996_phy *phy, u8 power_ctrl_id, u8 data)
+{
+       struct mt7996_dev *dev = phy->dev;
+       struct tx_power_ctrl req = {
+               .tag = cpu_to_le16(power_ctrl_id),
+               .len = cpu_to_le16(sizeof(req) - 4),
+               .power_ctrl_id = power_ctrl_id,
+               .band_idx = phy->mt76->band_idx,
+       };
+
+       switch (power_ctrl_id) {
+       case UNI_TXPOWER_SKU_POWER_LIMIT_CTRL:
+               req.sku_enable = !!data;
+               break;
+       case UNI_TXPOWER_PERCENTAGE_CTRL:
+               req.percentage_ctrl_enable = !!data;
+               break;
+       case UNI_TXPOWER_PERCENTAGE_DROP_CTRL:
+               req.power_drop_level = data;
+               break;
+       case UNI_TXPOWER_BACKOFF_POWER_LIMIT_CTRL:
+               req.bf_backoff_enable = !!data;
+               break;
+       case UNI_TXPOWER_ATE_MODE_CTRL:
+               req.ate_mode_enable = !!data;
+               break;
+       default:
+               req.sku_enable = !!data;
+       }
+
+       return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(TXPOWER),
+                                &req, sizeof(req), false);
+}
+
 static u8
 mt7996_mcu_get_sta_nss(u16 mcs_map)
 {
