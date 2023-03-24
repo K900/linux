@@ -809,6 +809,7 @@ int mt7996_mcu_mld_reconf_stop_link(struct mt7996_dev *dev,
 int mt7996_mcu_mld_link_oper(struct mt7996_dev *dev,
 			     struct ieee80211_bss_conf *link_conf,
 			     struct mt7996_vif_link *link, bool add);
+int mt7996_mcu_set_tx_power_ctrl(struct mt7996_phy *phy, u8 power_ctrl_id, u8 data);
 
 static inline bool mt7996_has_hwrro(struct mt7996_dev *dev)
 {
@@ -954,6 +955,8 @@ u32 mt7996_wed_init_buf(void *ptr, dma_addr_t phys, int token_id);
 #ifdef CONFIG_MTK_DEBUG
 int mt7996_mtk_init_debugfs(struct mt7996_phy *phy, struct dentry *dir);
 #endif
+
+int mt7996_mcu_get_tx_power_info(struct mt7996_phy *phy, u8 category, void *event);
 
 int mt7996_dma_rro_init(struct mt7996_dev *dev);
 void mt7996_dma_rro_start(struct mt7996_dev *dev);
