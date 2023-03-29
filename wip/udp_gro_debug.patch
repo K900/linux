@@ -1,0 +1,530 @@
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 922c87ef1ab5..c31d1b4ec875 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1502,8 +1502,10 @@ struct sk_buff *__ip_make_skb(struct sock *sk,
+	__u8 ttl;
+
+	skb = __skb_dequeue(queue);
+-	if (!skb)
++	if (!skb) {
++		printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+		goto out;
++	}
+	tail_skb = &(skb_shinfo(skb)->frag_list);
+
+	/* move skb->data to ip header from ext header */
+@@ -1637,8 +1639,10 @@ struct sk_buff *ip_make_skb(struct sock *sk,
+	struct sk_buff_head queue;
+	int err;
+
+-	if (flags & MSG_PROBE)
++	if (flags & MSG_PROBE) {
++		printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+		return NULL;
++	}
+
+	__skb_queue_head_init(&queue);
+
+@@ -1646,14 +1650,17 @@ struct sk_buff *ip_make_skb(struct sock *sk,
+	cork->addr = 0;
+	cork->opt = NULL;
+	err = ip_setup_cork(sk, cork, ipc, rtp);
+-	if (err)
++	if (err) {
++		printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+		return ERR_PTR(err);
++	}
+
+	err = __ip_append_data(sk, fl4, &queue, cork,
+			       &current->task_frag, getfrag,
+			       from, length, transhdrlen, flags);
+	if (err) {
+		__ip_flush_pending_frames(sk, &queue, cork);
++		printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+		return ERR_PTR(err);
+	}
+
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 9f92ae35bb01..677b937fc94c 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -247,19 +247,25 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
+	struct net *net = sock_net(sk);
+
+	for_each_cmsghdr(cmsg, msg) {
+-		if (!CMSG_OK(msg, cmsg))
++		if (!CMSG_OK(msg, cmsg)) {
++			printk(KERN_ERR "cmsg not ok: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+			return -EINVAL;
++		}
+ #if IS_ENABLED(CONFIG_IPV6)
+		if (allow_ipv6 &&
+		    cmsg->cmsg_level == SOL_IPV6 &&
+		    cmsg->cmsg_type == IPV6_PKTINFO) {
+			struct in6_pktinfo *src_info;
+
+-			if (cmsg->cmsg_len < CMSG_LEN(sizeof(*src_info)))
++			if (cmsg->cmsg_len < CMSG_LEN(sizeof(*src_info))) {
++				printk(KERN_ERR "cmsg len bad: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+				return -EINVAL;
++			}
+			src_info = (struct in6_pktinfo *)CMSG_DATA(cmsg);
+-			if (!ipv6_addr_v4mapped(&src_info->ipi6_addr))
++			if (!ipv6_addr_v4mapped(&src_info->ipi6_addr)) {
++				printk(KERN_ERR "cmsg ipv6/v4 issue: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+				return -EINVAL;
++			}
+			if (src_info->ipi6_ifindex)
+				ipc->oif = src_info->ipi6_ifindex;
+			ipc->addr = src_info->ipi6_addr.s6_addr32[3];
+@@ -268,8 +274,10 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
+ #endif
+		if (cmsg->cmsg_level == SOL_SOCKET) {
+			err = __sock_cmsg_send(sk, cmsg, &ipc->sockc);
+-			if (err)
++			if (err) {
++				printk(KERN_ERR "sock cmsg send failed: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+				return err;
++			}
+			continue;
+		}
+
+@@ -283,14 +291,18 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
+			err = ip_options_get(net, &ipc->opt,
+					     KERNEL_SOCKPTR(CMSG_DATA(cmsg)),
+					     err < 40 ? err : 40);
+-			if (err)
++			if (err) {
++				printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+				return err;
++			}
+			break;
+		case IP_PKTINFO:
+		{
+			struct in_pktinfo *info;
+-			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct in_pktinfo)))
++			if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct in_pktinfo))) {
++				printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+				return -EINVAL;
++			}
+			info = (struct in_pktinfo *)CMSG_DATA(cmsg);
+			if (info->ipi_ifindex)
+				ipc->oif = info->ipi_ifindex;
+@@ -301,8 +313,10 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
+			if (cmsg->cmsg_len != CMSG_LEN(sizeof(int)))
+				return -EINVAL;
+			val = *(int *)CMSG_DATA(cmsg);
+-			if (val < 1 || val > 255)
++			if (val < 1 || val > 255) {
++				printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+				return -EINVAL;
++			}
+			ipc->ttl = val;
+			break;
+		case IP_TOS:
+@@ -310,15 +324,20 @@ int ip_cmsg_send(struct sock *sk, struct msghdr *msg, struct ipcm_cookie *ipc,
+				val = *(int *)CMSG_DATA(cmsg);
+			else if (cmsg->cmsg_len == CMSG_LEN(sizeof(u8)))
+				val = *(u8 *)CMSG_DATA(cmsg);
+-			else
++			else {
++				printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+				return -EINVAL;
+-			if (val < 0 || val > 255)
++			}
++			if (val < 0 || val > 255) {
++				printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+				return -EINVAL;
++			}
+			ipc->tos = val;
+			ipc->priority = rt_tos2priority(ipc->tos);
+			break;
+
+		default:
++			printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+			return -EINVAL;
+		}
+	}
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 9592fe3e444a..2b2cff68ecb3 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -926,14 +926,21 @@ static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4,
+
+		if (hlen + cork->gso_size > cork->fragsize) {
+			kfree_skb(skb);
++			printk(KERN_ERR "hlen: %d gos-size: %d  fragsize: %d  %s %s %i\n",
++			       hlen, cork->gso_size, cork->fragsize,
++			       __FILE__, __FUNCTION__, __LINE__);
+			return -EINVAL;
+		}
+		if (datalen > cork->gso_size * UDP_MAX_SEGMENTS) {
+			kfree_skb(skb);
++			printk(KERN_ERR "datalen: %d  gso-size: %d UDP_MAX_SEGMENTS: %d: %s %s %i\n",
++			       datalen, cork->gso_size, UDP_MAX_SEGMENTS,
++			       __FILE__, __FUNCTION__, __LINE__);
+			return -EINVAL;
+		}
+		if (sk->sk_no_check_tx) {
+			kfree_skb(skb);
++			printk(KERN_ERR "no-check-tx: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+			return -EINVAL;
+		}
+		if (skb->ip_summed != CHECKSUM_PARTIAL || is_udplite ||
+@@ -977,6 +984,7 @@ static int udp_send_skb(struct sk_buff *skb, struct flowi4 *fl4,
+ send:
+	err = ip_send_skb(sock_net(sk), skb);
+	if (err) {
++		printk(KERN_ERR "trc: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+		if (err == -ENOBUFS && !inet->recverr) {
+			UDP_INC_STATS(sock_net(sk),
+				      UDP_MIB_SNDBUFERRORS, is_udplite);
+@@ -1016,11 +1024,16 @@ static int __udp_cmsg_send(struct cmsghdr *cmsg, u16 *gso_size)
+ {
+	switch (cmsg->cmsg_type) {
+	case UDP_SEGMENT:
+-		if (cmsg->cmsg_len != CMSG_LEN(sizeof(__u16)))
++		if (cmsg->cmsg_len != CMSG_LEN(sizeof(__u16))) {
++			printk(KERN_ERR "cmsg length bad: cmsg-len: %d  expected: %d %s %s %i\n",
++			       (int)(cmsg->cmsg_len), (int)(CMSG_LEN(sizeof(__u16))),
++			       __FILE__, __FUNCTION__, __LINE__);
+			return -EINVAL;
++		}
+		*gso_size = *(__u16 *)CMSG_DATA(cmsg);
+		return 0;
+	default:
++		printk(KERN_ERR "cmsg not UDP_SEGMENT: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+		return -EINVAL;
+	}
+ }
+@@ -1032,8 +1045,10 @@ int udp_cmsg_send(struct sock *sk, struct msghdr *msg, u16 *gso_size)
+	int err;
+
+	for_each_cmsghdr(cmsg, msg) {
+-		if (!CMSG_OK(msg, cmsg))
++		if (!CMSG_OK(msg, cmsg)) {
++			printk(KERN_ERR "cmsg not ok: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+			return -EINVAL;
++		}
+
+		if (cmsg->cmsg_level != SOL_UDP) {
+			need_ip = true;
+@@ -1041,8 +1056,10 @@ int udp_cmsg_send(struct sock *sk, struct msghdr *msg, u16 *gso_size)
+		}
+
+		err = __udp_cmsg_send(cmsg, gso_size);
+-		if (err)
++		if (err) {
++			printk(KERN_ERR "cmsg_send failed: %s %s %i\n", __FILE__, __FUNCTION__, __LINE__);
+			return err;
++		}
+	}
+
+	return need_ip;
+@@ -1100,6 +1117,8 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+	}
+	ulen += sizeof(struct udphdr);
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
++
+	/*
+	 *	Get and verify the address.
+	 */
+@@ -1136,6 +1155,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+					   sk->sk_family == AF_INET6);
+		if (unlikely(err < 0)) {
+			kfree(ipc.opt);
++			printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+			return err;
+		}
+		if (ipc.opt)
+@@ -1164,6 +1184,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+			if (usin->sin_port == 0) {
+				/* BPF program set invalid port. Reject it. */
+				err = -EINVAL;
++				printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+				goto out_free;
+			}
+			daddr = usin->sin_addr.s_addr;
+@@ -1177,6 +1198,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+	if (ipc.opt && ipc.opt->opt.srr) {
+		if (!daddr) {
+			err = -EINVAL;
++			printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+			goto out_free;
+		}
+		faddr = ipc.opt->opt.faddr;
+@@ -1234,6 +1256,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+			rt = NULL;
+			if (err == -ENETUNREACH)
+				IP_INC_STATS(net, IPSTATS_MIB_OUTNOROUTES);
++			printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+			goto out;
+		}
+
+@@ -1261,8 +1284,13 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
+				  sizeof(struct udphdr), &ipc, &rt,
+				  &cork, msg->msg_flags);
+		err = PTR_ERR(skb);
+-		if (!IS_ERR_OR_NULL(skb))
++		if (IS_ERR_OR_NULL(skb))
++			printk("ip-make-skb failed: %d\n", err);
++		if (!IS_ERR_OR_NULL(skb)) {
+			err = udp_send_skb(skb, fl4, &cork);
++			if (err)
++				printk("non-corking path: udp-send-skb failed: %d\n", err);
++		}
+		goto out;
+	}
+
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 1f01e15ca24f..7a689ac422ab 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -29,8 +29,12 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+	__wsum partial;
+	bool need_ipsec;
+
+-	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
++
++	if (unlikely(!pskb_may_pull(skb, tnl_hlen))) {
++		printk(KERN_ERR "%s %i\n", __FUNCTION__, __LINE__);
+		goto out;
++	}
+
+	/* Adjust partial header checksum to negate old length.
+	 * We cannot rely on the value contained in uh->len as it is
+@@ -87,6 +91,7 @@ static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
+	if (IS_ERR_OR_NULL(segs)) {
+		skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
+				     mac_len);
++		printk(KERN_ERR "%s %i\n", __FUNCTION__, __LINE__);
+		goto out;
+	}
+
+@@ -160,6 +165,7 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+	struct sk_buff *(*gso_inner_segment)(struct sk_buff *skb,
+					     netdev_features_t features);
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	rcu_read_lock();
+
+	switch (skb->inner_protocol_type) {
+@@ -184,6 +190,9 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+ out_unlock:
+	rcu_read_unlock();
+
++	if ((long)(segs) < 0)
++		printk(KERN_ERR "%s %i\n", __FUNCTION__, __LINE__);
++
+	return segs;
+ }
+ EXPORT_SYMBOL(skb_udp_tunnel_segment);
+@@ -195,6 +204,7 @@ static void __udpv4_gso_segment_csum(struct sk_buff *seg,
+	struct udphdr *uh;
+	struct iphdr *iph;
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	if (*oldip == *newip && *oldport == *newport)
+		return;
+
+@@ -221,6 +231,7 @@ static struct sk_buff *__udpv4_gso_segment_list_csum(struct sk_buff *segs)
+	struct udphdr *uh, *uh2;
+	struct iphdr *iph, *iph2;
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	seg = segs;
+	uh = udp_hdr(seg);
+	iph = ip_hdr(seg);
+@@ -252,6 +263,7 @@ static struct sk_buff *__udp_gso_segment_list(struct sk_buff *skb,
+ {
+	unsigned int mss = skb_shinfo(skb)->gso_size;
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	skb = skb_segment_list(skb, features, skb_mac_header_len(skb));
+	if (IS_ERR(skb))
+		return skb;
+@@ -273,12 +285,15 @@ struct sk_buff *__udp_gso_segment(struct sk_buff *gso_skb,
+	__sum16 check;
+	__be16 newlen;
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	if (skb_shinfo(gso_skb)->gso_type & SKB_GSO_FRAGLIST)
+		return __udp_gso_segment_list(gso_skb, features, is_ipv6);
+
+	mss = skb_shinfo(gso_skb)->gso_size;
+-	if (gso_skb->len <= sizeof(*uh) + mss)
++	if (gso_skb->len <= sizeof(*uh) + mss) {
++		printk(KERN_ERR "%s %i\n", __FUNCTION__, __LINE__);
+		return ERR_PTR(-EINVAL);
++	}
+
+	skb_pull(gso_skb, sizeof(*uh));
+
+@@ -374,6 +389,7 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+	struct udphdr *uh;
+	struct iphdr *iph;
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	if (skb->encapsulation &&
+	    (skb_shinfo(skb)->gso_type &
+	     (SKB_GSO_UDP_TUNNEL|SKB_GSO_UDP_TUNNEL_CSUM))) {
+@@ -381,19 +397,29 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+		goto out;
+	}
+
+-	if (!(skb_shinfo(skb)->gso_type & (SKB_GSO_UDP | SKB_GSO_UDP_L4)))
++	if (!(skb_shinfo(skb)->gso_type & (SKB_GSO_UDP | SKB_GSO_UDP_L4))) {
++		printk(KERN_ERR "%s %i\n", __FUNCTION__, __LINE__);
+		goto out;
++	}
+
+-	if (!pskb_may_pull(skb, sizeof(struct udphdr)))
++	if (!pskb_may_pull(skb, sizeof(struct udphdr))) {
++		printk(KERN_ERR "%s %i\n", __FUNCTION__, __LINE__);
+		goto out;
++	}
+
+	if (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_L4 &&
+-	    !skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST))
+-		return __udp_gso_segment(skb, features, false);
++	    !skb_gso_ok(skb, features | NETIF_F_GSO_ROBUST)) {
++		struct sk_buff *rv = __udp_gso_segment(skb, features, false);
++		if ((long)(rv) < 0)
++			printk(KERN_ERR "%s %i\n", __FUNCTION__, __LINE__);
++		return rv;
++	}
+
+	mss = skb_shinfo(skb)->gso_size;
+-	if (unlikely(skb->len <= mss))
++	if (unlikely(skb->len <= mss)) {
++		printk(KERN_ERR "%s %i\n", __FUNCTION__, __LINE__);
+		goto out;
++	}
+
+	/* Do software UFO. Complete and fill in the UDP checksum as
+	 * HW cannot do checksum of UDP packets sent as multiple
+@@ -423,11 +449,14 @@ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+	 */
+	segs = skb_segment(skb, features);
+ out:
++	if ((long)(segs) < 0)
++		printk(KERN_ERR "%s %i\n", __FUNCTION__, __LINE__);
+	return segs;
+ }
+
+ static int skb_gro_receive_list(struct sk_buff *p, struct sk_buff *skb)
+ {
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	if (unlikely(p->len + skb->len >= 65536))
+		return -E2BIG;
+
+@@ -464,6 +493,7 @@ static struct sk_buff *udp_gro_receive_segment(struct list_head *head,
+	unsigned int ulen;
+	int ret = 0;
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	/* requires non zero csum, for symmetry with GSO */
+	if (!uh->check) {
+		NAPI_GRO_CB(skb)->flush = 1;
+@@ -544,6 +574,7 @@ struct sk_buff *udp_gro_receive(struct list_head *head, struct sk_buff *skb,
+	unsigned int off = skb_gro_offset(skb);
+	int flush = 1;
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	/* we can do L4 aggregation only if the packet can't land in a tunnel
+	 * otherwise we could corrupt the inner stream
+	 */
+@@ -603,6 +634,7 @@ static struct sock *udp4_gro_lookup_skb(struct sk_buff *skb, __be16 sport,
+	const struct iphdr *iph = skb_gro_network_header(skb);
+	struct net *net = dev_net(skb->dev);
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	return __udp4_lib_lookup(net, iph->saddr, sport,
+				 iph->daddr, dport, inet_iif(skb),
+				 inet_sdif(skb), net->ipv4.udp_table, NULL);
+@@ -615,6 +647,7 @@ struct sk_buff *udp4_gro_receive(struct list_head *head, struct sk_buff *skb)
+	struct sock *sk = NULL;
+	struct sk_buff *pp;
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	if (unlikely(!uh))
+		goto flush;
+
+@@ -646,6 +679,7 @@ static int udp_gro_complete_segment(struct sk_buff *skb)
+ {
+	struct udphdr *uh = udp_hdr(skb);
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	skb->csum_start = (unsigned char *)uh - skb->head;
+	skb->csum_offset = offsetof(struct udphdr, check);
+	skb->ip_summed = CHECKSUM_PARTIAL;
+@@ -667,6 +701,7 @@ int udp_gro_complete(struct sk_buff *skb, int nhoff,
+	struct sock *sk;
+	int err;
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	uh->len = newlen;
+
+	sk = INDIRECT_CALL_INET(lookup, udp6_lib_lookup_skb,
+@@ -702,6 +737,7 @@ INDIRECT_CALLABLE_SCOPE int udp4_gro_complete(struct sk_buff *skb, int nhoff)
+	const struct iphdr *iph = ip_hdr(skb);
+	struct udphdr *uh = (struct udphdr *)(skb->data + nhoff);
+
++	printk(KERN_ERR "trc: %s %i\n", __FUNCTION__, __LINE__);
+	/* do fraglist only if there is no outer UDP encap (or we already processed it) */
+	if (NAPI_GRO_CB(skb)->is_flist && !NAPI_GRO_CB(skb)->encap_mark) {
+		uh->len = htons(skb->len - nhoff);
+diff --git a/net/socket.c b/net/socket.c
+index b4cdc576afc3..f652481e33d4 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -716,6 +716,9 @@ static inline int sock_sendmsg_nosec(struct socket *sock, struct msghdr *msg)
+	int ret = INDIRECT_CALL_INET(sock->ops->sendmsg, inet6_sendmsg,
+				     inet_sendmsg, sock, msg,
+				     msg_data_left(msg));
++	if (ret < 0) {
++		printk(KERN_ERR "sock_sendmsg_nosec: %d\n", ret);
++	}
+	BUG_ON(ret == -EIOCBQUEUED);
+	return ret;
+ }
+@@ -732,6 +735,9 @@ int sock_sendmsg(struct socket *sock, struct msghdr *msg)
+ {
+	int err = security_socket_sendmsg(sock, msg,
+					  msg_data_left(msg));
++	if (err < 0) {
++		printk(KERN_ERR "security_sock_sendmsg failed: %d\n", (int)(err));
++	}
+
+	return err ?: sock_sendmsg_nosec(sock, msg);
+ }
+@@ -2438,8 +2444,10 @@ static int ____sys_sendmsg(struct socket *sock, struct msghdr *msg_sys,
+		err =
+		    cmsghdr_from_user_compat_to_kern(msg_sys, sock->sk, ctl,
+						     sizeof(ctl));
+-		if (err)
++		if (err < 0) {
++			printk(KERN_ERR "cmsghdr-from-user-compat-to-kern failed: %d\n", (int)(err));
+			goto out;
++		}
+		ctl_buf = msg_sys->msg_control;
+		ctl_len = msg_sys->msg_controllen;
+	} else if (ctl_len) {
+@@ -2471,9 +2479,14 @@ static int ____sys_sendmsg(struct socket *sock, struct msghdr *msg_sys,
+	    !memcmp(&used_address->name, msg_sys->msg_name,
+		    used_address->name_len)) {
+		err = sock_sendmsg_nosec(sock, msg_sys);
++		if (err < 0)
++			printk(KERN_ERR "sendmsg-nosec failed: %d\n", (int)(err));
+		goto out_freectl;
+	}
+	err = sock_sendmsg(sock, msg_sys);
++	if (err < 0) {
++		printk(KERN_ERR "sock_sendmsg failed: %d\n", (int)(err));
++	}
+	/*
+	 * If this is sendmmsg() and sending to current destination address was
+	 * successful, remember it.
