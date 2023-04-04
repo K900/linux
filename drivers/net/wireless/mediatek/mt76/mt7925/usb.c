@@ -182,7 +182,7 @@ static int mt7925u_probe(struct usb_interface *usb_intf,
 	int ret;
 
 	ops = mt792x_get_mac80211_ops(&usb_intf->dev, &mt7925_ops,
-				      (void *)id->driver_info, &features);
+				      (void *)id->driver_info, &features, false);
 	if (!ops)
 		return -ENOMEM;
 
