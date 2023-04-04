@@ -7,6 +7,10 @@
 #include "mt792x.h"
 #include "dma.h"
 
+static bool mt792x_allow_cnm;
+module_param_named(allow_cnm, mt792x_allow_cnm, bool, 0644);
+MODULE_PARM_DESC(allow_cnm, "Allow CAP_CNM firmware flag to enable AP + STA on different channels.  Set to false to allow 4 STA.");
+
 static const struct ieee80211_iface_limit if_limits[] = {
 	{
 		.max = MT792x_MAX_INTERFACES,
@@ -830,7 +834,8 @@ int mt792x_init_wiphy(struct ieee80211_hw *hw)
 EXPORT_SYMBOL_GPL(mt792x_init_wiphy);
 
 static u8
-mt792x_get_offload_capability(struct device *dev, const char *fw_wm)
+mt792x_get_offload_capability(struct device *dev, const char *fw_wm,
+			      bool can_disable_fw_cap_cnm)
 {
 	const struct mt76_connac2_fw_trailer *hdr;
 	struct mt792x_realease_info *rel_info;
@@ -882,6 +887,9 @@ mt792x_get_offload_capability(struct device *dev, const char *fw_wm)
 out:
 	release_firmware(fw);
 
+	if (can_disable_fw_cap_cnm && !mt792x_allow_cnm)
+		offload_caps &= ~MT792x_FW_CAP_CNM;
+
 	return offload_caps;
 }
 
@@ -895,7 +903,8 @@ static bool mt792x_needs_cnm_runtime(const void *drv_data)
 struct ieee80211_ops *
 mt792x_get_mac80211_ops(struct device *dev,
 			const struct ieee80211_ops *mac80211_ops,
-			void *drv_data, u8 *fw_features)
+			void *drv_data, u8 *fw_features,
+			bool can_disable_fw_cap_cnm)
 {
 	struct ieee80211_ops *ops;
 
@@ -904,9 +913,11 @@ mt792x_get_mac80211_ops(struct device *dev,
 	if (!ops)
 		return NULL;
 
-	*fw_features = mt792x_get_offload_capability(dev, drv_data);
+	*fw_features = mt792x_get_offload_capability(dev, drv_data,
+						     can_disable_fw_cap_cnm);
 
-	if (mt792x_needs_cnm_runtime(drv_data))
+	if (mt792x_needs_cnm_runtime(drv_data) &&
+	    (can_disable_fw_cap_cnm && !mt792x_allow_cnm))
 		*fw_features |= MT792x_FW_CAP_CNM;
 
 	if (!(*fw_features & MT792x_FW_CAP_CNM)) {
