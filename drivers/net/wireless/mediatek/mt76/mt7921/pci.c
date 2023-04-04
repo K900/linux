@@ -337,7 +337,7 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 		mt76_pci_disable_aspm(pdev);
 
 	ops = mt792x_get_mac80211_ops(&pdev->dev, &mt7921_ops,
-				      (void *)id->driver_data, &features);
+				      (void *)id->driver_data, &features, true);
 	if (!ops) {
 		ret = -ENOMEM;
 		goto err_free_pci_vec;
