@@ -1440,6 +1440,11 @@ static inline int mt76_wed_dma_setup(struct mt76_dev *dev, struct mt76_queue *q,
 }
 #endif /* CONFIG_NET_MEDIATEK_SOC_WED */
 
+static inline int mt76_vif_count(struct mt76_dev *dev)
+{
+	return hweight_long(dev->vif_mask);
+}
+
 #define mt76xx_chip(dev) mt76_chip(&((dev)->mt76))
 #define mt76xx_rev(dev) mt76_rev(&((dev)->mt76))
 

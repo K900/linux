@@ -1258,6 +1258,16 @@ enum offs_rev {
 #define MT_WF_PHY_BASE			0x83080000
 #define MT_WF_PHY(ofs)			(MT_WF_PHY_BASE + (ofs))
 
+#define MT_WF_PHY_RX_GID_TAB_VLD(_phy, i)		MT_WF_PHY(0x1054 + \
+								  (i) * 4 + ((_phy) << 16))
+#define MT_WF_PHY_RX_GID_TAB_VLD_MT7916(_phy, i)	MT_WF_PHY(0x1054 + \
+								  (i) * 4 + ((_phy) << 20))
+
+#define MT_WF_PHY_RX_GID_TAB_POS(_phy, i)		MT_WF_PHY(0x105c + \
+								  (i) * 4 + ((_phy) << 16))
+#define MT_WF_PHY_RX_GID_TAB_POS_MT7916(_phy, i)	MT_WF_PHY(0x105c + \
+								  (i) * 4 + ((_phy) << 20))
+
 #define MT_WF_PHY_RX_CTRL1(_phy)	MT_WF_PHY(0x2004 + ((_phy) << 16))
 #define MT_WF_PHY_RX_CTRL1_MT7916(_phy)	MT_WF_PHY(0x2004 + ((_phy) << 20))
 #define MT_WF_PHY_RX_CTRL1_IPI_EN	GENMASK(2, 0)
