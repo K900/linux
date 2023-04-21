@@ -618,6 +618,34 @@ mt7915_update_bss_color(struct ieee80211_hw *hw,
 	}
 }
 
+static void
+mt7915_update_mu_group(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+		       struct ieee80211_bss_conf *info)
+{
+	struct mt7915_phy *phy = mt7915_hw_phy(hw);
+	struct mt7915_dev *dev = mt7915_hw_dev(hw);
+	u8 i, band = phy->mt76->band_idx;
+	u32 *mu;
+
+	mu = (u32 *)info->mu_group.membership;
+	for (i = 0; i < WLAN_MEMBERSHIP_LEN / sizeof(*mu); i++) {
+		if (is_mt7916(&dev->mt76))
+			mt76_wr(dev, MT_WF_PHY_RX_GID_TAB_VLD_MT7916(band, i),
+				mu[i]);
+		else
+			mt76_wr(dev, MT_WF_PHY_RX_GID_TAB_VLD(band, i), mu[i]);
+	}
+
+	mu = (u32 *)info->mu_group.position;
+	for (i = 0; i < WLAN_USER_POSITION_LEN / sizeof(*mu); i++) {
+		if (is_mt7916(&dev->mt76))
+			mt76_wr(dev, MT_WF_PHY_RX_GID_TAB_POS_MT7916(band, i),
+				mu[i]);
+		else
+			mt76_wr(dev, MT_WF_PHY_RX_GID_TAB_POS(band, i), mu[i]);
+	}
+}
+
 static void mt7915_bss_info_changed(struct ieee80211_hw *hw,
 				    struct ieee80211_vif *vif,
 				    struct ieee80211_bss_conf *info,
@@ -687,6 +715,19 @@ static void mt7915_bss_info_changed(struct ieee80211_hw *hw,
 		mt7915_mcu_add_bss_info(phy, vif, false);
 	if (set_sta == 0)
 		mt7915_mcu_add_sta(dev, vif, NULL, CONN_STATE_DISCONNECT, false);
+
+	if (changed & BSS_CHANGED_MU_GROUPS) {
+		/* Assumption is that in case of non-monitor VDEV existing, then
+		 * that device should control the mu-group directly.
+		 */
+		int vif_count = mt76_vif_count(&dev->mt76);
+		int max_ok = 0;
+
+		if (phy->monitor_vif)
+			max_ok = 1;
+		if (vif_count <= max_ok)
+			mt7915_update_mu_group(hw, vif, info);
+	}
 
 	mutex_unlock(&dev->mt76.mutex);
 }
