@@ -630,6 +630,9 @@ enum offs_rev {
 #define MT_WF_RMAC_MIB_AIRTIME4(_band)	MT_WF_RMAC(_band, 0x0390)
 #define MT_WF_RMAC_MIB_QOS23_BACKOFF	GENMASK(31, 0)
 
+#define MT_WF_RMAC_TOP_TF_PARSER(_band) MT_WF_RMAC(_band, 0x0604)
+#define MT_WF_RMAC_TOP_TF_SNIFFER       (BIT(10) | BIT(12))
+
 /* WFDMA0 */
 #define MT_WFDMA0_BASE			__REG(WFDMA0_ADDR)
 #define MT_WFDMA0(ofs)			(MT_WFDMA0_BASE + (ofs))
