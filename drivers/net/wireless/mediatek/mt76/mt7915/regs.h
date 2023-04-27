@@ -1292,4 +1292,13 @@ enum offs_rev {
 #define MT_MCU_WM_CIRQ_EINT_MASK_CLR_ADDR	MT_MCU_WM_CIRQ(0x108)
 #define MT_MCU_WM_CIRQ_EINT_SOFT_ADDR		MT_MCU_WM_CIRQ(0x118)
 
+#define MT_WF_HEMU_RULE1                       (MT_WF_PHY_BASE + 0x10e0)
+#define MT_WF_HEMU_RULE1_AID                   GENMASK(10, 0)
+#define MT_WF_HEMU_RULE1_COLOR                 GENMASK(21, 16)
+#define MT_WF_HEMU_RULE1_ULDL                  (BIT(22)) /* 0 dl, 1 ul */
+#define MT_WF_HEMU_RULE1_AID_ENABLE            (BIT(24))
+#define MT_WF_HEMU_RULE1_BSS_COLOR_ENABLE      (BIT(25))
+#define MT_WF_HEMU_RULE1_ULDL_ENABLE           (BIT(26))
+#define MT_WF_HEMU_RULE1_PRIORITY              GENMASK(30, 28) /* 0 disable, 7 is highest */
+
 #endif
