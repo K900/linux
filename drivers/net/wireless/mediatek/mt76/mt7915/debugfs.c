@@ -262,6 +262,64 @@ mt7915_muru_debug_get(void *data, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(fops_muru_debug, mt7915_muru_debug_get,
 			 mt7915_muru_debug_set, "%lld\n");
 
+static ssize_t
+mt7915_he_monitor_set(struct file *file, const char __user *user_buf,
+		      size_t count, loff_t *ppos)
+{
+	struct mt7915_phy *phy = file->private_data;
+	char buf[64] = {0};
+	u32 aid, bss_color, uldl, enables;
+	int ret;
+	struct mt7915_dev *dev = phy->dev;
+
+	if (count >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	ret = sscanf(buf, "%x %x %x %x",
+		     &aid, &bss_color, &uldl, &enables);
+	if (ret != 4)
+		return -EINVAL;
+
+	phy->monitor_cur_aid = aid;
+	phy->monitor_cur_color = bss_color;
+	phy->monitor_cur_uldl = uldl;
+	phy->monitor_cur_enables = enables;
+
+	mutex_lock(&dev->mt76.mutex);
+	mt7915_check_apply_monitor_config(phy);
+	mutex_unlock(&dev->mt76.mutex);
+
+	return count;
+}
+
+static ssize_t
+mt7915_he_monitor_get(struct file *file, char __user *user_buf,
+		      size_t count, loff_t *ppos)
+{
+	struct mt7915_phy *phy = file->private_data;
+	u8 buf[32];
+	int len;
+
+	len = scnprintf(buf, sizeof(buf),
+			"aid: 0x%x bss-color: 0x%x  uldl: 0x%x  enables: 0x%x\n"
+			"  ULDL:  0 is download, 1 is upload\n"
+			"  Enable-bits: 1: AID  2: Color  4: ULDL\n",
+			phy->monitor_cur_aid, phy->monitor_cur_color,
+			phy->monitor_cur_uldl, phy->monitor_cur_enables);
+
+	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
+}
+
+static const struct file_operations mt7915_he_sniffer_ops = {
+	.write = mt7915_he_monitor_set,
+	.read = mt7915_he_monitor_get,
+	.open = simple_open,
+	.llseek = default_llseek,
+};
+
 static int mt7915_muru_stats_show(struct seq_file *file, void *data)
 {
 	struct mt7915_phy *phy = file->private;
@@ -1574,6 +1632,8 @@ int mt7915_init_debugfs(struct mt7915_phy *phy)
 	debugfs_create_file("tx_stats", 0400, dir, phy, &mt7915_tx_stats_fops);
 	debugfs_create_file("sys_recovery", 0600, dir, phy,
 			    &mt7915_sys_recovery_ops);
+	debugfs_create_file("he_sniffer_params", 0600, dir, phy,
+			    &mt7915_he_sniffer_ops);
 	debugfs_create_file("fw_debug_wm", 0600, dir, dev, &fops_fw_debug_wm);
 	debugfs_create_file("fw_debug_wa", 0600, dir, dev, &fops_fw_debug_wa);
 	debugfs_create_file("fw_debug_bin", 0600, dir, dev, &fops_fw_debug_bin);
