@@ -206,6 +206,12 @@ enum offs_rev {
 #define MT_MDP_RCFR1_RX_DROPPED_MCAST	GENMASK(30, 29)
 #define MT_MDP_TO_HIF			0
 #define MT_MDP_TO_WM			1
+/* For UCDP2MH, BMCDP2MH in RCFR1 */
+#define MT_MDP_PFD_DROP			0
+#define MT_MDP_PFD_TO_MCU		1
+#define MT_MDP_PFD_TO_HIF		2
+#define MT_MDP_PFD_TO_HIF2		3
+
 
 /* TRB: band 0(0x820e1000), band 1(0x820f1000) */
 #define MT_WF_TRB_BASE(_band)		((_band) ? 0x820f1000 : 0x820e1000)
