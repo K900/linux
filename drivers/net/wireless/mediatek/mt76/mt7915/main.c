@@ -538,6 +538,40 @@ mt7915_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	return 0;
 }
 
+void mt7915_check_apply_monitor_config(struct mt7915_phy *phy)
+{
+	/* I first thought that this would not work well when combined
+	 * with STA mode, but now I think it will not matter since it appears
+	 * the HEMU rule 1 is only used after normal HE MU operations
+	 * have happened. --Ben
+	 */
+	struct mt7915_dev *dev = phy->dev;
+	u32 reg = mt76_rr(dev, MT_WF_HEMU_RULE1);
+
+	reg &= ~(MT_WF_HEMU_RULE1_AID |
+		 MT_WF_HEMU_RULE1_COLOR |
+		 MT_WF_HEMU_RULE1_ULDL |
+		 MT_WF_HEMU_RULE1_AID_ENABLE |
+		 MT_WF_HEMU_RULE1_BSS_COLOR_ENABLE |
+		 MT_WF_HEMU_RULE1_ULDL_ENABLE |
+		 MT_WF_HEMU_RULE1_PRIORITY);
+	reg |= phy->monitor_cur_aid;
+	reg |= (phy->monitor_cur_color << 10) & 0x3f;
+	if (phy->monitor_cur_uldl)
+		reg |= MT_WF_HEMU_RULE1_ULDL;
+	if (phy->monitor_cur_enables) {
+		if (phy->monitor_cur_enables & 0x1)
+			reg |= MT_WF_HEMU_RULE1_AID_ENABLE;
+		if (phy->monitor_cur_enables & 0x2)
+			reg |= MT_WF_HEMU_RULE1_BSS_COLOR_ENABLE;
+		if (phy->monitor_cur_enables & 0x4)
+			reg |= MT_WF_HEMU_RULE1_ULDL_ENABLE;
+		reg |= MT_WF_HEMU_RULE1_PRIORITY; /* set priority to 7 */
+	}
+
+	mt76_wr(dev, MT_WF_HEMU_RULE1, reg);
+}
+
 static void __mt7915_configure_filter(struct ieee80211_hw *hw,
 				      unsigned int changed_flags,
 				      unsigned int *total_flags,
@@ -602,6 +636,7 @@ static void __mt7915_configure_filter(struct ieee80211_hw *hw,
 		mt76_clear(dev, MT_WF_RFCR1(band), ctl_flags);
 		mt76_set(dev, MT_WF_RMAC_TOP_TF_PARSER(band),
 			 MT_WF_RMAC_TOP_TF_SNIFFER);
+		mt7915_check_apply_monitor_config(phy);
 	} else {
 		mt76_set(dev, MT_WF_RFCR1(band), ctl_flags);
 		mt76_clear(dev, MT_WF_RMAC_TOP_TF_PARSER(band),
