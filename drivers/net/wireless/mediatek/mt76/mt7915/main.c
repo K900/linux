@@ -589,6 +589,9 @@ static void __mt7915_configure_filter(struct ieee80211_hw *hw,
 	u32 flags = 0;
 	bool is_promisc = *total_flags & FIF_CONTROL || phy->monitor_vif ||
 		phy->monitor_enabled;
+	u32 mdp_rcfr1_mask = MT_MDP_RCFR1_RX_DROPPED_UCAST |
+		MT_MDP_RCFR1_RX_DROPPED_MCAST;
+	u32 mdp_rcfr1_set;
 
 #define MT76_FILTER(_flag, _hw) do {					\
 		flags |= *total_flags & FIF_##_flag;			\
@@ -637,11 +640,17 @@ static void __mt7915_configure_filter(struct ieee80211_hw *hw,
 		mt76_set(dev, MT_WF_RMAC_TOP_TF_PARSER(band),
 			 MT_WF_RMAC_TOP_TF_SNIFFER);
 		mt7915_check_apply_monitor_config(phy);
+
+		mdp_rcfr1_set = FIELD_PREP(MT_MDP_RCFR1_RX_DROPPED_UCAST, MT_MDP_PFD_TO_HIF) |
+			FIELD_PREP(MT_MDP_RCFR1_RX_DROPPED_MCAST, MT_MDP_PFD_TO_HIF);
 	} else {
 		mt76_set(dev, MT_WF_RFCR1(band), ctl_flags);
 		mt76_clear(dev, MT_WF_RMAC_TOP_TF_PARSER(band),
 			   MT_WF_RMAC_TOP_TF_SNIFFER);
+		mdp_rcfr1_set = FIELD_PREP(MT_MDP_RCFR1_RX_DROPPED_UCAST, MT_MDP_PFD_DROP) |
+			FIELD_PREP(MT_MDP_RCFR1_RX_DROPPED_MCAST, MT_MDP_PFD_DROP);
 	}
+	mt76_rmw(dev, MT_MDP_BNRCFR1(band), mdp_rcfr1_mask, mdp_rcfr1_set);
 }
 
 static void mt7915_configure_filter(struct ieee80211_hw *hw,
