@@ -300,7 +300,7 @@ mt7915_he_monitor_get(struct file *file, char __user *user_buf,
 		      size_t count, loff_t *ppos)
 {
 	struct mt7915_phy *phy = file->private_data;
-	u8 buf[32];
+	u8 buf[128];
 	int len;
 
 	len = scnprintf(buf, sizeof(buf),
