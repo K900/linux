@@ -584,6 +584,12 @@ static void __mt7915_configure_filter(struct ieee80211_hw *hw,
 			MT_WF_RFCR1_DROP_BF_POLL |
 			MT_WF_RFCR1_DROP_BA |
 			MT_WF_RFCR1_DROP_CFEND |
+			MT_WF_RFCR1_DROP_PS_BFRPOL |
+			MT_WF_RFCR1_DROP_PS_NDPA |
+			MT_WF_RFCR1_DROP_NO2ME_TF |
+			MT_WF_RFCR1_DROP_NON_MUBAR_TF |
+			MT_WF_RFCR1_DROP_RXS_BRP |
+			MT_WF_RFCR1_DROP_TF_BFRP |
 			MT_WF_RFCR1_DROP_CFACK;
 	u32 rxfilter;
 	u32 flags = 0;
@@ -610,7 +616,9 @@ static void __mt7915_configure_filter(struct ieee80211_hw *hw,
 			   MT_WF_RFCR_DROP_BCAST |
 			   MT_WF_RFCR_DROP_DUPLICATE |
 			   MT_WF_RFCR_DROP_A2_BSSID |
-			   MT_WF_RFCR_DROP_UNWANTED_CTL |
+			   MT_WF_RFCR_DROP_UNWANTED_CTL | /* 0 means drop */
+			   MT_WF_RFCR_IND_FILTER_EN_OF_31_23_BIT |
+			   MT_WF_RFCR_DROP_DIFFBSSIDMGT_CTRL |
 			   MT_WF_RFCR_DROP_STBC_MULTI);
 
 	phy->rxfilter |= MT_WF_RFCR_DROP_OTHER_UC;
@@ -624,8 +632,22 @@ static void __mt7915_configure_filter(struct ieee80211_hw *hw,
 	MT76_FILTER(CONTROL, MT_WF_RFCR_DROP_CTS |
 			     MT_WF_RFCR_DROP_RTS |
 			     MT_WF_RFCR_DROP_CTL_RSV);
-	if (is_promisc)
+	if (is_promisc) {
 		phy->rxfilter &= ~MT_WF_RFCR_DROP_OTHER_UC;
+		phy->rxfilter |= MT_WF_RFCR_IND_FILTER_EN_OF_31_23_BIT;
+		if (flags & FIF_CONTROL) {
+			phy->rxfilter |= MT_WF_RFCR_DROP_UNWANTED_CTL; /* 1 means receive */
+			phy->rxfilter |= MT_WF_RFCR_SECOND_BCN_EN;
+			phy->rxfilter |= MT_WF_RFCR_RX_MGMT_FRAME_CTRL;
+			phy->rxfilter |= MT_WF_RFCR_RX_SAMEBSSIDPRORESP_CTRL;
+			phy->rxfilter |= MT_WF_RFCR_RX_DIFFBSSIDPRORESP_CTRL;
+			phy->rxfilter |= MT_WF_RFCR_RX_SAMEBSSIDBCN_CTRL;
+			phy->rxfilter |= MT_WF_RFCR_RX_SAMEBSSIDNULL_CTRL;
+			phy->rxfilter |= MT_WF_RFCR_RX_DIFFBSSIDNULL_CTRL;
+			phy->rxfilter &= ~(MT_WF_RFCR_DROP_DIFFBSSIDMGT_CTRL);
+		}
+		phy->rxfilter |= MT_WF_RFCR_RX_DATA_FRAME_CTRL;
+	}
 
 	*total_flags = flags;
 	rxfilter = phy->rxfilter;
