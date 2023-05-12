@@ -823,6 +823,7 @@ int mt792x_init_wiphy(struct ieee80211_hw *hw)
 
 	ieee80211_hw_set(hw, CHANCTX_STA_CSA);
 
+	ieee80211_hw_set(hw, SPECTRUM_MGMT);
 
 	if (dev->pm.enable)
 		ieee80211_hw_set(hw, CONNECTION_MONITOR);
