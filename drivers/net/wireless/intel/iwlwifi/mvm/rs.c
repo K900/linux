@@ -2697,7 +2697,7 @@ static void rs_drv_get_rate(void *mvm_r, struct ieee80211_sta *sta,
 	lq_sta = mvm_sta;
 
 	spin_lock_bh(&lq_sta->pers.lock);
-	iwl_mvm_hwrate_to_tx_rate(iwl_mvm_v3_rate_from_fw(
+	iwl_mvm_hwrate_to_tx_rate(mvm, iwl_mvm_v3_rate_from_fw(
 					cpu_to_le32(lq_sta->last_rate_n_flags),
 					1),
 				  info->band, &info->control.rates[0]);
@@ -2713,7 +2713,7 @@ static void rs_drv_get_rate(void *mvm_r, struct ieee80211_sta *sta,
 		last_ucode_rate =
 			iwl_mvm_v3_rate_from_fw(cpu_to_le32(last_ucode_rate),
 						1);
-		iwl_mvm_hwrate_to_tx_rate(last_ucode_rate, info->band,
+		iwl_mvm_hwrate_to_tx_rate(mvm, last_ucode_rate, info->band,
 					  &txrc->reported_rate);
 		txrc->reported_rate.count = 1;
 	}
