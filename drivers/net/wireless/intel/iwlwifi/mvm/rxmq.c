@@ -135,8 +135,10 @@ static int iwl_mvm_create_skb(struct iwl_mvm *mvm, struct sk_buff *skb,
 	 */
 	hdrlen += crypt_len;
 
-	if (unlikely(headlen < hdrlen))
+	if (unlikely(headlen < hdrlen)) {
+		mvm->ethtool_stats.rx_bad_header_len++;
 		return -EINVAL;
+	}
 
 	/* Since data doesn't move data while putting data on skb and that is
 	 * the only way we use, data + len is the next place that hdr would be put
@@ -1710,6 +1712,8 @@ static void iwl_mvm_rx_eht(struct iwl_mvm *mvm, struct sk_buff *skb,
 
 	/* specific handling for 320MHz */
 	bw = FIELD_GET(RATE_MCS_CHAN_WIDTH_MSK, rate_n_flags);
+	mvm->ethtool_stats.rx_bw[bw]++;
+	mvm->ethtool_stats.rx_he_type[he_type >> RATE_MCS_HE_TYPE_POS]++;
 	if (bw == RATE_MCS_CHAN_WIDTH_320_VAL)
 		bw += FIELD_GET(IWL_RX_PHY_DATA0_EHT_BW320_SLOT,
 				le32_to_cpu(phy_data->d0));
@@ -1884,7 +1888,11 @@ static void iwl_mvm_rx_he(struct iwl_mvm *mvm, struct sk_buff *skb,
 	    rate_n_flags & RATE_MCS_HE_106T_MSK) {
 		rx_status->bw = RATE_INFO_BW_HE_RU;
 		rx_status->he_ru = NL80211_RATE_INFO_HE_RU_ALLOC_106;
+		mvm->ethtool_stats.rx_bw_he_ru++;
+	} else {
+		mvm->ethtool_stats.rx_bw[rx_status->bw]++;
 	}
+	mvm->ethtool_stats.rx_he_type[he_type >> RATE_MCS_HE_TYPE_POS]++;
 
 	/* actually data is filled in mac80211 */
 	if (he_type == RATE_MCS_HE_TYPE_SU ||
@@ -2097,6 +2105,7 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 	switch (format) {
 	case RATE_MCS_MOD_TYPE_VHT:
 		rx_status->encoding = RX_ENC_VHT;
+		mvm->ethtool_stats.rx_bw[rx_status->bw]++;
 		break;
 	case RATE_MCS_MOD_TYPE_HE:
 		rx_status->encoding = RX_ENC_HE;
@@ -2114,6 +2123,7 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 		rx_status->rate_idx = RATE_HT_MCS_INDEX(rate_n_flags);
 		rx_status->nss = rx_status->rate_idx / 8 + 1;
 		rx_status->enc_flags |= stbc << RX_ENC_FLAG_STBC_SHIFT;
+		mvm->ethtool_stats.rx_bw[rx_status->bw]++;
 		break;
 	case RATE_MCS_MOD_TYPE_VHT:
 	case RATE_MCS_MOD_TYPE_HE:
@@ -2137,9 +2147,17 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 		}
 
 		rx_status->nss = 1;
+		mvm->ethtool_stats.rx_bw[0]++;
 		break;
 		}
 	}
+
+	mvm->ethtool_stats.rx_mode[format >> RATE_MCS_MOD_TYPE_POS]++;
+	mvm->ethtool_stats.rx_nss[rx_status->nss - 1]++;
+	if (format == RATE_MCS_MOD_TYPE_HT)
+		mvm->ethtool_stats.rx_mcs[rx_status->rate_idx % 8]++;
+	else
+		mvm->ethtool_stats.rx_mcs[rx_status->rate_idx]++;
 }
 
 void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
@@ -2157,6 +2175,7 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 	size_t desc_size;
 	struct iwl_mvm_rx_phy_data phy_data = {};
 	u32 format;
+	bool bad_pkt = false;
 
 	if (unlikely(test_bit(IWL_MVM_STATUS_IN_HW_RESTART, &mvm->status)))
 		return;
@@ -2245,6 +2264,11 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 		IWL_DEBUG_RX(mvm, "Bad CRC or FIFO: 0x%08X.\n",
 			     le32_to_cpu(desc->status));
 		rx_status->flag |= RX_FLAG_FAILED_FCS_CRC;
+		if (!(desc->status & cpu_to_le32(IWL_RX_MPDU_STATUS_CRC_OK)))
+			mvm->ethtool_stats.rx_crc_err++;
+		else
+			mvm->ethtool_stats.rx_fifo_underrun++;
+		bad_pkt = true;
 	}
 
 	/* set the preamble flag if appropriate */
@@ -2320,6 +2344,7 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 			      le32_to_cpu(pkt->len_n_flags), queue,
 			      &crypt_len)) {
 		kfree_skb(skb);
+		mvm->ethtool_stats.rx_failed_decrypt++;
 		goto out;
 	}
 
@@ -2394,6 +2419,7 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 			IWL_DEBUG_DROP(mvm, "Dropping duplicate packet 0x%x\n",
 				       le16_to_cpu(hdr->seq_ctrl));
 			kfree_skb(skb);
+			mvm->ethtool_stats.rx_dup++;
 			goto out;
 		}
 
@@ -2442,6 +2468,15 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 		goto out;
 	}
 
+	if (!bad_pkt) {
+		mvm->ethtool_stats.rx_pkts++;
+		mvm->ethtool_stats.rx_bytes_nic += len;
+	}
+
+	/* NOTE:  These methods below must (and will) consume the skb if the 'else'
+	 * clause of the if statement will happen.  So should not leak mem
+	 * even though it looks problematic at first glance.
+	 */
 	if (!iwl_mvm_reorder(mvm, napi, queue, sta, skb, desc) &&
 	    likely(!iwl_mvm_time_sync_frame(mvm, skb, hdr->addr2)) &&
 	    likely(!iwl_mvm_mei_filter_scan(mvm, skb))) {

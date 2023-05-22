@@ -301,6 +301,7 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 	u32 rate_n_flags;
 	u32 rx_pkt_status;
 	u8 crypt_len = 0;
+	bool bad_pkt = false;
 
 	if (unlikely(pkt_len < sizeof(*rx_res))) {
 		IWL_DEBUG_DROP(mvm, "Bad REPLY_RX_MPDU_CMD size\n");
@@ -339,6 +340,11 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 	    !(rx_pkt_status & RX_MPDU_RES_STATUS_OVERRUN_OK)) {
 		IWL_DEBUG_RX(mvm, "Bad CRC or FIFO: 0x%08X.\n", rx_pkt_status);
 		rx_status->flag |= RX_FLAG_FAILED_FCS_CRC;
+		if (!(rx_pkt_status & RX_MPDU_RES_STATUS_CRC_OK))
+			mvm->ethtool_stats.rx_crc_err++;
+		else
+			mvm->ethtool_stats.rx_fifo_underrun++;
+		bad_pkt = true;
 	}
 
 	/* This will be used in several places later */
@@ -407,6 +413,7 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 					 &crypt_len)) {
 		IWL_DEBUG_DROP(mvm, "Bad decryption results 0x%08x\n",
 			       rx_pkt_status);
+		mvm->ethtool_stats.rx_failed_decrypt++;
 		kfree_skb(skb);
 		rcu_read_unlock();
 		return;
@@ -489,6 +496,9 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 		rx_status->bw = RATE_INFO_BW_160;
 		break;
 	}
+	mvm->ethtool_stats.rx_bw[(rate_n_flags & RATE_MCS_CHAN_WIDTH_MSK_V1)
+				 >> RATE_MCS_CHAN_WIDTH_POS]++;
+
 	if (!(rate_n_flags & RATE_MCS_CCK_MSK_V1) &&
 	    rate_n_flags & RATE_MCS_SGI_MSK_V1)
 		rx_status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
@@ -500,6 +510,9 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 		rx_status->encoding = RX_ENC_HT;
 		rx_status->rate_idx = rate_n_flags & RATE_HT_MCS_INDEX_MSK_V1;
 		rx_status->enc_flags |= stbc << RX_ENC_FLAG_STBC_SHIFT;
+		mvm->ethtool_stats.rx_mode[2]++;
+		mvm->ethtool_stats.rx_nss[(rx_status->rate_idx / 8)]++;
+		mvm->ethtool_stats.rx_mcs[rx_status->rate_idx % 8]++;
 	} else if (rate_n_flags & RATE_MCS_VHT_MSK_V1) {
 		u8 stbc = (rate_n_flags & RATE_MCS_STBC_MSK) >>
 				RATE_MCS_STBC_POS;
@@ -510,6 +523,9 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 		rx_status->enc_flags |= stbc << RX_ENC_FLAG_STBC_SHIFT;
 		if (rate_n_flags & RATE_MCS_BF_MSK)
 			rx_status->enc_flags |= RX_ENC_FLAG_BF;
+		mvm->ethtool_stats.rx_mode[3]++;
+		mvm->ethtool_stats.rx_nss[rx_status->nss - 1]++;
+		mvm->ethtool_stats.rx_mcs[rx_status->rate_idx]++;
 	} else {
 		int rate = iwl_mvm_legacy_rate_to_mac80211_idx(rate_n_flags,
 							       rx_status->band);
@@ -521,6 +537,11 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 			return;
 		}
 		rx_status->rate_idx = rate;
+		if (rate_n_flags & RATE_MCS_CCK_MSK_V1)
+			mvm->ethtool_stats.rx_mode[0]++;
+		else
+			mvm->ethtool_stats.rx_mode[1]++;
+
 		/* override BW - it could be DUP and indicate the wrong BW */
 		rx_status->bw = RATE_INFO_BW_20;
 	}
@@ -529,6 +550,10 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 	iwl_mvm_update_frame_stats(mvm, rate_n_flags,
 				   rx_status->flag & RX_FLAG_AMPDU_DETAILS);
 #endif
+	if (!bad_pkt) {
+		mvm->ethtool_stats.rx_pkts++;
+		mvm->ethtool_stats.rx_bytes_nic += len;
+	}
 
 	if (unlikely((ieee80211_is_beacon(hdr->frame_control) ||
 		      ieee80211_is_probe_resp(hdr->frame_control)) &&

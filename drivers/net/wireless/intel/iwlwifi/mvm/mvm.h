@@ -610,6 +610,48 @@ struct iwl_mvm_cooling_device {
 };
 #endif
 
+struct iwl_mvm_ethtool_stats {
+	u64 tx_bytes_nic; /* successful tx bytes */
+
+	u64 tx_mpdu_attempts; /* counting any retries */
+	u64 tx_mpdu_fail; /* Failed even after retry */
+	u64 tx_mpdu_retry; /* Number of times frames were retried */
+
+	/* maps to iwl_tx_status enum
+	 * (TX_STATUS_INTERNAL_ABORT + 1) gathers all larger values.
+	 */
+	u64 tx_status_counts[TX_STATUS_INTERNAL_ABORT + 2];
+
+	u64 tx_cck;
+	u64 tx_ofdm;
+	u64 tx_ht;
+	u64 tx_vht;
+	u64 tx_he;
+	u64 tx_eht;
+
+	u64 tx_he_type[4]; /* su, ext_su, mu, trig */
+	u64 tx_ampdu_len[15];
+	u64 tx_bw[5]; /* 20, 40, 80, 160, 320 */
+	u64 tx_bw_106_tone;
+	u64 tx_mcs[14]; /* mcs 0 to mcs 13 */
+	u64 tx_nss[2]; /* tx nss histogram */
+
+	u64 rx_pkts; /* successful rx skb */
+	u64 rx_bytes_nic; /* successful tx bytes */
+	u64 rx_crc_err;
+	u64 rx_fifo_underrun;
+	u64 rx_failed_decrypt;
+	u64 rx_dup;
+	u64 rx_bad_header_len;
+
+	u64 rx_mode[6]; /* cck, ofdm, ht, vht, he, eht */
+	u64 rx_he_type[4]; /* su, ext_su, mu, trig */
+	u64 rx_bw[5]; /* 20, 40, 80, 160, 320 */
+	u64 rx_bw_he_ru;
+	u64 rx_mcs[14]; /* mcs 0 to mcs 13 */
+	u64 rx_nss[2]; /* rx nss histogram */
+};
+
 #define IWL_MVM_NUM_LAST_FRAMES_UCODE_RATES 8
 
 struct iwl_mvm_frame_stats {
@@ -956,6 +998,7 @@ struct iwl_mvm {
 		struct mvm_statistics_rx_v3 rx_stats_v3;
 		struct mvm_statistics_rx rx_stats;
 	};
+	struct iwl_mvm_ethtool_stats ethtool_stats;
 
 	struct {
 		u64 rx_time;
@@ -1651,7 +1694,8 @@ int iwl_mvm_legacy_hw_idx_to_mac80211_idx(u32 rate_n_flags,
 					  enum nl80211_band band);
 int iwl_mvm_legacy_rate_to_mac80211_idx(u32 rate_n_flags,
 					enum nl80211_band band);
-void iwl_mvm_hwrate_to_tx_rate(u32 rate_n_flags,
+void iwl_mvm_hwrate_to_tx_rate(struct iwl_mvm *mvm,
+			       u32 rate_n_flags,
 			       enum nl80211_band band,
 			       struct ieee80211_tx_rate *r);
 u8 iwl_mvm_rate_idx_to_fw_idx(const struct iwl_fw *fw, int rate_idx);
@@ -2692,6 +2736,14 @@ int iwl_mvm_op_get_antenna(struct ieee80211_hw *hw, int radio_idx, u32 *tx_ant,
 			   u32 *rx_ant);
 int iwl_mvm_op_set_antenna(struct ieee80211_hw *hw, int radio_idx, u32 tx_ant,
 			   u32 rx_ant);
+int iwl_mvm_get_et_sset_count(struct ieee80211_hw *hw,
+			      struct ieee80211_vif *vif, int sset);
+void iwl_mvm_get_et_stats(struct ieee80211_hw *hw,
+			  struct ieee80211_vif *vif,
+			  struct ethtool_stats *stats, u64 *data);
+void iwl_mvm_get_et_strings(struct ieee80211_hw *hw,
+			    struct ieee80211_vif *vif,
+			    u32 sset, u8 *data);
 int iwl_mvm_mac_start(struct ieee80211_hw *hw);
 void iwl_mvm_mac_reconfig_complete(struct ieee80211_hw *hw,
 				   enum ieee80211_reconfig_type reconfig_type);

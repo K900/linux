@@ -1415,7 +1415,8 @@ static int iwl_mvm_get_hwrate_chan_width(u32 chan_width)
 	}
 }
 
-void iwl_mvm_hwrate_to_tx_rate(u32 rate_n_flags,
+void iwl_mvm_hwrate_to_tx_rate(struct iwl_mvm *mvm,
+			       u32 rate_n_flags,
 			       enum nl80211_band band,
 			       struct ieee80211_tx_rate *r)
 {
@@ -1423,10 +1424,15 @@ void iwl_mvm_hwrate_to_tx_rate(u32 rate_n_flags,
 	u32 rate = format == RATE_MCS_MOD_TYPE_HT ?
 		RATE_HT_MCS_INDEX(rate_n_flags) :
 		rate_n_flags & RATE_MCS_CODE_MSK;
+	int bwi = (rate_n_flags & RATE_MCS_CHAN_WIDTH_MSK) >> RATE_MCS_CHAN_WIDTH_POS;
 
 	r->flags |=
 		iwl_mvm_get_hwrate_chan_width(rate_n_flags &
 					      RATE_MCS_CHAN_WIDTH_MSK);
+
+	mvm->ethtool_stats.tx_bw[bwi]++;
+	if (rate_n_flags & RATE_MCS_HE_106T_MSK)
+		mvm->ethtool_stats.tx_bw_106_tone++;
 
 	if (rate_n_flags & RATE_MCS_SGI_MSK)
 		r->flags |= IEEE80211_TX_RC_SHORT_GI;
@@ -1434,22 +1440,43 @@ void iwl_mvm_hwrate_to_tx_rate(u32 rate_n_flags,
 	case RATE_MCS_MOD_TYPE_HT:
 		r->flags |= IEEE80211_TX_RC_MCS;
 		r->idx = rate;
+		mvm->ethtool_stats.tx_mcs[rate % 8]++; /* treat mcs like we do for VHT */
+		mvm->ethtool_stats.tx_ht++;
 		break;
 	case RATE_MCS_MOD_TYPE_VHT:
 		ieee80211_rate_set_vht(r, rate,
 				       FIELD_GET(RATE_MCS_NSS_MSK,
 						 rate_n_flags) + 1);
 		r->flags |= IEEE80211_TX_RC_VHT_MCS;
+		mvm->ethtool_stats.tx_mcs[rate]++;
+		mvm->ethtool_stats.tx_vht++;
 		break;
 	case RATE_MCS_MOD_TYPE_HE:
+		r->idx = 0;
+		mvm->ethtool_stats.tx_mcs[rate]++;
+		mvm->ethtool_stats.tx_he++;
+		mvm->ethtool_stats.tx_he_type[(rate_n_flags >> RATE_MCS_HE_TYPE_POS) & 0x3]++;
+		break;
 	case RATE_MCS_MOD_TYPE_EHT:
 		/* mac80211 cannot do this without ieee80211_tx_status_ext()
 		 * but it only matters for radiotap */
 		r->idx = 0;
+		mvm->ethtool_stats.tx_mcs[rate]++;
+		mvm->ethtool_stats.tx_eht++;
+		mvm->ethtool_stats.tx_he_type[(rate_n_flags >> RATE_MCS_HE_TYPE_POS) & 0x3]++;
+		break;
+	case RATE_MCS_MOD_TYPE_LEGACY_OFDM:
+		r->idx = iwl_mvm_legacy_hw_idx_to_mac80211_idx(rate_n_flags,
+							       band);
+		mvm->ethtool_stats.tx_mcs[rate & RATE_LEGACY_RATE_MSK]++;
+		mvm->ethtool_stats.tx_ofdm++;
 		break;
 	default:
 		r->idx = iwl_mvm_legacy_hw_idx_to_mac80211_idx(rate_n_flags,
 							       band);
+		mvm->ethtool_stats.tx_mcs[rate & RATE_LEGACY_RATE_MSK]++;
+		mvm->ethtool_stats.tx_cck++;
+		break;
 	}
 }
 
@@ -1474,7 +1501,12 @@ static void iwl_mvm_hwrate_to_tx_status(struct iwl_mvm *mvm,
 
 	info->status.antenna =
 		((rate & RATE_MCS_ANT_AB_MSK) >> RATE_MCS_ANT_POS);
-	iwl_mvm_hwrate_to_tx_rate(rate, info->band, r);
+	iwl_mvm_hwrate_to_tx_rate(mvm, rate, info->band, r);
+
+	if (info->status.antenna == 0x3)
+		mvm->ethtool_stats.tx_nss[1]++;
+	else
+		mvm->ethtool_stats.tx_nss[0]++;
 }
 
 static void iwl_mvm_tx_status_check_trigger(struct iwl_mvm *mvm,
@@ -1518,6 +1550,20 @@ static void iwl_mvm_tx_status_check_trigger(struct iwl_mvm *mvm,
 	}
 }
 
+static void iwl_mvm_update_tx_stats(struct iwl_mvm *mvm, struct sk_buff *skb, u32 status)
+{
+	u32 idx = status & TX_STATUS_MSK;
+
+	if (idx > TX_STATUS_INTERNAL_ABORT + 1)
+		idx = TX_STATUS_INTERNAL_ABORT + 1;
+
+	mvm->ethtool_stats.tx_status_counts[idx]++;
+	if (idx == TX_STATUS_SUCCESS)
+		mvm->ethtool_stats.tx_bytes_nic += skb->len;
+	else
+		mvm->ethtool_stats.tx_mpdu_fail++;
+}
+
 /*
  * iwl_mvm_get_scd_ssn - returns the SSN of the SCD
  * @tx_resp: the Tx response from the fw (agg or non-agg)
@@ -1555,6 +1601,41 @@ static inline size_t iwl_mvm_tx_resp_min_len(struct iwl_mvm *mvm,
 		sizeof(__le32);
 }
 
+static void iwl_mvm_update_tx_ampdu_histogram(struct iwl_mvm *mvm, int freed)
+{
+	/* tx-ampdu-len histogram, buckets match what mtk7915 supports. */
+	if (freed <= 1)
+		mvm->ethtool_stats.tx_ampdu_len[0]++;
+	else if (freed <= 10)
+		mvm->ethtool_stats.tx_ampdu_len[1]++;
+	else if (freed <= 19)
+		mvm->ethtool_stats.tx_ampdu_len[2]++;
+	else if (freed <= 28)
+		mvm->ethtool_stats.tx_ampdu_len[3]++;
+	else if (freed <= 37)
+		mvm->ethtool_stats.tx_ampdu_len[4]++;
+	else if (freed <= 46)
+		mvm->ethtool_stats.tx_ampdu_len[5]++;
+	else if (freed <= 55)
+		mvm->ethtool_stats.tx_ampdu_len[6]++;
+	else if (freed <= 79)
+		mvm->ethtool_stats.tx_ampdu_len[7]++;
+	else if (freed <= 103)
+		mvm->ethtool_stats.tx_ampdu_len[8]++;
+	else if (freed <= 127)
+		mvm->ethtool_stats.tx_ampdu_len[9]++;
+	else if (freed <= 151)
+		mvm->ethtool_stats.tx_ampdu_len[10]++;
+	else if (freed <= 175)
+		mvm->ethtool_stats.tx_ampdu_len[11]++;
+	else if (freed <= 199)
+		mvm->ethtool_stats.tx_ampdu_len[12]++;
+	else if (freed <= 223)
+		mvm->ethtool_stats.tx_ampdu_len[13]++;
+	else
+		mvm->ethtool_stats.tx_ampdu_len[14]++;
+}
+
 static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 				     struct iwl_rx_packet *pkt)
 {
@@ -1584,6 +1665,8 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 
 	/* we can free until ssn % q.n_bd not inclusive */
 	iwl_trans_reclaim(mvm->trans, txq_id, ssn, &skbs, false);
+
+	iwl_mvm_update_tx_ampdu_histogram(mvm, tx_resp->frame_count);
 
 	while (!skb_queue_empty(&skbs)) {
 		struct sk_buff *skb = __skb_dequeue(&skbs);
@@ -1637,6 +1720,9 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 
 		info->status.rates[0].count = tx_resp->failure_frame + 1;
 
+		mvm->ethtool_stats.tx_mpdu_attempts += info->status.rates[0].count;
+		mvm->ethtool_stats.tx_mpdu_retry += tx_resp->failure_frame;
+
 		iwl_mvm_hwrate_to_tx_status(mvm, tx_resp->initial_rate, info);
 
 		/* Don't assign the converted initial_rate, because driver
@@ -1680,6 +1766,8 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 		lq_color = TX_RES_RATE_TABLE_COL_GET(tx_resp->tlc_info);
 		info->status.status_driver_data[0] =
 			RS_DRV_DATA_PACK(lq_color, tx_resp->reduced_tpc);
+
+		iwl_mvm_update_tx_stats(mvm, skb, status);
 
 		if (likely(!iwl_mvm_time_sync_frame(mvm, skb, hdr->addr1)))
 			ieee80211_tx_status_skb(mvm->hw, skb);
@@ -1916,6 +2004,8 @@ void iwl_mvm_rx_tx_cmd(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb)
 			 min_len))
 		return;
 
+	iwl_mvm_update_tx_ampdu_histogram(mvm, tx_resp->frame_count);
+
 	if (tx_resp->frame_count == 1)
 		iwl_mvm_rx_tx_cmd_single(mvm, pkt);
 	else
@@ -2015,12 +2105,19 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 	skb_queue_walk(&reclaimed_skbs, skb) {
 		struct ieee80211_hdr *hdr = (void *)skb->data;
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+		bool do_status = false;
 
 		if (!is_flush) {
-			if (ieee80211_is_data_qos(hdr->frame_control))
+			if (ieee80211_is_data_qos(hdr->frame_control)) {
 				freed++;
-			else
+				do_status = true;
+			} else {
 				WARN_ON_ONCE(tid != IWL_MAX_TID_COUNT);
+			}
+
+			mvm->ethtool_stats.tx_status_counts[TX_STATUS_SUCCESS]++;
+			mvm->ethtool_stats.tx_mpdu_attempts++;
+			mvm->ethtool_stats.tx_bytes_nic += skb->len;
 		}
 
 		/* this is the first skb we deliver in this batch */
@@ -2029,9 +2126,16 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 			info->flags |= IEEE80211_TX_STAT_AMPDU;
 			memcpy(&info->status, &tx_info->status,
 			       sizeof(tx_info->status));
-			iwl_mvm_hwrate_to_tx_status(mvm, rate, info);
 		}
+
+		/* Call this for all non-flushed data frames, not just the
+		 * first freed one, in order to get proper tx ethtool stats.
+		 */
+		if (do_status)
+			iwl_mvm_hwrate_to_tx_status(mvm, rate, info);
 	}
+
+	iwl_mvm_update_tx_ampdu_histogram(mvm, freed);
 
 	spin_unlock_bh(&mvmsta->lock);
 
