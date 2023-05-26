@@ -1616,6 +1616,7 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 	 */
 	if (wcid) {
 		struct mt76_sta_stats *stats = &wcid->stats;
+		struct mt76_tx_cb *cb = mt76_tx_skb_cb(t->skb);
 
 		if (wcid->rate.flags & RATE_INFO_FLAGS_MCS) {
 			rate->flags |= IEEE80211_TX_RC_MCS;
@@ -1649,6 +1650,15 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 			stats->tx_bytes += t->skb->len;
 		} else {
 			stats->tx_failed++;
+		}
+
+		if (cb->flags & MT_TX_CB_TXO_USED) {
+			stats->txo_tx_mpdu_attempts += tx_cnt;
+
+			if (tx_status == 0)
+				stats->txo_tx_mpdu_ok++;
+			else
+				stats->txo_tx_mpdu_fail++;
 		}
 	}
 
