@@ -2029,6 +2029,12 @@ void mt76_ethtool_worker(struct mt76_ethtool_worker_info *wi,
 	data[ei++] += stats->tx_failed;
 	data[ei++] += stats->tx_retries;
 	data[ei++] += stats->tx_mpdu_ok;
+
+	data[ei++] += stats->txo_tx_mpdu_attempts;
+	data[ei++] += stats->txo_tx_mpdu_fail;
+	data[ei++] += stats->txo_tx_mpdu_retry;
+	data[ei++] += stats->txo_tx_mpdu_ok;
+
 	data[ei++] += stats->tx_mode[MT_PHY_TYPE_CCK];
 	data[ei++] += stats->tx_mode[MT_PHY_TYPE_OFDM];
 	data[ei++] += stats->tx_mode[MT_PHY_TYPE_HT];
