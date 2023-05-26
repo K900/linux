@@ -1659,10 +1659,16 @@ static const char mt7915_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"tx_hetrig_4mu_cnt",
 
 	/* per vif counters */
-	"v_tx_mpdu_attempts", /* counting any retries */
-	"v_tx_mpdu_fail",  /* frames that failed even after retry */
-	"v_tx_mpdu_retry", /* number of times frames were retried */
-	"v_tx_mpdu_ok", /* frames that succeeded, perhaps after retry */
+	"v_tx_mpdu_attempts", /* counting any retries (all frames) */
+	"v_tx_mpdu_fail",  /* frames that failed even after retry (all frames) */
+	"v_tx_mpdu_retry", /* number of times frames were retried (all frames) */
+	"v_tx_mpdu_ok", /* frames that succeeded, perhaps after retry (all frames) */
+
+	"v_txo_tx_mpdu_attempts", /* counting any retries, txo frames */
+	"v_txo_tx_mpdu_fail",  /* frames that failed even after retry, txo frames */
+	"v_txo_tx_mpdu_retry", /* number of times frames were retried, txo frames */
+	"v_txo_tx_mpdu_ok", /* frames that succeeded, perhaps after retry, txo frames */
+
 	"v_tx_mode_cck",
 	"v_tx_mode_ofdm",
 	"v_tx_mode_ht",
