@@ -749,6 +749,9 @@ mt7921_mac_write_txwi_tm(struct mt792x_phy *phy, struct mt76_wcid *wcid, __le32 
 	link_sta = container_of(wcid, struct mt792x_link_sta, wcid);
 
 	if (link_sta->test.txo_active) {
+		struct mt76_tx_cb *cb = mt76_tx_skb_cb(skb);
+
+		cb->flags |= MT_TX_CB_TXO_USED;
 		td = &link_sta->test;
 	} else {
 		if (skb != phy->mt76->test.tx_skb)
