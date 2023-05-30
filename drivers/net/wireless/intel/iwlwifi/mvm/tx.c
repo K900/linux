@@ -291,6 +291,113 @@ static u32 iwl_mvm_convert_rate_idx(struct iwl_mvm *mvm,
 	return rate_flags;
 }
 
+static u32 iwl_mvm_get_txo_rate_n_flags(struct iwl_mvm *mvm, struct iwl_txo_data *td)
+{
+	u32 result = 0;
+
+	if (td->tx_rate_mode == 0) { /* cck */
+		result = RATE_MCS_CCK_MSK_V1;
+		switch (td->tx_rate_idx) {
+		case 0: result |= IWL_RATE_1M_PLCP; break;
+		case 1: result |= IWL_RATE_2M_PLCP; break;
+		case 2: result |= IWL_RATE_5M_PLCP; break;
+		default: result |= IWL_RATE_11M_PLCP; break;
+		}
+		goto check_v1;
+	} else if (td->tx_rate_mode == 1) { /* ofdm */
+		result = 0;
+		switch (td->tx_rate_idx) {
+		case 0: result |= IWL_RATE_6M_PLCP; break;
+		case 1: result |= IWL_RATE_9M_PLCP; break;
+		case 2: result |= IWL_RATE_12M_PLCP; break;
+		case 3: result |= IWL_RATE_18M_PLCP; break;
+		case 4: result |= IWL_RATE_24M_PLCP; break;
+		case 5: result |= IWL_RATE_36M_PLCP; break;
+		case 6: result |= IWL_RATE_48M_PLCP; break;
+		default: result |= IWL_RATE_54M_PLCP; break;
+		}
+		goto check_v1;
+	} else if (td->tx_rate_mode == 2) { /* ht */
+		result = RATE_MCS_HT_MSK_V1;
+		result |= u32_encode_bits(td->tx_rate_nss * 8 + td->tx_rate_idx,
+					  RATE_HT_MCS_RATE_CODE_MSK_V1 |
+					  RATE_HT_MCS_NSS_MSK_V1);
+		if (td->tx_rate_sgi)
+			result |= RATE_MCS_SGI_MSK_V1;
+		if (td->txbw == 1)
+			result |= u32_encode_bits(1, RATE_MCS_CHAN_WIDTH_MSK_V1);
+		/* TODO:  Support forcing ldpc and stbc?
+		   if (info->flags & IEEE80211_TX_CTL_LDPC)
+		   result |= RATE_MCS_LDPC_MSK_V1;
+		   if (u32_get_bits(info->flags, IEEE80211_TX_CTL_STBC))
+		   result |= RATE_MCS_STBC_MSK;
+		*/
+		goto check_v1;
+	} else if (td->tx_rate_mode == 3) { /* vht */
+		u8 mcs = td->tx_rate_idx;
+		u8 nss = td->tx_rate_nss;
+
+		result = RATE_MCS_VHT_MSK_V1;
+		result |= u32_encode_bits(mcs, RATE_VHT_MCS_RATE_CODE_MSK);
+		result |= u32_encode_bits(nss, RATE_MCS_NSS_MSK);
+		if (td->tx_rate_sgi)
+			result |= RATE_MCS_SGI_MSK_V1;
+		if (td->txbw == 1)
+			result |= u32_encode_bits(1, RATE_MCS_CHAN_WIDTH_MSK_V1);
+		else if (td->txbw == 2)
+			result |= u32_encode_bits(2, RATE_MCS_CHAN_WIDTH_MSK_V1);
+		else if (td->txbw == 3)
+			result |= u32_encode_bits(3, RATE_MCS_CHAN_WIDTH_MSK_V1);
+		goto check_v1;
+	} else if (td->tx_rate_mode == 4) { /* HE-SU */
+		/* V2 format */
+		u8 mcs = td->tx_rate_idx;
+		u8 nss = td->tx_rate_nss;
+
+		result = RATE_MCS_MOD_TYPE_HE; /* HE-SU by default, others possible */
+		result |= mcs;
+		result |= u32_encode_bits(nss, RATE_MCS_NSS_MSK);
+
+		if (td->txbw == 1)
+			result |= RATE_MCS_CHAN_WIDTH_40;
+		else if (td->txbw == 2)
+			result |= RATE_MCS_CHAN_WIDTH_80;
+		else if (td->txbw == 3)
+			result |= RATE_MCS_CHAN_WIDTH_160;
+
+		result |= ((u32)(td->tx_rate_sgi)) << RATE_MCS_HE_GI_LTF_POS;
+	} else if (td->tx_rate_mode == 5) { /* EHT */
+		/* V2 format */
+		u8 mcs = td->tx_rate_idx;
+		u8 nss = td->tx_rate_nss;
+
+		result = RATE_MCS_MOD_TYPE_EHT; /* HE-SU by default, others possible */
+		result |= mcs;
+		result |= u32_encode_bits(nss, RATE_MCS_NSS_MSK);
+
+		if (td->txbw == 1)
+			result |= RATE_MCS_CHAN_WIDTH_40;
+		else if (td->txbw == 2)
+			result |= RATE_MCS_CHAN_WIDTH_80;
+		else if (td->txbw == 3)
+			result |= RATE_MCS_CHAN_WIDTH_160;
+		else if (td->txbw == 4)
+			result |= RATE_MCS_CHAN_WIDTH_320;
+
+		result |= ((u32)(td->tx_rate_sgi)) << RATE_MCS_HE_GI_LTF_POS;
+	}
+
+	result |= RATE_MCS_ANT_AB_MSK; /* enable both antennas */
+	return result;
+
+check_v1:
+	result |= RATE_MCS_ANT_AB_MSK; /* enable both antennas */
+
+	if (iwl_fw_lookup_notif_ver(mvm->fw, LONG_GROUP, TX_CMD, 0) > 6)
+		return iwl_new_rate_from_v1(result);
+	return result;
+}
+
 static u32 iwl_mvm_get_inject_tx_rate(struct iwl_mvm *mvm,
 				      struct ieee80211_tx_info *info,
 				      struct ieee80211_sta *sta,
@@ -487,7 +594,7 @@ static void iwl_mvm_set_tx_cmd_crypto(struct iwl_mvm *mvm,
 	case WLAN_CIPHER_SUITE_WEP40:
 		tx_cmd_params->sec_ctl |= TX_CMD_SEC_WEP |
 			((keyconf->keyidx << TX_CMD_SEC_WEP_KEY_IDX_POS) &
-			  TX_CMD_SEC_WEP_KEY_IDX_MSK);
+			 TX_CMD_SEC_WEP_KEY_IDX_MSK);
 
 		memcpy(&tx_cmd_params->key[3], keyconf->key, keyconf->keylen);
 		break;
@@ -558,6 +665,7 @@ iwl_mvm_set_tx_params(struct iwl_mvm *mvm, struct sk_buff *skb,
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct iwl_device_tx_cmd *dev_cmd;
 	struct iwl_tx_cmd_v6 *tx_cmd;
+	__le16 fc = hdr->frame_control;
 
 	dev_cmd = iwl_trans_alloc_tx_cmd(mvm->trans);
 
@@ -573,7 +681,7 @@ iwl_mvm_set_tx_params(struct iwl_mvm *mvm, struct sk_buff *skb,
 			iwl_mvm_sta_from_mac80211(sta) : NULL;
 		bool amsdu = false;
 
-		if (ieee80211_is_data_qos(hdr->frame_control)) {
+		if (ieee80211_is_data_qos(fc)) {
 			u8 *qc = ieee80211_get_qos_ctl(hdr);
 
 			amsdu = *qc & IEEE80211_QOS_CTL_A_MSDU_PRESENT;
@@ -591,12 +699,21 @@ iwl_mvm_set_tx_params(struct iwl_mvm *mvm, struct sk_buff *skb,
 		if (unlikely(iwl_mvm_use_host_rate(mvm, mvmsta, hdr, info))) {
 			flags |= IWL_TX_FLAGS_CMD_RATE;
 			rate_n_flags =
-				iwl_mvm_get_tx_rate_n_flags(mvm, info, sta,
-							    hdr->frame_control);
-		} else if (!ieee80211_is_data(hdr->frame_control) ||
+				iwl_mvm_get_tx_rate_n_flags(mvm, info, sta, fc);
+		} else if (!ieee80211_is_data(fc) ||
 			   mvmsta->sta_state < IEEE80211_STA_AUTHORIZED) {
 			/* These are important frames */
 			flags |= IWL_TX_FLAGS_HIGH_PRI;
+		} else if (mvm->txo_data && skb->len >= 400 &&
+			   (ieee80211_is_data(fc) || ieee80211_is_data_qos(fc)) &&
+			   (!(ieee80211_is_qos_nullfunc(fc) || ieee80211_is_nullfunc(fc)))) {
+			struct iwl_txo_data *td = rcu_dereference(mvm->txo_data);
+
+			/* Check td again, un-protected access above was lazy check. */
+			if (td && td->txo_active) {
+				flags |= IWL_TX_FLAGS_CMD_RATE;
+				rate_n_flags = iwl_mvm_get_txo_rate_n_flags(mvm, td);
+			}
 		}
 
 		if (mvm->trans->mac_cfg->device_family >=
@@ -641,7 +758,7 @@ iwl_mvm_set_tx_params(struct iwl_mvm *mvm, struct sk_buff *skb,
 
 	iwl_mvm_set_tx_cmd(mvm, skb, &tx_cmd->params, info, sta_id);
 
-	iwl_mvm_set_tx_cmd_rate(mvm, &tx_cmd->params, info, sta, hdr->frame_control);
+	iwl_mvm_set_tx_cmd_rate(mvm, &tx_cmd->params, info, sta, fc);
 
 	/* Copy MAC header from skb into command buffer */
 	iwl_mvm_copy_hdr(tx_cmd->hdr, hdr, hdrlen, addr3_override);
