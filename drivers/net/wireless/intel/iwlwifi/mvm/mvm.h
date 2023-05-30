@@ -949,6 +949,22 @@ struct iwl_mvm_acs_survey {
 	struct iwl_mvm_acs_survey_channel channels[] __counted_by(n_channels);
 };
 
+struct iwl_txo_data {
+	struct rcu_head rcu_head;
+	u8 txo_active; /* tx overrides are active */
+	u8 txbw; /* specify TX bandwidth: 0 20Mhz, 1 40Mhz, 2 80Mhz, 3 160Mhz, 4 320Mhz */
+	/* SGI:  VHT and lower: 0 off, 1 on
+	 * HE-SU: 0 1xLTF+0.8us, 1 2xLTF+0.8us, 2 2xLTF+1.6us, 3 4xLTF+3.2us, 4 4xLTF+0.8us
+	 */
+	u8 tx_rate_sgi;
+	u8 tx_rate_mode; /* 0=cck, 1=ofdm, 2=HT, 3=VHT, 4=HE_SU, 5=EHT */
+	u8 tx_rate_idx;
+	u8 tx_rate_nss;
+
+	u8 tx_power;
+	u8 tx_xmit_count; /* 0 means no-ack, 1 means one transmit, etc */
+};
+
 struct iwl_mvm {
 	/* for logger access */
 	struct device *dev;
@@ -999,6 +1015,7 @@ struct iwl_mvm {
 		struct mvm_statistics_rx rx_stats;
 	};
 	struct iwl_mvm_ethtool_stats ethtool_stats;
+	struct iwl_txo_data __rcu *txo_data;
 
 	struct {
 		u64 rx_time;
@@ -2887,6 +2904,7 @@ void iwl_mvm_smps_workaround(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 			     bool update);
 
 /* rate_n_flags conversion */
+u32 iwl_new_rate_from_v1(u32 rate_v1);
 u32 iwl_mvm_v3_rate_from_fw(__le32 rate, u8 rate_ver);
 __le32 iwl_mvm_v3_rate_to_fw(u32 rate, u8 rate_ver);
 
