@@ -666,6 +666,9 @@ iwl_mvm_set_tx_params(struct iwl_mvm *mvm, struct sk_buff *skb,
 	struct iwl_device_tx_cmd *dev_cmd;
 	struct iwl_tx_cmd_v6 *tx_cmd;
 	__le16 fc = hdr->frame_control;
+	struct iwl_tx_cb *cb = iwl_tx_skb_cb(skb);
+
+	cb->flags = 0;
 
 	dev_cmd = iwl_trans_alloc_tx_cmd(mvm->trans);
 
@@ -711,6 +714,7 @@ iwl_mvm_set_tx_params(struct iwl_mvm *mvm, struct sk_buff *skb,
 
 			/* Check td again, un-protected access above was lazy check. */
 			if (td && td->txo_active) {
+				cb->flags |= IWL_TX_CB_TXO_USED;
 				flags |= IWL_TX_FLAGS_CMD_RATE;
 				rate_n_flags = iwl_mvm_get_txo_rate_n_flags(mvm, td);
 			}
@@ -771,11 +775,13 @@ static void iwl_mvm_skb_prepare_status(struct sk_buff *skb,
 				       struct iwl_device_tx_cmd *cmd)
 {
 	struct ieee80211_tx_info *skb_info = IEEE80211_SKB_CB(skb);
+	struct iwl_tx_cb cb = *iwl_tx_skb_cb(skb);
 
 	memset(&skb_info->status, 0, sizeof(skb_info->status));
 	memset(skb_info->driver_data, 0, sizeof(skb_info->driver_data));
 
 	skb_info->driver_data[1] = cmd;
+	*iwl_tx_skb_cb(skb) = cb; /* re-apply this driver info */
 }
 
 static int iwl_mvm_get_ctrl_vif_queue(struct iwl_mvm *mvm,
@@ -1667,7 +1673,8 @@ static void iwl_mvm_tx_status_check_trigger(struct iwl_mvm *mvm,
 	}
 }
 
-static void iwl_mvm_update_tx_stats(struct iwl_mvm *mvm, struct sk_buff *skb, u32 status)
+static void iwl_mvm_update_tx_stats(struct iwl_mvm *mvm, struct sk_buff *skb, u32 status,
+				    struct iwl_tx_cb *cb)
 {
 	u32 idx = status & TX_STATUS_MSK;
 
@@ -1675,10 +1682,15 @@ static void iwl_mvm_update_tx_stats(struct iwl_mvm *mvm, struct sk_buff *skb, u3
 		idx = TX_STATUS_INTERNAL_ABORT + 1;
 
 	mvm->ethtool_stats.tx_status_counts[idx]++;
-	if (idx == TX_STATUS_SUCCESS)
+	if (idx == TX_STATUS_SUCCESS) {
 		mvm->ethtool_stats.tx_bytes_nic += skb->len;
-	else
+		if (cb->flags & IWL_TX_CB_TXO_USED)
+			mvm->ethtool_stats.txo_tx_mpdu_ok++;
+	} else {
 		mvm->ethtool_stats.tx_mpdu_fail++;
+		if (cb->flags & IWL_TX_CB_TXO_USED)
+			mvm->ethtool_stats.txo_tx_mpdu_fail++;
+	}
 }
 
 /*
@@ -1790,6 +1802,7 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		struct ieee80211_hdr *hdr = (void *)skb->data;
 		bool flushed = false;
+		struct iwl_tx_cb cb = *iwl_tx_skb_cb(skb);
 
 		skb_freed++;
 
@@ -1839,6 +1852,10 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 
 		mvm->ethtool_stats.tx_mpdu_attempts += info->status.rates[0].count;
 		mvm->ethtool_stats.tx_mpdu_retry += tx_resp->failure_frame;
+		if (cb.flags & IWL_TX_CB_TXO_USED) {
+			mvm->ethtool_stats.txo_tx_mpdu_attempts += info->status.rates[0].count;
+			mvm->ethtool_stats.txo_tx_mpdu_retry += tx_resp->failure_frame;
+		}
 
 		iwl_mvm_hwrate_to_tx_status(mvm, tx_resp->initial_rate, info);
 
@@ -1884,7 +1901,7 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 		info->status.status_driver_data[0] =
 			RS_DRV_DATA_PACK(lq_color, tx_resp->reduced_tpc);
 
-		iwl_mvm_update_tx_stats(mvm, skb, status);
+		iwl_mvm_update_tx_stats(mvm, skb, status, &cb);
 
 		if (likely(!iwl_mvm_time_sync_frame(mvm, skb, hdr->addr1)))
 			ieee80211_tx_status_skb(mvm->hw, skb);
@@ -2167,6 +2184,14 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 
 	skb_queue_walk(&reclaimed_skbs, skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+		struct iwl_tx_cb *cb = iwl_tx_skb_cb(skb);
+
+		if (!is_flush) {
+			if (cb->flags & IWL_TX_CB_TXO_USED) {
+				mvm->ethtool_stats.txo_tx_mpdu_attempts++;
+				mvm->ethtool_stats.txo_tx_mpdu_ok++;
+			}
+		}
 
 		iwl_trans_free_tx_cmd(mvm->trans, info->driver_data[1]);
 

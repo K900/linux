@@ -617,6 +617,11 @@ struct iwl_mvm_ethtool_stats {
 	u64 tx_mpdu_fail; /* Failed even after retry */
 	u64 tx_mpdu_retry; /* Number of times frames were retried */
 
+	unsigned long txo_tx_mpdu_attempts; /* counting any retries, txo frames */
+	unsigned long txo_tx_mpdu_fail; /* frames that failed even after retry, txo frames */
+	unsigned long txo_tx_mpdu_ok; /* tx frames */
+	unsigned long txo_tx_mpdu_retry; /* number of times frames were retried, txo frames */
+
 	/* maps to iwl_tx_status enum
 	 * (TX_STATUS_INTERNAL_ABORT + 1) gathers all larger values.
 	 */
@@ -948,6 +953,27 @@ struct iwl_mvm_acs_survey {
 	/* Storage space for per-channel information follows */
 	struct iwl_mvm_acs_survey_channel channels[] __counted_by(n_channels);
 };
+
+/* skb->cb usage for mvm
+ * driver_data[0]: Holds iwl_tx_cb struct.
+ * driver_data[1]: holds pointer to struct iwl_device_tx_cmd (maybe unused?)
+ * driver_data[2]: cb + cb_data_offs, points to mac header page.
+ * driver_data[3]: dev_cmd_offs: cb + cb_data_offs + sizeof(void*),
+ *                 holds pointer to struct iwl_device_tx_cmd.
+ * driver_data[4]: unused
+ */
+
+#define IWL_TX_CB_TXO_USED		BIT(0)
+struct iwl_tx_cb {
+	u8 flags;
+};
+
+static inline struct iwl_tx_cb *iwl_tx_skb_cb(struct sk_buff *skb)
+{
+	BUILD_BUG_ON(sizeof(struct iwl_tx_cb) >
+		     sizeof(IEEE80211_SKB_CB(skb)->driver_data[0]));
+	return ((void *)&(IEEE80211_SKB_CB(skb)->driver_data[0]));
+}
 
 struct iwl_txo_data {
 	struct rcu_head rcu_head;

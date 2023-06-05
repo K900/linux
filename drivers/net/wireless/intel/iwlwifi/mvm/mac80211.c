@@ -6389,6 +6389,11 @@ static const char iwl_mvm_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"tx_mpdu_fail",  /* frames that failed even after retry */
 	"tx_mpdu_retry", /* number of times frames were retried */
 
+	"txo_tx_mpdu_attempts", /* counting any retries, txo frames */
+	"txo_tx_mpdu_fail",  /* frames that failed even after retry, txo frames */
+	"txo_tx_mpdu_retry", /* number of times frames were retried, txo frames */
+	"txo_tx_mpdu_ok", /* frames that succeeded, perhaps after retry, txo frames */
+
 	"tx_direct_done",
 	"tx_postpone_delay",
 	"tx_postpone_few_bytes",
@@ -6552,6 +6557,11 @@ void iwl_mvm_get_et_stats(struct ieee80211_hw *hw,
 	data[ei++] = mib->tx_mpdu_attempts;
 	data[ei++] = mib->tx_mpdu_fail;
 	data[ei++] = mib->tx_mpdu_retry;
+
+	data[ei++] = mib->txo_tx_mpdu_attempts;
+	data[ei++] = mib->txo_tx_mpdu_fail;
+	data[ei++] = mib->txo_tx_mpdu_retry;
+	data[ei++] = mib->txo_tx_mpdu_ok;
 
 	data[ei++] = mib->tx_status_counts[TX_STATUS_DIRECT_DONE];
 	data[ei++] = mib->tx_status_counts[TX_STATUS_POSTPONE_DELAY];
