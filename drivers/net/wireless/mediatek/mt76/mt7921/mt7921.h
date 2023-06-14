@@ -282,6 +282,7 @@ bool mt7921_rx_check(struct mt76_dev *mdev, void *data, int len);
 void mt7921_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 			 struct sk_buff *skb, u32 *info);
 void mt7921_stats_work(struct work_struct *work);
+void mt7921_set_stream_vht_txbf_caps(struct mt792x_phy *phy);
 void mt7921_set_stream_he_caps(struct mt792x_phy *phy);
 int mt7921_init_debugfs(struct mt792x_dev *dev);
 
