@@ -583,7 +583,13 @@ void mt76_connac2_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 	    (pid == MT_PACKET_ID_NO_SKB && dev->txs_for_no_skb_enabled)) {
 		val |= MT_TXD5_TX_STATUS_HOST;
 		amsdu_en = 0;
+		mtk_dbg(dev, TX, "wcid: %d connac2_mac_write_txwi, enabling TXD5_TX_STATUS_HOST",
+			wcid->idx);
+	} else {
+		mtk_dbg(dev, TX, "wcid: %d connac2_mac_write_txwi, NOT enabling TXD5_TX_STATUS_HOST, txs_for_no_skb: %d",
+			wcid->idx, dev->txs_for_no_skb_enabled);
 	}
+
 
 	txwi[5] = cpu_to_le32(val);
 	txwi[6] = 0;
@@ -663,9 +669,6 @@ bool mt76_connac2_mac_fill_txs(struct mt76_dev *dev, struct mt76_wcid *wcid,
 		}
 	}
 
-	mtk_dbg(dev, TX, "wcid: %d connac2_mac_add_txs_skb, err-msk: 0x%x",
-		wcid->idx, (u32)(txs & MT_TXS0_ACK_ERROR_MASK));
-
 	txrate = FIELD_GET(MT_TXS0_TX_RATE, txs);
 
 	rate.mcs = FIELD_GET(MT_TX_RATE_IDX, txrate);
@@ -681,6 +684,10 @@ bool mt76_connac2_mac_fill_txs(struct mt76_dev *dev, struct mt76_wcid *wcid,
 		stats->tx_mcs[rate.mcs]++;
 
 	mode = FIELD_GET(MT_TX_RATE_MODE, txrate);
+
+	mtk_dbg(dev, TX, "wcid: %d connac2_mac_fill_txs, err-msk: 0x%x mcs: %d nss: %d mode: %d",
+		wcid->idx, (u32)(txs & MT_TXS0_ACK_ERROR_MASK), rate.mcs, rate.nss, mode);
+
 	switch (mode) {
 	case MT_PHY_TYPE_CCK:
 		cck = true;
@@ -794,6 +801,11 @@ bool mt76_connac2_mac_add_txs_skb(struct mt76_dev *dev, struct mt76_wcid *wcid,
 
 		mt76_connac2_mac_fill_txs(dev, wcid, txs_data, info);
 		mt76_tx_status_skb_done(dev, skb, &list);
+	} else {
+		/* txs for no SKB path */
+		if (le32_to_cpu(txs_data[0]) & MT_TXS0_ACK_ERROR_MASK)
+			wcid->stats.tx_failed++;
+		mt76_connac2_mac_fill_txs(dev, wcid, txs_data, NULL);
 	}
 	mt76_tx_status_unlock(dev, &list);
 
