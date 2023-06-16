@@ -896,7 +896,8 @@ int mt7915_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 		msta = (struct mt7915_sta *)sta->drv_priv;
 
-		if (time_after(jiffies, msta->jiffies + HZ / 4)) {
+		if (dev->mt76.txs_for_all_enabled ||
+		    time_after(jiffies, msta->jiffies + HZ / 4)) {
 			info->flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
 			msta->jiffies = jiffies;
 		}
@@ -1151,11 +1152,11 @@ static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 	u16 wcidx;
 	u8 pid;
 
-	mtk_dbg(&dev->mt76, TX, "mt7915-mac-add-txs, format: %d\n",
-		le32_get_bits(txs_data[0], MT_TXS0_TXS_FORMAT));
-
 	wcidx = le32_get_bits(txs_data[2], MT_TXS2_WCID);
 	pid = le32_get_bits(txs_data[3], MT_TXS3_PID);
+
+	mtk_dbg(&dev->mt76, TX, "mt7915-mac-add-txs, format: %d pid: %d wcidx: %d\n",
+		le32_get_bits(txs_data[0], MT_TXS0_TXS_FORMAT), pid, wcidx);
 
 	if (pid < MT_PACKET_ID_NO_SKB)
 		return;
