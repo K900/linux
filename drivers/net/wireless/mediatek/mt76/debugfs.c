@@ -137,6 +137,29 @@ DEFINE_DEBUGFS_ATTRIBUTE(fops_txs_for_all, mt76_txs_for_all_get,
 			 mt76_txs_for_all_set, "%lld\n");
 
 static int
+mt76_debug_lvl_set(void *data, u64 val)
+{
+	struct mt76_dev *dev = data;
+
+	dev->debug_lvl = val;
+
+	return 0;
+}
+
+static int
+mt76_debug_lvl_get(void *data, u64 *val)
+{
+	struct mt76_dev *dev = data;
+
+	*val = dev->debug_lvl;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_debug_lvl, mt76_debug_lvl_get,
+			 mt76_debug_lvl_set, "%lld\n");
+
+static int
 mt76_version(struct seq_file *s, void *data)
 {
 	struct mt76_dev *dev = dev_get_drvdata(s->private);
@@ -226,6 +249,7 @@ mt76_register_debugfs_fops(struct mt76_phy *phy,
 				   &fops_napi_threaded);
 	debugfs_create_file("force_txs", 0600, dir, dev, &fops_txs_for_no_skb);
 	debugfs_create_file("force_txs_all_skb", 0600, dir, dev, &fops_txs_for_all);
+	debugfs_create_file("debug_lvl", 0600, dir, dev, &fops_debug_lvl);
 	debugfs_create_blob("eeprom", 0400, dir, &dev->eeprom);
 	debugfs_create_devm_seqfile(dev->dev, "version", dir, mt76_version);
 	if (dev->otp.data)
