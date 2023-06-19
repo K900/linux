@@ -649,6 +649,10 @@ bool mt76_connac2_mac_fill_txs(struct mt76_dev *dev, struct mt76_wcid *wcid,
 	/* PPDU based reporting */
 	if (mtk_wed_device_active(&dev->mmio.wed) &&
 	    FIELD_GET(MT_TXS0_TXS_FORMAT, txs) > 1) {
+		/* If this code eventually goes to the txwi_free path,
+		 * then I think these stats increments below should be
+		 * deleted, since txwi_free path updates stats.
+		 */
 		stats->tx_bytes +=
 			le32_get_bits(txs_data[5], MT_TXS5_MPDU_TX_BYTE) -
 			le32_get_bits(txs_data[7], MT_TXS7_MPDU_RETRY_BYTE);
@@ -805,8 +809,6 @@ bool mt76_connac2_mac_add_txs_skb(struct mt76_dev *dev, struct mt76_wcid *wcid,
 		mt76_tx_status_skb_done(dev, skb, &list);
 	} else {
 		/* txs for no SKB path */
-		if (le32_to_cpu(txs_data[0]) & MT_TXS0_ACK_ERROR_MASK)
-			wcid->stats.tx_failed++;
 		mt76_connac2_mac_fill_txs(dev, wcid, txs_data, NULL);
 	}
 	mt76_tx_status_unlock(dev, &list);
@@ -1349,10 +1351,12 @@ void mt76_connac2_txwi_free(struct mt76_dev *dev, struct mt76_txwi_cache *t,
 		stats->tx_attempts += tx_cnt;
 		stats->tx_retries += tx_cnt - 1;
 
-		if (tx_status == 0)
+		if (tx_status == 0) {
 			stats->tx_mpdu_ok++;
-		else
+			stats->tx_bytes += t->skb->len;
+		} else {
 			stats->tx_failed++;
+		}
 
 		if (cb->flags & MT_TX_CB_TXO_USED) {
 			stats->txo_tx_mpdu_attempts += tx_cnt;
@@ -1376,6 +1380,7 @@ void mt76_connac2_txwi_free(struct mt76_dev *dev, struct mt76_txwi_cache *t,
 		info->status.ampdu_ack_len = 1;
 	} else {
 		info->flags &= ~IEEE80211_TX_STAT_ACK;
+		info->status.ampdu_ack_len = 0;
 	}
 
 	__mt76_tx_complete_skb(dev, wcid_idx, t->skb, free_list);
