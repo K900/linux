@@ -1673,6 +1673,7 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 		info->status.ampdu_ack_len = 1;
 	} else {
 		info->flags &= ~IEEE80211_TX_STAT_ACK;
+		info->status.ampdu_ack_len = 0;
 	}
 
 	__mt76_tx_complete_skb(mdev, wcid_idx, t->skb, free_list);
