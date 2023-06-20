@@ -1645,6 +1645,9 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 		stats->tx_attempts += tx_cnt;
 		stats->tx_retries += tx_cnt - 1;
 
+		mtk_dbg(&dev->mt76, TX, "mt7915-txwi-free, skb: %p skb->len: %d tx-cnt: %d  tx_status: 0x%x  txo: %d\n",
+			t->skb, t->skb->len, tx_cnt, tx_status, !!(cb->flags & MT_TX_CB_TXO_USED));
+
 		if (tx_status == 0) {
 			stats->tx_mpdu_ok++;
 			stats->tx_bytes += t->skb->len;
