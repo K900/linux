@@ -986,7 +986,8 @@ mt7915_mcu_sta_muru_tlv(struct mt7915_dev *dev, struct sk_buff *skb,
 				!!(dev->dbg.muru_onoff & MUMIMO_DL));
 
 	muru->cfg.ofdma_dl_en = !!(dev->dbg.muru_onoff & OFDMA_DL);
-	muru->cfg.ofdma_ul_en = !!(dev->dbg.muru_onoff & OFDMA_UL);
+	if (!is_mt7915(&dev->mt76))
+		muru->cfg.ofdma_ul_en = !!(dev->dbg.muru_onoff & OFDMA_UL);
 
 	/* The muru enable/disable are only set after the first station connection.
 	 * Without this patch, the firmware couldn't enable muru
