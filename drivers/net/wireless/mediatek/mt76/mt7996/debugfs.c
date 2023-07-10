@@ -1511,6 +1511,90 @@ static const struct file_operations mt7996_txpower_path_fops = {
 	.llseek = default_llseek,
 };
 
+static int
+mt7996_sr_enable_get(void *data, u64 *val)
+{
+	struct mt7996_dev *dev = data;
+	struct mt7996_phy *phy = &dev->phy;
+
+	*val = phy->sr_enable;
+
+	return 0;
+}
+
+static int
+mt7996_sr_enable_set(void *data, u64 val)
+{
+	struct mt7996_dev *dev = data;
+	struct mt7996_phy *phy = &dev->phy;
+	int ret;
+
+	if (!!val == phy->sr_enable)
+		return 0;
+
+	ret = mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_CFG_SR_ENABLE, val, true);
+	if (ret)
+		return ret;
+
+	return mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_CFG_SR_ENABLE, 0, false);
+}
+DEFINE_DEBUGFS_ATTRIBUTE(fops_sr_enable, mt7996_sr_enable_get,
+			 mt7996_sr_enable_set, "%lld\n");
+
+static int
+mt7996_sr_enhanced_enable_get(void *data, u64 *val)
+{
+	struct mt7996_dev *dev = data;
+	struct mt7996_phy *phy = &dev->phy;
+
+	*val = phy->enhanced_sr_enable;
+
+	return 0;
+}
+
+static int
+mt7996_sr_enhanced_enable_set(void *data, u64 val)
+{
+	struct mt7996_dev *dev = data;
+	struct mt7996_phy *phy = &dev->phy;
+	int ret;
+
+	if (!!val == phy->enhanced_sr_enable)
+		return 0;
+
+	ret = mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_HW_ENHANCE_SR_ENABLE, val, true);
+	if (ret)
+		return ret;
+
+	return mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_HW_ENHANCE_SR_ENABLE, 0, false);
+}
+DEFINE_DEBUGFS_ATTRIBUTE(fops_sr_enhanced_enable, mt7996_sr_enhanced_enable_get,
+			 mt7996_sr_enhanced_enable_set, "%lld\n");
+
+static int
+mt7996_sr_stats_show(struct seq_file *file, void *data)
+{
+	struct mt7996_dev *dev = data;
+	struct mt7996_phy *phy = &dev->phy;
+
+	mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_HW_IND, 0, false);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(mt7996_sr_stats);
+
+static int
+mt7996_sr_scene_cond_show(struct seq_file *file, void *data)
+{
+	struct mt7996_dev *dev = data;
+	struct mt7996_phy *phy = &dev->phy;
+
+	mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_SW_SD, 0, false);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(mt7996_sr_scene_cond);
+
 int mt7996_init_debugfs(struct mt7996_dev *dev)
 {
 	struct dentry *dir;
@@ -1545,6 +1629,11 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 	debugfs_create_file("txpower_info", 0600, dir, dev, &mt7996_txpower_info_fops);
 	debugfs_create_file("txpower_sku", 0600, dir, dev, &mt7996_txpower_sku_fops);
 	debugfs_create_file("txpower_path", 0600, dir, dev, &mt7996_txpower_path_fops);
+
+	debugfs_create_file("sr_enable", 0600, dir, dev, &fops_sr_enable);
+	debugfs_create_file("sr_enhanced_enable", 0600, dir, dev, &fops_sr_enhanced_enable);
+	debugfs_create_file("sr_stats", 0400, dir, dev, &mt7996_sr_stats_fops);
+	debugfs_create_file("sr_scene_cond", 0400, dir, dev, &mt7996_sr_scene_cond_fops);
 
 	debugfs_create_u32("dfs_hw_pattern", 0400, dir, &dev->hw_pattern);
 	debugfs_create_file("radar_trigger", 0200, dir, dev,
