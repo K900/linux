@@ -402,6 +402,9 @@ struct mt7996_phy {
 	bool has_aux_rx;
 	bool counter_reset;
 	bool rdd_tx_paused;
+
+	bool sr_enable:1;
+	bool enhanced_sr_enable:1;
 };
 
 struct mt7996_dev {
@@ -952,9 +955,8 @@ int mt7996_mmio_wed_init(struct mt7996_dev *dev, void *pdev_ptr,
 			 bool hif2, int *irq);
 u32 mt7996_wed_init_buf(void *ptr, dma_addr_t phys, int token_id);
 
-#ifdef CONFIG_MTK_DEBUG
-int mt7996_mtk_init_debugfs(struct mt7996_phy *phy, struct dentry *dir);
-#endif
+int mt7996_mcu_set_sr_enable(struct mt7996_phy *phy, u8 action, u64 val, bool set);
+void mt7996_mcu_rx_sr_event(struct mt7996_dev *dev, struct sk_buff *skb);
 
 int mt7996_mcu_get_tx_power_info(struct mt7996_phy *phy, u8 category, void *event);
 

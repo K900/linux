@@ -25,6 +25,9 @@ int mt7996_run(struct mt7996_phy *phy)
 	struct mt7996_dev *dev = phy->dev;
 	int ret;
 
+	phy->sr_enable = true;
+	phy->enhanced_sr_enable = true;
+
 	mt7996_mac_enable_nf(dev, phy->mt76->band_idx);
 
 	ret = mt7996_mcu_set_rts_thresh(phy, 0x92b);
