@@ -987,6 +987,9 @@ struct mt76_dev {
 	struct mt76_mcu mcu;
 	u32 first_failed_mcu_cmd; /* for debugging */
 	u32 last_successful_mcu_cmd; /* for debugging */
+	u32 mcu_timeouts; /* sequential timeout counter */
+	#define MAX_MCU_TIMEOUTS 3
+
 
 	struct net_device *napi_dev;
 	struct net_device *tx_napi_dev;
