@@ -615,6 +615,20 @@ mt76_dma_tx_queue_skb_raw(struct mt76_dev *dev, struct mt76_queue *q,
 	if (test_bit(MT76_MCU_RESET, &dev->phy.state))
 		goto error;
 
+	/* Check for non responsive radios.  Better to just stop sending it messages
+	 * than continuously block the OS (since rtnl and similar are often held while
+	 * the timeout is happening).
+	 */
+	if (dev->mcu_timeouts > MAX_MCU_TIMEOUTS) {
+		static unsigned long last_log = 0;
+
+		if (time_after(jiffies, last_log + 5 * HZ)) {
+			last_log = jiffies;
+			mtk_dbg(dev, WRN, "mt76-dma-tx-queue-skb-raw, too many timeouts, msg is dropped.\n");
+		}
+		goto error;
+	}
+
 	if (q->queued + 1 >= q->ndesc - 1)
 		goto error;
 
