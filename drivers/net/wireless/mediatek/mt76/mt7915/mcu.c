@@ -169,13 +169,15 @@ mt7915_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 	if (!skb) {
 		const char* first = "Secondary";
 
+		mdev->mcu_timeouts++;
 		if (!mdev->first_failed_mcu_cmd)
 			first = "Initial";
 
-		dev_err(mdev->dev, "MCU: %s Failure: Message %08x (cid %lx ext_cid: %lx seq %d) timeout.  Last successful cmd: 0x%x\n",
+		dev_err(mdev->dev, "MCU: %s Failure: Message %08x (cid %lx ext_cid: %lx seq %d) timeout (%d/%d).  Last successful cmd: 0x%x\n",
 			first,
 			cmd, FIELD_GET(__MCU_CMD_FIELD_ID, cmd),
 			FIELD_GET(__MCU_CMD_FIELD_EXT_ID, cmd), seq,
+			mdev->mcu_timeouts, MAX_MCU_TIMEOUTS,
 			mdev->last_successful_mcu_cmd);
 
 		if (!mdev->first_failed_mcu_cmd)
@@ -190,6 +192,7 @@ mt7915_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		return -ETIMEDOUT;
 	}
 
+	mdev->mcu_timeouts = 0;
 	mdev->last_successful_mcu_cmd = cmd;
 
 	if (mdev->first_failed_mcu_cmd) {
