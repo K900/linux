@@ -375,12 +375,14 @@ mt7915_mcu_rx_radar_detected(struct mt7915_dev *dev, struct sk_buff *skb)
 	if (!mphy)
 		return;
 
-	if (r->rdd_idx == MT_RDD_IDX_BACKGROUND)
-		cfg80211_background_radar_event(mphy->hw->wiphy,
-						&dev->rdd2_chandef,
-						GFP_ATOMIC);
-	else
-		ieee80211_radar_detected(mphy->hw, NULL);
+	if (!dev->ignore_radar) {
+		if (r->rdd_idx == MT_RDD_IDX_BACKGROUND)
+			cfg80211_background_radar_event(mphy->hw->wiphy,
+							&dev->rdd2_chandef,
+							GFP_ATOMIC);
+		else
+			ieee80211_radar_detected(mphy->hw, NULL);
+	}
 	dev->hw_pattern++;
 }
 
