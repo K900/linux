@@ -465,6 +465,7 @@ struct mt7996_dev {
 	struct list_head twt_list;
 
 	u32 hw_pattern;
+	u32 ignore_radar; /* skip propagating up the stack, for debugging */
 
 	u8 eeprom_mode;
 	bool has_eht:1;
