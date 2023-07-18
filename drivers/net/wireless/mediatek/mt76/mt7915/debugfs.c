@@ -1660,6 +1660,8 @@ int mt7915_init_debugfs(struct mt7915_phy *phy)
 		debugfs_create_devm_seqfile(dev->mt76.dev, "rdd_monitor", dir,
 					    mt7915_rdd_monitor);
 	}
+	debugfs_create_u32("ignore_radar", 0600, dir,
+			   &dev->ignore_radar);
 	debugfs_create_file("set_rate_override", 0600, dir,
 			    dev, &fops_set_rate_override);
 
