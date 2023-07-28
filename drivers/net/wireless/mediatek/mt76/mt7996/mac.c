@@ -1242,15 +1242,20 @@ mt7996_tx_check_aggr(struct ieee80211_link_sta *link_sta,
 static void
 mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 		 struct ieee80211_link_sta *link_sta,
-		 struct mt76_wcid *wcid, struct list_head *free_list)
+		 struct mt76_wcid *wcid, struct list_head *free_list,
+		 u32 tx_cnt, u32 tx_status, u32 ampdu)
 {
 	struct mt76_dev *mdev = &dev->mt76;
 	__le32 *txwi;
 	u16 wcid_idx;
+	struct ieee80211_tx_info *info;
+	struct ieee80211_tx_rate *rate;
 
 	mt76_connac_txp_skb_unmap(mdev, t);
 	if (!t->skb)
 		goto out;
+
+	rcu_read_lock(); /* protect wcid access */
 
 	txwi = (__le32 *)mt76_get_txwi_ptr(mdev, t);
 	if (link_sta) {
@@ -1265,6 +1270,68 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 		}
 	} else {
 		wcid_idx = le32_get_bits(txwi[9], MT_TXD9_WLAN_IDX);
+	}
+
+	info = IEEE80211_SKB_CB(t->skb);
+
+	rate = &info->status.rates[0];
+	rate->idx = -1; /* will over-write below if we found wcid */
+	info->status.rates[1].idx = -1; /* terminate rate list */
+
+	/* force TX_STAT_AMPDU to be set, or mac80211 will ignore status */
+	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU)) {
+		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
+		info->status.ampdu_len = 1;
+	}
+
+	/* update info status based on cached wcid rate info since
+	 * txfree path doesn't give us a lot of info.
+	 */
+	if (wcid) {
+		struct mt76_sta_stats *stats = &wcid->stats;
+
+		if (wcid->rate.flags & RATE_INFO_FLAGS_MCS) {
+			rate->flags |= IEEE80211_TX_RC_MCS;
+			rate->idx = wcid->rate.mcs + wcid->rate.nss * 8;
+		} else if (wcid->rate.flags & RATE_INFO_FLAGS_VHT_MCS) {
+			rate->flags |= IEEE80211_TX_RC_VHT_MCS;
+			rate->idx = (wcid->rate.nss << 4) | wcid->rate.mcs;
+		} else if (wcid->rate.flags & RATE_INFO_FLAGS_HE_MCS) {
+			rate->idx = (wcid->rate.nss << 4) | wcid->rate.mcs;
+		} else {
+			rate->idx = wcid->rate.mcs;
+		}
+
+		switch (wcid->rate.bw) {
+		case RATE_INFO_BW_160:
+			rate->flags |= IEEE80211_TX_RC_160_MHZ_WIDTH;
+			break;
+		case RATE_INFO_BW_80:
+			rate->flags |= IEEE80211_TX_RC_80_MHZ_WIDTH;
+			break;
+		case RATE_INFO_BW_40:
+			rate->flags |= IEEE80211_TX_RC_40_MHZ_WIDTH;
+			break;
+		}
+
+		stats->tx_attempts += tx_cnt;
+		stats->tx_retries += tx_cnt - 1;
+
+		if (tx_status == 0)
+			stats->tx_mpdu_ok++;
+		else
+			stats->tx_failed++;
+	}
+
+	rcu_read_unlock();
+
+	/* Apply the values that this txfree path reports */
+	rate->count = tx_cnt;
+	if (tx_status == 0) {
+		info->flags |= IEEE80211_TX_STAT_ACK;
+		info->status.ampdu_ack_len = 1;
+	} else {
+		info->flags &= ~IEEE80211_TX_STAT_ACK;
 	}
 
 	__mt76_tx_complete_skb(mdev, wcid_idx, t->skb, free_list);
@@ -1311,6 +1378,7 @@ mt7996_mac_tx_free(struct mt7996_dev *dev, void *data, int len)
 	for (cur_info = &tx_free[2]; count < total; cur_info++) {
 		u32 msdu, info;
 		u8 i;
+		u32 tx_cnt, tx_status, ampdu;
 
 		if (WARN_ON_ONCE((void *)cur_info >= end))
 			return;
@@ -1379,13 +1447,18 @@ next:
 			if (msdu == MT_TXFREE_INFO_MSDU_ID)
 				continue;
 
+			/* TODO:  How to get tx_cnt, tx_status, ampdu*/
+			tx_status = 0;
+			tx_cnt = 1;
+			ampdu = 1;
+
 			count++;
 			txwi = mt76_token_release(mdev, msdu, &wake);
 			if (!txwi)
 				continue;
 
 			mt7996_txwi_free(dev, txwi, link_sta, wcid,
-					 &free_list);
+					 &free_list, tx_cnt, tx_status, ampdu);
 		}
 	}
 
@@ -2203,7 +2276,7 @@ void mt7996_tx_token_put(struct mt7996_dev *dev)
 
 	spin_lock_bh(&dev->mt76.token_lock);
 	idr_for_each_entry(&dev->mt76.token, txwi, id) {
-		mt7996_txwi_free(dev, txwi, NULL, NULL, NULL);
+		mt7996_txwi_free(dev, txwi, NULL, NULL, NULL, 0, 1, 0);
 		dev->mt76.token_count--;
 	}
 	spin_unlock_bh(&dev->mt76.token_lock);
