@@ -1320,9 +1320,9 @@ mt7915_xmit_queues_show(struct seq_file *file, void *data)
 
 DEFINE_SHOW_ATTRIBUTE(mt7915_xmit_queues);
 
-#define mt7915_txpower_puts(rate)						\
+#define mt7915_txpower_puts(rate, _len)						\
 ({										\
-	len += scnprintf(buf + len, sz - len, "%-16s:", #rate " (TMAC)");	\
+	len += scnprintf(buf + len, sz - len, "%-*s:", _len, #rate " (TMAC)");	\
 	for (i = 0; i < mt7915_sku_group_len[SKU_##rate]; i++, offs++)		\
 		len += scnprintf(buf + len, sz - len, " %6d", txpwr[offs]);	\
 	len += scnprintf(buf + len, sz - len, "\n");				\
@@ -1367,43 +1367,47 @@ mt7915_rate_txpower_get(struct file *file, char __user *user_buf,
 	len += scnprintf(buf + len, sz - len,
 			 "\nPhy%d Tx power table (channel %d)\n",
 			 phy != &dev->phy, phy->mt76->chandef.chan->hw_value);
-	len += scnprintf(buf + len, sz - len, "%-16s  %6s %6s %6s %6s\n",
+	len += scnprintf(buf + len, sz - len, "%-23s  %6s %6s %6s %6s\n",
 			 " ", "1m", "2m", "5m", "11m");
-	mt7915_txpower_puts(CCK);
+	mt7915_txpower_puts(CCK, 23);
 
 	len += scnprintf(buf + len, sz - len,
-			 "%-16s  %6s %6s %6s %6s %6s %6s %6s %6s\n",
+			 "%-23s  %6s %6s %6s %6s %6s %6s %6s %6s\n",
 			 " ", "6m", "9m", "12m", "18m", "24m", "36m", "48m",
 			 "54m");
-	mt7915_txpower_puts(OFDM);
+	mt7915_txpower_puts(OFDM, 23);
 
 	len += scnprintf(buf + len, sz - len,
-			 "%-16s  %6s %6s %6s %6s %6s %6s %6s %6s\n",
+			 "%-23s  %6s %6s %6s %6s %6s %6s %6s %6s\n",
 			 " ", "mcs0", "mcs1", "mcs2", "mcs3", "mcs4",
 			 "mcs5", "mcs6", "mcs7");
-	mt7915_txpower_puts(HT_BW20);
+	mt7915_txpower_puts(HT_BW20, 23);
 
 	len += scnprintf(buf + len, sz - len,
-			 "%-16s  %6s %6s %6s %6s %6s %6s %6s %6s %6s\n",
+			 "%-23s  %6s %6s %6s %6s %6s %6s %6s %6s %6s\n",
 			 " ", "mcs0", "mcs1", "mcs2", "mcs3", "mcs4", "mcs5",
 			 "mcs6", "mcs7", "mcs32");
-	mt7915_txpower_puts(HT_BW40);
+	mt7915_txpower_puts(HT_BW40, 23);
 
 	len += scnprintf(buf + len, sz - len,
-			 "%-16s  %6s %6s %6s %6s %6s %6s %6s %6s %6s %6s %6s %6s\n",
+			 "%-23s  %6s %6s %6s %6s %6s %6s %6s %6s %6s %6s %6s %6s\n",
 			 " ", "mcs0", "mcs1", "mcs2", "mcs3", "mcs4", "mcs5",
 			 "mcs6", "mcs7", "mcs8", "mcs9", "mcs10", "mcs11");
-	mt7915_txpower_puts(VHT_BW20);
-	mt7915_txpower_puts(VHT_BW40);
-	mt7915_txpower_puts(VHT_BW80);
-	mt7915_txpower_puts(VHT_BW160);
-	mt7915_txpower_puts(HE_RU26);
-	mt7915_txpower_puts(HE_RU52);
-	mt7915_txpower_puts(HE_RU106);
-	mt7915_txpower_puts(HE_RU242);
-	mt7915_txpower_puts(HE_RU484);
-	mt7915_txpower_puts(HE_RU996);
-	mt7915_txpower_puts(HE_RU2x996);
+	mt7915_txpower_puts(VHT_BW20, 23);
+	mt7915_txpower_puts(VHT_BW40, 23);
+	mt7915_txpower_puts(VHT_BW80, 23);
+	mt7915_txpower_puts(VHT_BW160, 23);
+	mt7915_txpower_puts(HE_RU26, 23);
+	mt7915_txpower_puts(HE_RU52, 23);
+	mt7915_txpower_puts(HE_RU106, 23);
+	len += scnprintf(buf + len, sz - len, "BW20/");
+	mt7915_txpower_puts(HE_RU242, 18);
+	len += scnprintf(buf + len, sz - len, "BW40/");
+	mt7915_txpower_puts(HE_RU484, 18);
+	len += scnprintf(buf + len, sz - len, "BW80/");
+	mt7915_txpower_puts(HE_RU996, 18);
+	len += scnprintf(buf + len, sz - len, "BW160/");
+	mt7915_txpower_puts(HE_RU2x996, 17);
 
 	reg = is_mt7915(&dev->mt76) ? MT_WF_PHY_TPC_CTRL_STAT(band) :
 	      MT_WF_PHY_TPC_CTRL_STAT_MT7916(band);
