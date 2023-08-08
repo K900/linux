@@ -1684,12 +1684,16 @@ static void iwl_mvm_update_tx_stats(struct iwl_mvm *mvm, struct sk_buff *skb, u3
 	mvm->ethtool_stats.tx_status_counts[idx]++;
 	if (idx == TX_STATUS_SUCCESS) {
 		mvm->ethtool_stats.tx_bytes_nic += skb->len;
-		if (cb->flags & IWL_TX_CB_TXO_USED)
+		if (cb->flags & IWL_TX_CB_TXO_USED) {
 			mvm->ethtool_stats.txo_tx_mpdu_ok++;
+			//pr_info("iwl_mvm_update_tx_stats, success, skb: %p\n", skb);
+		}
 	} else {
 		mvm->ethtool_stats.tx_mpdu_fail++;
-		if (cb->flags & IWL_TX_CB_TXO_USED)
+		if (cb->flags & IWL_TX_CB_TXO_USED) {
 			mvm->ethtool_stats.txo_tx_mpdu_fail++;
+			//pr_info("iwl_mvm_update_tx_stats, failed, skb: %p\n", skb);
+		}
 	}
 }
 
@@ -1850,11 +1854,29 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 
 		info->status.rates[0].count = tx_resp->failure_frame + 1;
 
-		mvm->ethtool_stats.tx_mpdu_attempts += info->status.rates[0].count;
-		mvm->ethtool_stats.tx_mpdu_retry += tx_resp->failure_frame;
-		if (cb.flags & IWL_TX_CB_TXO_USED) {
-			mvm->ethtool_stats.txo_tx_mpdu_attempts += info->status.rates[0].count;
-			mvm->ethtool_stats.txo_tx_mpdu_retry += tx_resp->failure_frame;
+		if (skb_freed <= 1) {
+			mvm->ethtool_stats.tx_mpdu_attempts += info->status.rates[0].count;
+			mvm->ethtool_stats.tx_mpdu_retry += tx_resp->failure_frame;
+			if (cb.flags & IWL_TX_CB_TXO_USED) {
+				mvm->ethtool_stats.txo_tx_mpdu_attempts += info->status.rates[0].count;
+				mvm->ethtool_stats.txo_tx_mpdu_retry += tx_resp->failure_frame;
+				//pr_info("iwl_mvm_rx_tx_cmd_single, attempts: %d  failure_frame: %d  skb_freed: %d  status: 0x%x acked: %d skb: %p skb->len: %d\n",
+				//	tx_resp->failure_frame + 1, tx_resp->failure_frame, skb_freed,
+				//	status & TX_STATUS_MSK, !!(info->flags & IEEE80211_TX_STAT_ACK),
+				//	skb, skb->len);
+			}
+		} else {
+			/* Not sure we can know how many retries for these. */
+			mvm->ethtool_stats.tx_mpdu_attempts += 1;
+
+			if (cb.flags & IWL_TX_CB_TXO_USED) {
+				mvm->ethtool_stats.txo_tx_mpdu_attempts += info->status.rates[0].count;
+
+				//pr_info("iwl_mvm_rx_tx_cmd_single, attempts: %d  failure_frame: %d  skb_freed: %d  status: 0x%x acked: %d skb: %p skb-len: %d\n",
+				//	tx_resp->failure_frame + 1, tx_resp->failure_frame, skb_freed,
+				//	status & TX_STATUS_MSK, !!(info->flags & IEEE80211_TX_STAT_ACK),
+				//	skb, skb->len);
+			}
 		}
 
 		iwl_mvm_hwrate_to_tx_status(mvm, tx_resp->initial_rate, info);
@@ -2182,20 +2204,75 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 	 */
 	iwl_trans_reclaim(mvm->trans, txq, index, &reclaimed_skbs, is_flush);
 
+	mvmsta = iwl_mvm_sta_from_mac80211(sta);
+
 	skb_queue_walk(&reclaimed_skbs, skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		struct iwl_tx_cb *cb = iwl_tx_skb_cb(skb);
+		int retry = 0;
 
 		if (!is_flush) {
-			if (cb->flags & IWL_TX_CB_TXO_USED) {
-				mvm->ethtool_stats.txo_tx_mpdu_attempts++;
-				mvm->ethtool_stats.txo_tx_mpdu_ok++;
+			if (mvmsta) {
+				retry = min(14, mvmsta->retransmitted_ba_frames);
+
+				/* assign retries, we cannot know exactly which frame
+				 * had the retries, and it is a bit inaccurate anyway, but
+				 * this gets us fairly close to total retransmits being accurate
+				 * at least.
+				 */
+				if (retry > 0) {
+					if (cb->flags & IWL_TX_CB_TXO_USED) {
+						mvm->ethtool_stats.txo_tx_mpdu_attempts += retry + 1;
+						mvm->ethtool_stats.txo_tx_mpdu_retry += retry;
+
+						//pr_info("iwl_mvm_tx_reclaim, txo-skb reclaimed (ok), retries: %d skb: %p\n",
+						//	retry, skb);
+					} else {
+						//pr_info("iwl_mvm_tx_reclaim, non-txo-skb reclaimed (ok), retries: %d skb: %p\n",
+						//	retry, skb);
+					}
+
+					mvm->ethtool_stats.tx_mpdu_attempts += retry + 1;
+					mvm->ethtool_stats.tx_mpdu_retry += retry;
+					mvmsta->retransmitted_ba_frames -= retry;
+				}
+				else {
+					/* no accumulated retries to assign */
+					if (cb->flags & IWL_TX_CB_TXO_USED)
+						mvm->ethtool_stats.txo_tx_mpdu_attempts += 1;
+					mvm->ethtool_stats.tx_mpdu_attempts += 1;
+				}
+			} else {
+				/* No way to know retries since we don't have mvmsta */
+				if (cb->flags & IWL_TX_CB_TXO_USED)
+					mvm->ethtool_stats.txo_tx_mpdu_attempts += 1;
+				mvm->ethtool_stats.tx_mpdu_attempts += 1;
 			}
+
+			mvm->ethtool_stats.txo_tx_mpdu_ok++;
+			mvm->ethtool_stats.tx_bytes_nic += skb->len;
+			mvm->ethtool_stats.tx_status_counts[TX_STATUS_SUCCESS]++;
+		} else {
+			if (cb->flags & IWL_TX_CB_TXO_USED) {
+				mvm->ethtool_stats.txo_tx_mpdu_attempts += 1;
+				mvm->ethtool_stats.txo_tx_mpdu_fail += 1;
+				//pr_info("iwl_mvm_tx_reclaim, txo-skb reclaimed (flush) skb: %p\n",
+				//	skb);
+			} else {
+				//pr_info("iwl_mvm_tx_reclaim, non-txo-skb reclaimed (flush) skb: %p\n",
+				//	skb);
+			}
+			mvm->ethtool_stats.tx_mpdu_attempts += 1;
+			mvm->ethtool_stats.tx_mpdu_fail += 1;
+			mvm->ethtool_stats.tx_status_counts[TX_STATUS_FAIL_FIFO_FLUSHED]++;
 		}
 
 		iwl_trans_free_tx_cmd(mvm->trans, info->driver_data[1]);
 
 		memset(&info->status, 0, sizeof(info->status));
+
+		info->status.rates[0].count = retry + 1;
+
 		/* Packet was transmitted successfully, failures come as single
 		 * frames because before failing a frame the firmware transmits
 		 * it without aggregation at least once.
@@ -2217,7 +2294,6 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 	if (IS_ERR(sta))
 		goto out;
 
-	mvmsta = iwl_mvm_sta_from_mac80211(sta);
 	tid_data = &mvmsta->tid_data[tid];
 
 	if (tid_data->txq_id != txq) {
@@ -2256,10 +2332,6 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 			} else {
 				WARN_ON_ONCE(tid != IWL_MAX_TID_COUNT);
 			}
-
-			mvm->ethtool_stats.tx_status_counts[TX_STATUS_SUCCESS]++;
-			mvm->ethtool_stats.tx_mpdu_attempts++;
-			mvm->ethtool_stats.tx_bytes_nic += skb->len;
 		}
 
 		/* this is the first skb we deliver in this batch */
@@ -2344,15 +2416,63 @@ void iwl_mvm_rx_ba_notif(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb)
 		ba_info.status.status_driver_data[0] =
 			(void *)(uintptr_t)ba_res->reduced_txp;
 
+		rcu_read_lock();
+
+		mvmsta = iwl_mvm_sta_from_staid_rcu(mvm, sta_id);
+
+		/* We need to store the amount that failed to transmit, and then
+		 * will consume this counter when there is a tx-success.  Per individual
+		 * frame may not be exact, but total retry counts would be more accurate
+		 * at least.  In case it cannot be block-ack transmitted at all, the
+		 * tx-single path will deal with counting up the retransmit count.
+		 */
+		if (mvmsta) {
+			u16 retry_cnt = le16_to_cpu(ba_res->retry_cnt);
+			u16 done = le16_to_cpu(ba_res->done);
+			u16 txed = le16_to_cpu(ba_res->txed);
+			u16 failed = txed - done;
+
+			/* block-ack gives up and does single tx status if more than one
+			 * frame to transmit and retry_cnt is 14, or if single frame to transmit
+			 * and transmit failed (based on observation of logging).
+			 */
+			if (retry_cnt == 14) {
+				/* subtract those that will be reported as single tx events.
+				 * This is close to right, but not exactly since txed can change over life
+				 * of the ampdu transmit attempt.
+				 */
+				mvmsta->retransmitted_ba_frames -= (retry_cnt * failed);
+			} else if (failed == 1) {
+				/* subtract those that will probably be reported as single tx event.
+				 * This is close to right, but not exactly since txed can change over life
+				 * of the ampdu transmit attempt, and also maybe the single frame will join
+				 * with another and go back into ampdu xmit path.
+				 */
+				mvmsta->retransmitted_ba_frames -= retry_cnt;
+			}
+			else {
+				/* these failed frames will be retransmitted */
+				mvmsta->retransmitted_ba_frames += failed;
+			}
+
+			//pr_info("mvm_rx_ba_notif, retry-cnt: %d txed: %d done: %d accumulated_retries: %d\n",
+			//	le16_to_cpu(ba_res->retry_cnt), le16_to_cpu(ba_res->txed),
+			//	le16_to_cpu(ba_res->done), mvmsta->retransmitted_ba_frames);
+		}
+
 		tfd_cnt = le16_to_cpu(ba_res->tfd_cnt);
-		if (!tfd_cnt)
+		if (!tfd_cnt) {
+			rcu_read_unlock();
 			return;
+		}
 
 		if (IWL_FW_CHECK(mvm,
 				 struct_size(ba_res, tfd, tfd_cnt) > pkt_len,
 				 "short BA notification (tfds:%d, size:%d)\n",
-				 tfd_cnt, pkt_len))
+				 tfd_cnt, pkt_len)) {
+			rcu_read_unlock();
 			return;
+		}
 
 		IWL_DEBUG_TX_REPLY(mvm,
 				   "BA_NOTIFICATION Received from sta_id = %d, flags %x, sent:%d, acked:%d\n",
@@ -2360,9 +2480,6 @@ void iwl_mvm_rx_ba_notif(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb)
 				   le16_to_cpu(ba_res->txed),
 				   le16_to_cpu(ba_res->done));
 
-		rcu_read_lock();
-
-		mvmsta = iwl_mvm_sta_from_staid_rcu(mvm, sta_id);
 		/*
 		 * It's possible to get a BA response after invalidating the rcu
 		 * (rcu is invalidated in order to prevent new Tx from being

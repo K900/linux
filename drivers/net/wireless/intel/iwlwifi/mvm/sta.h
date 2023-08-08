@@ -431,6 +431,7 @@ struct iwl_mvm_sta {
 	u8 sleep_tx_count;
 	u8 tx_ant;
 	u32 pairwise_cipher;
+	int retransmitted_ba_frames; /* Estimate retries in aggregation (block-ack) path */
 
 	struct iwl_mvm_link_sta deflink;
 	struct iwl_mvm_link_sta __rcu *link[IEEE80211_MLD_MAX_NUM_LINKS];
