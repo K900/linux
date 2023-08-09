@@ -1311,16 +1311,25 @@ static bool cfg80211_chandef_dfs_available(struct wiphy *wiphy,
 	 */
 	for_each_subchan(chandef, freq, cf) {
 		c = ieee80211_get_channel_khz(wiphy, freq);
-		if (!c)
+		if (!c) {
+			pr_info("chans-dfs-avail, c is null, bw: %d freq: %d\n",
+				width, freq);
 			return false;
+		}
 
-		if (c->flags & IEEE80211_CHAN_DISABLED)
+		if (c->flags & IEEE80211_CHAN_DISABLED) {
+			pr_info("chans-dfs-avail, chan disabled,  bw: %d freq: %d\n",
+				width, freq);
 			return false;
+		}
 
 		if ((c->flags & IEEE80211_CHAN_RADAR) &&
 		    (c->dfs_state != NL80211_DFS_AVAILABLE) &&
-		    !(c->dfs_state == NL80211_DFS_USABLE && dfs_offload))
+		    !(c->dfs_state == NL80211_DFS_USABLE && dfs_offload)) {
+			pr_info("chans-dfs-avail, dfs_state invalid,  bw: %d  flags: 0x%x freq: %d\n",
+				width, c->flags, freq);
 			return false;
+		}
 	}
 
 	return true;
@@ -1508,16 +1517,20 @@ bool _cfg80211_chandef_usable(struct wiphy *wiphy,
 				  chandef->edmg.channels,
 				  chandef->edmg.bw_config,
 				  chandef->chan->hw_value,
-				  edmg_cap))
+				  edmg_cap)) {
+		pr_info("chandef-usable failed, edmg_usable\n");
 		return false;
+	}
 
 	control_freq = chandef->chan->center_freq;
 
 	switch (chandef->width) {
 	case NL80211_CHAN_WIDTH_20:
 		if (!ht_cap->ht_supported &&
-		    chandef->chan->band != NL80211_BAND_6GHZ)
+		    chandef->chan->band != NL80211_BAND_6GHZ) {
+			pr_info("chandef-usable, ch-20 not supported\n");
 			return false;
+		}
 		fallthrough;
 	case NL80211_CHAN_WIDTH_20_NOHT:
 		prohibited_flags |= IEEE80211_CHAN_NO_20MHZ;
@@ -1527,17 +1540,25 @@ bool _cfg80211_chandef_usable(struct wiphy *wiphy,
 		width = 40;
 		if (chandef->chan->band == NL80211_BAND_6GHZ)
 			break;
-		if (!ht_cap->ht_supported)
+		if (!ht_cap->ht_supported) {
+			pr_info("chandef-usable, ch-40 not supported, no-ht\n");
 			return false;
+		}
 		if (!(ht_cap->cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40) ||
-		    ht_cap->cap & IEEE80211_HT_CAP_40MHZ_INTOLERANT)
+		    ht_cap->cap & IEEE80211_HT_CAP_40MHZ_INTOLERANT) {
+			pr_info("chandef-usable, ch-40 not supported, 40mhz intolerant\n");
 			return false;
+		}
 		if (chandef->center_freq1 < control_freq &&
-		    chandef->chan->flags & IEEE80211_CHAN_NO_HT40MINUS)
+		    chandef->chan->flags & IEEE80211_CHAN_NO_HT40MINUS) {
+			pr_info("chandef-usable, ch-40 not supported, ht40-minus issue\n");
 			return false;
+		}
 		if (chandef->center_freq1 > control_freq &&
-		    chandef->chan->flags & IEEE80211_CHAN_NO_HT40PLUS)
+		    chandef->chan->flags & IEEE80211_CHAN_NO_HT40PLUS) {
+			pr_info("chandef-usable, ch-40 not supported, ht40-plus issue\n");
 			return false;
+		}
 		break;
 	case NL80211_CHAN_WIDTH_80P80:
 		cap = vht_cap->cap;
@@ -1547,41 +1568,53 @@ bool _cfg80211_chandef_usable(struct wiphy *wiphy,
 			 cap & IEEE80211_VHT_CAP_EXT_NSS_BW_MASK) ||
 			(ext_nss_cap &&
 			 u32_get_bits(cap, IEEE80211_VHT_CAP_EXT_NSS_BW_MASK) > 1);
-		if (chandef->chan->band != NL80211_BAND_6GHZ && !support_80_80)
+		if (chandef->chan->band != NL80211_BAND_6GHZ && !support_80_80) {
+			pr_info("chandef-usable, 80p80 not supported\n");
 			return false;
+		}
 		fallthrough;
 	case NL80211_CHAN_WIDTH_80:
 		prohibited_flags |= IEEE80211_CHAN_NO_80MHZ;
 		width = 80;
 		if (chandef->chan->band == NL80211_BAND_6GHZ)
 			break;
-		if (!vht_cap->vht_supported)
+		if (!vht_cap->vht_supported) {
+			pr_info("chandef-usable, ch-80 not supported, no vht\n");
 			return false;
+		}
 		break;
 	case NL80211_CHAN_WIDTH_160:
 		prohibited_flags |= IEEE80211_CHAN_NO_160MHZ;
 		width = 160;
 		if (chandef->chan->band == NL80211_BAND_6GHZ)
 			break;
-		if (!vht_cap->vht_supported)
+		if (!vht_cap->vht_supported) {
+			pr_info("chandef-usable, ch-160 not supported, no-vht\n");
 			return false;
+		}
 		cap = vht_cap->cap & IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_MASK;
 		if (cap != IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ &&
 		    cap != IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ &&
 		    !(ext_nss_cap &&
-		      (vht_cap->cap & IEEE80211_VHT_CAP_EXT_NSS_BW_MASK)))
+		      (vht_cap->cap & IEEE80211_VHT_CAP_EXT_NSS_BW_MASK))) {
+			pr_info("chandef-usable, ch-160 not supported, ext-nss-bw issue\n");
 			return false;
+		}
 		break;
 	case NL80211_CHAN_WIDTH_320:
 		prohibited_flags |= IEEE80211_CHAN_NO_320MHZ;
 		width = 320;
 
-		if (chandef->chan->band != NL80211_BAND_6GHZ)
+		if (chandef->chan->band != NL80211_BAND_6GHZ) {
+			pr_info("chandef-usable, ch-320 not supported, not 6ghz\n");
 			return false;
+		}
 
 		sband = wiphy->bands[NL80211_BAND_6GHZ];
-		if (!sband)
+		if (!sband) {
+			pr_info("chandef-usable, ch-320 not supported, no sband\n");
 			return false;
+		}
 
 		for_each_sband_iftype_data(sband, i, iftd) {
 			if (!iftd->eht_cap.has_eht)
@@ -1594,8 +1627,10 @@ bool _cfg80211_chandef_usable(struct wiphy *wiphy,
 			}
 		}
 
-		if (!support_320)
+		if (!support_320) {
+			pr_info("chandef-usable, ch-320 not supported, caps not 320 supported\n");
 			return false;
+		}
 		break;
 	default:
 		WARN_ON_ONCE(1);
