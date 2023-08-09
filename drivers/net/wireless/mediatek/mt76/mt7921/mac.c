@@ -409,10 +409,10 @@ mt7921_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 				status->chains |= BIT(0);
 			else
 				status->chains |= BIT(1);
-		} else if (status->nss == 2) {
+		} else if (nss == 2) {
 			status->chains = BIT(0) | BIT(1);
 		} else {
-			WARN_ON_ONCE(1); /* this driver is for only 2x2 AFAIK */
+			WARN_ONCE(1, "Unexpected nss: %d\n", nss); /* this driver is for only 2x2 AFAIK */
 			status->chains = BIT(0);
 		}
 
