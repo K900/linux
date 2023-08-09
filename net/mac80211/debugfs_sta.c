@@ -720,7 +720,7 @@ static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
 		p += scnprintf(p, bufsz + buf - p, "160Mhz\n");
 		break;
 	case IEEE80211_STA_RX_BW_320:
-		p += scnprintf(p, sizeof(buf) + buf - p, "320Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "320Mhz\n");
 		break;
 	}
 
@@ -745,7 +745,7 @@ static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
 		p += scnprintf(p, bufsz + buf - p, "160Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_320:
-		p += scnprintf(p, sizeof(buf) + buf - p, "320Mhz\n");
+		p += scnprintf(p, bufsz + buf - p, "320Mhz\n");
 		break;
 	case NL80211_CHAN_WIDTH_1:
 		p += scnprintf(p, bufsz + buf - p, "1Mhz\n");
