@@ -1169,6 +1169,25 @@ static ssize_t iwl_dbgfs_fw_nmi_write(struct iwl_mvm *mvm, char *buf,
 	return count;
 }
 
+static ssize_t iwl_dbgfs_iwl_tlc_dhc_write(struct iwl_mvm *mvm, char *buf,
+					   size_t count, loff_t *ppos)
+{
+	u32 sta_id, type, value, val2 = 0;
+	int ret;
+
+	if (sscanf(buf, "%i %i %i %i", &sta_id, &type, &value, &val2) < 3) {
+		IWL_DEBUG_RATE(mvm, "usage <sta_id> <type> <value> <value2>\n");
+		return -EINVAL;
+	}
+
+	ret = iwl_rs_send_dhc(mvm, sta_id, type, value, val2);
+
+	if (ret)
+		return -EINVAL;
+
+	return count;
+}
+
 static ssize_t
 iwl_dbgfs_scan_ant_rxchain_read(struct file *file,
 				char __user *user_buf,
@@ -1951,6 +1970,7 @@ MVM_DEBUGFS_READ_FILE_OPS(sar_geo_profile);
 MVM_DEBUGFS_READ_FILE_OPS(wifi_6e_enable);
 #endif
 
+MVM_DEBUGFS_WRITE_FILE_OPS(iwl_tlc_dhc, 64);
 MVM_DEBUGFS_READ_WRITE_LINK_STA_FILE_OPS(amsdu_len, 16);
 
 MVM_DEBUGFS_READ_WRITE_FILE_OPS(he_sniffer_params, 32);

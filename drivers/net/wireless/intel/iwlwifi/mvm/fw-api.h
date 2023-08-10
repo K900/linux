@@ -37,5 +37,6 @@
 #include "fw/api/location.h"
 #include "fw/api/tx.h"
 #include "fw/api/rfi.h"
+#include "fw/api/dhc.h"
 
 #endif /* __fw_api_h__ */
