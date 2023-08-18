@@ -1250,6 +1250,7 @@ static ssize_t link_sta_eht_capa_read(struct file *file, char __user *userbuf,
 	struct ieee80211_sta_eht_cap *bec = &link_sta->pub->eht_cap;
 	struct ieee80211_eht_cap_elem_fixed *fixed = &bec->eht_cap_elem;
 	struct ieee80211_eht_mcs_nss_supp *nss = &bec->eht_mcs_nss_supp;
+	struct ieee80211_eht_mcs_nss_supp *nss_sta = &link_sta->pub->sta_eht_cap.eht_mcs_nss_supp;
 	u8 *cap;
 	int i;
 	ssize_t ret;
@@ -1382,30 +1383,46 @@ static ssize_t link_sta_eht_capa_read(struct file *file, char __user *userbuf,
 	if (!(link_sta->pub->he_cap.he_cap_elem.phy_cap_info[0] &
 	      IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_MASK_ALL)) {
 		u8 *mcs_vals = (u8 *)(&nss->only_20mhz);
+		u8 *mcs_vals_sta = (u8 *)(&nss_sta->only_20mhz);
 
-		for (i = 0; i < 4; i++)
+		for (i = 0; i < 4; i++) {
 			PRINT("EHT bw=20 MHz, max NSS for MCS %s: Rx=%u, Tx=%u",
 			      mcs_desc[i],
 			      mcs_vals[i] & 0xf, mcs_vals[i] >> 4);
+			PRINT("               local link: Rx=%u, Tx=%u",
+			      mcs_vals_sta[i] & 0xf, mcs_vals_sta[i] >> 4);
+		}
 	} else {
 		u8 *mcs_vals = (u8 *)(&nss->bw._80);
+		u8 *mcs_vals_sta = (u8 *)(&nss_sta->bw._80);
 
-		for (i = 0; i < 3; i++)
+		for (i = 0; i < 3; i++) {
 			PRINT("EHT bw <= 80 MHz, max NSS for MCS %s: Rx=%u, Tx=%u",
 			      mcs_desc[i + 1],
 			      mcs_vals[i] & 0xf, mcs_vals[i] >> 4);
+			PRINT("                  local link: Rx=%u, Tx=%u",
+			      mcs_vals_sta[i] & 0xf, mcs_vals_sta[i] >> 4);
+		}
 
 		mcs_vals = (u8 *)(&nss->bw._160);
-		for (i = 0; i < 3; i++)
+		mcs_vals_sta = (u8 *)(&nss_sta->bw._160);
+		for (i = 0; i < 3; i++) {
 			PRINT("EHT bw <= 160 MHz, max NSS for MCS %s: Rx=%u, Tx=%u",
 			      mcs_desc[i + 1],
 			      mcs_vals[i] & 0xf, mcs_vals[i] >> 4);
+			PRINT("                   local link: Rx=%u, Tx=%u",
+			      mcs_vals_sta[i] & 0xf, mcs_vals_sta[i] >> 4);
+		}
 
 		mcs_vals = (u8 *)(&nss->bw._320);
-		for (i = 0; i < 3; i++)
+		mcs_vals_sta = (u8 *)(&nss_sta->bw._320);
+		for (i = 0; i < 3; i++) {
 			PRINT("EHT bw <= 320 MHz, max NSS for MCS %s: Rx=%u, Tx=%u",
 			      mcs_desc[i + 1],
 			      mcs_vals[i] & 0xf, mcs_vals[i] >> 4);
+			PRINT("                   local link: Rx=%u, Tx=%u",
+			      mcs_vals_sta[i] & 0xf, mcs_vals_sta[i] >> 4);
+		}
 	}
 
 	if (cap[5] & IEEE80211_EHT_PHY_CAP5_PPE_THRESHOLD_PRESENT) {
