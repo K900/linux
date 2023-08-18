@@ -2580,8 +2580,8 @@ static void handle_channel_custom(struct wiphy *wiphy,
 	}
 
 	if (IS_ERR_OR_NULL(reg_rule)) {
-		pr_info("%pM: Disabling freq %d.%03d MHz as custom regd has no rule that fits it\n",
-			wiphy->perm_addr, chan->center_freq, chan->freq_offset);
+		// pr_info("%pM: Disabling freq %d.%03d MHz as custom regd has no rule that fits it\n",
+		// 	wiphy->perm_addr, chan->center_freq, chan->freq_offset);
 		if (wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED) {
 			chan->flags |= IEEE80211_CHAN_DISABLED;
 		} else {
