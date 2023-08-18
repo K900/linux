@@ -6169,6 +6169,14 @@ static bool ieee80211_assoc_config_link(struct ieee80211_link_data *link,
 							    elems->eht_cap_len,
 							    link_sta);
 
+			const struct ieee80211_sta_eht_cap *sta_eht_cap =
+				ieee80211_get_eht_iftype_cap_vif(sband, &sdata->vif);
+
+			struct ieee80211_sta_eht_cap *link_sta_eht_cap =
+				&link_sta->pub->sta_eht_cap;
+
+			memcpy(link_sta_eht_cap, sta_eht_cap, sizeof(*sta_eht_cap));
+
 			bss_conf->eht_support = link_sta->pub->eht_cap.has_eht;
 			bss_conf->epcs_support = bss_conf->eht_support &&
 				!!(elems->eht_cap->fixed.mac_cap_info[0] &
