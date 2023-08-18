@@ -2683,6 +2683,7 @@ struct ieee80211_link_sta {
 	struct ieee80211_sta_eht_cap eht_cap;
 	struct ieee80211_sta_uhr_cap uhr_cap;
 	struct ieee80211_sta_s1g_cap s1g_cap;
+	struct ieee80211_sta_eht_cap sta_eht_cap;
 
 	struct ieee80211_sta_aggregates agg;
 
