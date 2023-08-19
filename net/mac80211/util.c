@@ -4744,6 +4744,15 @@ int ieee80211_put_eht_cap(struct sk_buff *skb,
 	ppet_len = ieee80211_eht_ppe_size(eht_cap->eht_ppe_thres[0],
 					  fixed.phy_cap_info);
 
+	if (conn->conn_flags & IEEE80211_CONN_DISABLE_OFDMA) {
+		pr_info("adjust-eht-cap, disabling OFDMA.");
+		fixed.phy_cap_info[7] &= ~IEEE80211_EHT_PHY_CAP7_NON_OFDMA_UL_MU_MIMO_80MHZ;
+		fixed.phy_cap_info[7] &= ~IEEE80211_EHT_PHY_CAP7_NON_OFDMA_UL_MU_MIMO_160MHZ;
+		fixed.phy_cap_info[7] &= ~IEEE80211_EHT_PHY_CAP7_NON_OFDMA_UL_MU_MIMO_320MHZ;
+		fixed.phy_cap_info[8] &= ~IEEE80211_EHT_PHY_CAP8_RX_1024QAM_WIDER_BW_DL_OFDMA;
+		fixed.phy_cap_info[8] &= ~IEEE80211_EHT_PHY_CAP8_RX_4096QAM_WIDER_BW_DL_OFDMA;
+	}
+
 	ie_len = 2 + 1 + sizeof(eht_cap->eht_cap_elem) + mcs_nss_len + ppet_len;
 	if (skb_tailroom(skb) < ie_len)
 		return -ENOBUFS;
