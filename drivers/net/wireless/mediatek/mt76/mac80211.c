@@ -953,7 +953,8 @@ void mt76_rx(struct mt76_dev *dev, enum mt76_rxq_id q, struct sk_buff *skb)
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
 	struct mt76_phy *phy = mt76_dev_phy(dev, status->phy_idx);
 
-	if (!test_bit(MT76_STATE_RUNNING, &phy->state)) {
+	if (!test_bit(MT76_STATE_RUNNING, &phy->state) ||
+	    unlikely(dev->block_traffic & MT_BLOCK_RX)) {
 		dev_kfree_skb(skb);
 		return;
 	}

@@ -1058,6 +1058,11 @@ struct mt76_dev {
 
 	u8 csa_complete;
 
+#define MT_BLOCK_TX 0x1
+#define MT_BLOCK_RX 0x2
+
+	u8 block_traffic;
+
 	/* Should we request TXS for MT_PACKET_ID_NO_SKB?  Doing so gives better
 	 * costs but causes a great deal more TXS packet processing by driver and
 	 * creation by firmware, so may be a performance drag.
