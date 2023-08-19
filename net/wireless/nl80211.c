@@ -13324,6 +13324,8 @@ static int nl80211_associate(struct sk_buff *skb, struct genl_info *info)
 				req.flags |= ASSOC_REQ_DISABLE_TWT;
 			if (cai->flags & CT_DISABLE_160MHZ)
 				req.flags |= ASSOC_REQ_DISABLE_160;
+			if (cai->flags & CT_DISABLE_320MHZ)
+				req.flags |= ASSOC_REQ_DISABLE_320;
 			if (cai->flags & CT_DISABLE_OFDMA)
 				req.flags |= ASSOC_REQ_DISABLE_OFDMA;
 		}
@@ -14232,6 +14234,8 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 				connect.flags |= ASSOC_REQ_DISABLE_TWT;
 			if (cai->flags & CT_DISABLE_160MHZ)
 				connect.flags |= ASSOC_REQ_DISABLE_160;
+			if (cai->flags & CT_DISABLE_320MHZ)
+				connect.flags |= ASSOC_REQ_DISABLE_320;
 			if (cai->flags & CT_DISABLE_OFDMA)
 				connect.flags |= ASSOC_REQ_DISABLE_OFDMA;
 		}
