@@ -286,13 +286,13 @@ static void mt7921_txo_worker(void *wi_data, struct ieee80211_sta *sta)
 
 	wi->sofar += scnprintf(wi->buf + wi->sofar, wi->size - wi->sofar,
 			       "vdev (%s) active=%d tpc=%d sgi=%d mcs=%d nss=%d"
-			       " pream=%d retries=%d dynbw=%d bw=%d\n",
+			       " pream=%d retries=%d dynbw=%d bw=%d stbc=%d ldpc=%d\n",
 			       wdev->netdev->name,
 			       td->txo_active, td->tx_power[0],
 			       td->tx_rate_sgi, td->tx_rate_idx,
 			       td->tx_rate_nss, td->tx_rate_mode,
 			       td->tx_xmit_count, td->tx_dynbw,
-			       td->txbw);
+			       td->txbw, td->tx_rate_stbc, td->tx_rate_ldpc);
 }
 
 static ssize_t mt7921_read_set_rate_override(struct file *file,
@@ -316,6 +316,8 @@ static ssize_t mt7921_read_set_rate_override(struct file *file,
 		" 6=48Mbps, 7=54Mbps\n"
 		"tpc: adjust power from defaults, in 1/2 db units 0 - 31, 16 is default\n"
 		"bw is 0-3 for 20-160\n"
+		"stbc: 0 off, 1 on\n"
+		"ldpc: 0 off, 1 on\n"
 		" For example, wlan0:\n"
 		"echo \"wlan0 tpc=255 sgi=1 mcs=0 nss=1 pream=3 retries=1 dynbw=0 bw=0"
 		" active=1\" > ...mt76/set_rate_override\n";
@@ -453,16 +455,18 @@ static ssize_t mt7921_write_set_rate_override(struct file *file,
 				MT7921_PARSE_LTOK(pream, tx_rate_mode);
 				MT7921_PARSE_LTOK(retries, tx_xmit_count);
 				MT7921_PARSE_LTOK(dynbw, tx_dynbw);
+				MT7921_PARSE_LTOK(ldpc, tx_rate_ldpc);
+				MT7921_PARSE_LTOK(stbc, tx_rate_stbc);
 				MT7921_PARSE_LTOK(bw, txbw);
 				MT7921_PARSE_LTOK(active, txo_active);
 
 				dev_info(dev->mt76.dev,
 					 "mt7921: set-rate-overrides, vdev %i(%s) active=%d tpc=%d sgi=%d mcs=%d"
-					 " nss=%d pream=%d retries=%d dynbw=%d bw=%d",
+					 " nss=%d pream=%d retries=%d dynbw=%d bw=%d ldpc=%d stbc=%d\n",
 					 vdev_id, dev_name_match,
 					 td->txo_active, td->tx_power[0], td->tx_rate_sgi, td->tx_rate_idx,
 					 td->tx_rate_nss, td->tx_rate_mode, td->tx_xmit_count, td->tx_dynbw,
-					 td->txbw);
+					 td->txbw, td->tx_rate_ldpc, td->tx_rate_stbc);
 
 			}
 
