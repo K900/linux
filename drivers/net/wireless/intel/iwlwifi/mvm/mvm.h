@@ -989,6 +989,8 @@ struct iwl_txo_data {
 
 	u8 tx_power;
 	u8 tx_xmit_count; /* 0 means no-ack, 1 means one transmit, etc */
+	u8 ldpc;
+	u8 stbc;
 };
 
 struct iwl_mvm {

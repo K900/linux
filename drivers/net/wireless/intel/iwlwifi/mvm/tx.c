@@ -303,6 +303,11 @@ static u32 iwl_mvm_get_txo_rate_n_flags(struct iwl_mvm *mvm, struct iwl_txo_data
 		case 2: result |= IWL_RATE_5M_PLCP; break;
 		default: result |= IWL_RATE_11M_PLCP; break;
 		}
+
+		if (td->ldpc)
+			result |= RATE_MCS_LDPC_MSK_V1;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
 		goto check_v1;
 	} else if (td->tx_rate_mode == 1) { /* ofdm */
 		result = 0;
@@ -316,6 +321,11 @@ static u32 iwl_mvm_get_txo_rate_n_flags(struct iwl_mvm *mvm, struct iwl_txo_data
 		case 6: result |= IWL_RATE_48M_PLCP; break;
 		default: result |= IWL_RATE_54M_PLCP; break;
 		}
+
+		if (td->ldpc)
+			result |= RATE_MCS_LDPC_MSK_V1;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
 		goto check_v1;
 	} else if (td->tx_rate_mode == 2) { /* ht */
 		result = RATE_MCS_HT_MSK_V1;
@@ -326,12 +336,11 @@ static u32 iwl_mvm_get_txo_rate_n_flags(struct iwl_mvm *mvm, struct iwl_txo_data
 			result |= RATE_MCS_SGI_MSK_V1;
 		if (td->txbw == 1)
 			result |= u32_encode_bits(1, RATE_MCS_CHAN_WIDTH_MSK_V1);
-		/* TODO:  Support forcing ldpc and stbc?
-		   if (info->flags & IEEE80211_TX_CTL_LDPC)
-		   result |= RATE_MCS_LDPC_MSK_V1;
-		   if (u32_get_bits(info->flags, IEEE80211_TX_CTL_STBC))
-		   result |= RATE_MCS_STBC_MSK;
-		*/
+		/* LDPC required for BW > 20 and/or MCS >= 9 or FW will crash. */
+		if (td->ldpc || td->txbw > 0)
+			result |= RATE_MCS_LDPC_MSK_V1;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
 		goto check_v1;
 	} else if (td->tx_rate_mode == 3) { /* vht */
 		u8 mcs = td->tx_rate_idx;
@@ -348,6 +357,13 @@ static u32 iwl_mvm_get_txo_rate_n_flags(struct iwl_mvm *mvm, struct iwl_txo_data
 			result |= u32_encode_bits(2, RATE_MCS_CHAN_WIDTH_MSK_V1);
 		else if (td->txbw == 3)
 			result |= u32_encode_bits(3, RATE_MCS_CHAN_WIDTH_MSK_V1);
+
+		/* LDPC required for BW > 20 and/or MCS >= 9 or FW will crash. */
+		if (td->ldpc || td->txbw > 0 || mcs >= 9)
+			result |= RATE_MCS_LDPC_MSK_V1;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
+
 		goto check_v1;
 	} else if (td->tx_rate_mode == 4) { /* HE-SU */
 		/* V2 format */
@@ -364,6 +380,12 @@ static u32 iwl_mvm_get_txo_rate_n_flags(struct iwl_mvm *mvm, struct iwl_txo_data
 			result |= RATE_MCS_CHAN_WIDTH_80;
 		else if (td->txbw == 3)
 			result |= RATE_MCS_CHAN_WIDTH_160;
+
+		/* LDPC required for BW > 20 and/or MCS >= 9 or FW will crash. */
+		if (td->ldpc || td->txbw > 0 || mcs >= 9)
+			result |= RATE_MCS_LDPC_MSK;
+		if (td->stbc)
+			result |= LQ_SS_STBC_1SS_ALLOWED;
 
 		result |= ((u32)(td->tx_rate_sgi)) << RATE_MCS_HE_GI_LTF_POS;
 	} else if (td->tx_rate_mode == 5) { /* EHT */
@@ -383,6 +405,12 @@ static u32 iwl_mvm_get_txo_rate_n_flags(struct iwl_mvm *mvm, struct iwl_txo_data
 			result |= RATE_MCS_CHAN_WIDTH_160;
 		else if (td->txbw == 4)
 			result |= RATE_MCS_CHAN_WIDTH_320;
+
+		/* LDPC required for BW > 20 and/or MCS >= 9 or FW will crash. */
+		if (td->ldpc || td->txbw > 0 || mcs >= 9)
+			result |= RATE_MCS_LDPC_MSK;
+		if (td->stbc)
+			result |= LQ_SS_STBC_1SS_ALLOWED;
 
 		result |= ((u32)(td->tx_rate_sgi)) << RATE_MCS_HE_GI_LTF_POS;
 	}

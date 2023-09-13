@@ -1992,7 +1992,7 @@ static ssize_t iwl_dbgfs_read_set_rate_override(struct file *file,
 		"frames.  TPC is ignored for now.  Dev-name is ignored, settings\n"
 		"apply radio wide for now.\n"
 		"To set a value, you specify the dev-name and key-value pairs:\n"
-		"tpc=10 sgi=1 mcs=x nss=x pream=x retries=x bw=x enable=0|1\n"
+		"tpc=10 sgi=1 mcs=x nss=x pream=x retries=x bw=x ldpc=0|1 enable=0|1\n"
 		"pream: 0=cck, 1=ofdm, 2=HT, 3=VHT, 4=HE_SU, 5=EHT\n"
 		"cck-mcs: 0=1Mbps, 1=2Mbps, 3=5.5Mbps, 3=11Mbps\n"
 		"ofdm-mcs: 0=6Mbps, 1=9Mbps, 2=12Mbps, 3=18Mbps, 4=24Mbps, 5=36Mbps, 6=48Mbps, 7=54Mbps\n"
@@ -2000,9 +2000,11 @@ static ssize_t iwl_dbgfs_read_set_rate_override(struct file *file,
 		"sgi: VHT and lower: 0 off, 1 on\n"
 		"sgi: HE-SU: 0 1xLTF+0.8us, 1 2xLTF+0.8us, 2 2xLTF+1.6us, 3 4xLTF+3.2us, 4 4xLTF+0.8us\n"
 		"bw is 0-4 for 20-320\n"
+		"stbc: 0 off, 1 on\n"
+		"ldpc: 0 off, 1 on\n"
 		"nss is zero based (0 means nss-1, 1 means nss-2)\n"
 		" For example, wlan0:\n"
-		"echo \"wlan0 tpc=255 sgi=1 mcs=0 nss=1 pream=3 retries=1 bw=0"
+		"echo \"wlan0 tpc=255 sgi=1 mcs=0 nss=1 pream=3 retries=1 bw=0 ldpc=0 stbc=0"
 		" active=1\" > ...iwlwifi/set_rate_override\n";
 
 	buf2 = kzalloc(size, GFP_KERNEL);
@@ -2015,11 +2017,11 @@ static ssize_t iwl_dbgfs_read_set_rate_override(struct file *file,
 	td = rcu_dereference(mvm->txo_data);
 	if (td)
 		sofar += scnprintf(buf2 + sofar, size - sofar,
-				   "vdev (all) active=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d\n",
+				   "vdev (all) active=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d ldpc=%d stbc=%d\n",
 				   td->txo_active, td->tx_power,
 				   td->tx_rate_sgi, td->tx_rate_idx,
 				   td->tx_rate_nss, td->tx_rate_mode,
-				   td->tx_xmit_count, td->txbw);
+				   td->tx_xmit_count, td->txbw, td->ldpc, td->stbc);
 	else
 		sofar += scnprintf(buf2 + sofar, size - sofar,
 				   "No TXO values set.\n");
@@ -2104,12 +2106,14 @@ static ssize_t iwl_dbgfs_write_set_rate_override(struct file *file,
 	IWLWIFI_PARSE_LTOK(pream, tx_rate_mode);
 	IWLWIFI_PARSE_LTOK(retries, tx_xmit_count);
 	IWLWIFI_PARSE_LTOK(bw, txbw);
+	IWLWIFI_PARSE_LTOK(ldpc, ldpc);
+	IWLWIFI_PARSE_LTOK(stbc, stbc);
 	IWLWIFI_PARSE_LTOK(active, txo_active);
 
-	pr_info("iwlwifi: set-rate-overrides, active=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d\n",
+	pr_info("iwlwifi: set-rate-overrides, active=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d ldpc=%d stbc=%d\n",
 		td->txo_active, td->tx_power, td->tx_rate_sgi, td->tx_rate_idx,
 		td->tx_rate_nss, td->tx_rate_mode, td->tx_xmit_count,
-		td->txbw);
+		td->txbw, td->ldpc, td->stbc);
 
 	mutex_lock(&mvm->mutex);
 	prev_td = rcu_dereference_protected(mvm->txo_data, lockdep_is_held(&mvm->mutex));
