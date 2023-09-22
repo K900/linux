@@ -5518,3 +5518,33 @@ int mt7996_mcu_set_dup_wtbl(struct mt7996_dev *dev)
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(CHIP_CONFIG), &req,
 				 sizeof(req), true);
 }
+
+int mt7996_mcu_set_pp_en(struct mt7996_phy *phy, bool auto_mode,
+			 u8 force_bitmap_ctrl, u16 bitmap)
+{
+	struct mt7996_dev *dev = phy->dev;
+	struct {
+		u8 _rsv[4];
+
+		__le16 tag;
+		__le16 len;
+		bool mgmt_mode;
+		u8 band_idx;
+		u8 force_bitmap_ctrl;
+		bool auto_mode;
+		__le16 bitmap;
+		u8 _rsv2[2];
+	} __packed req = {
+		.tag = cpu_to_le16(UNI_CMD_PP_EN_CTRL),
+		.len = cpu_to_le16(sizeof(req) - 4),
+
+		.mgmt_mode = !auto_mode,
+		.band_idx = phy->mt76->band_idx,
+		.force_bitmap_ctrl = force_bitmap_ctrl,
+		.auto_mode = auto_mode,
+		.bitmap = cpu_to_le16(bitmap),
+	};
+
+	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(PP),
+				 &req, sizeof(req), false);
+}
