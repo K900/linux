@@ -1342,6 +1342,9 @@ static int mt7921_set_sar_specs(struct ieee80211_hw *hw,
 out:
 	mt792x_mutex_release(dev);
 
+	if (err)
+		dev_err(dev->mt76.dev, "hw-scan failed: %d", err);
+
 	return err;
 }
 
