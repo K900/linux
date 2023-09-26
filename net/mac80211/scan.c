@@ -928,6 +928,9 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
 		goto again;
 	}
 
+	if (rc)
+		sdata_info(sdata, "_ieee80211_start_scan had failure code: %d\n", rc);
+
 	return rc;
 }
 
