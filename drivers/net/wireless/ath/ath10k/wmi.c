@@ -1935,13 +1935,21 @@ err_pull:
 
 static void ath10k_wmi_tx_beacon_nowait(struct ath10k_vif *arvif)
 {
-	struct ath10k *ar = arvif->ar;
+	struct ath10k *ar;
 	struct ath10k_skb_cb *cb;
 	struct sk_buff *bcn;
 	bool dtim_zero;
 	bool deliver_cab;
 	int ret;
 
+	/* Crash was seen here after FW crash.  ar and/or arvif were effectively NULL. */
+	if ((unsigned long)(arvif) < 8000) {
+		pr_err("wmi-tx-beacon-nowait, arvif: %p\n", arvif);
+		WARN_ON_ONCE(1);
+		return;
+	}
+
+	ar = arvif->ar;
 	spin_lock_bh(&ar->data_lock);
 
 	bcn = arvif->beacon;
