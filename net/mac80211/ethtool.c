@@ -80,6 +80,7 @@ static void ieee80211_get_stats(struct net_device *dev,
 	struct ieee80211_local *local = sdata->local;
 	struct station_info sinfo;
 	struct survey_info survey;
+	struct ieee80211_link_data *link = NULL;
 	int i, q;
 #define STA_STATS_SURVEY_LEN 7
 
@@ -109,12 +110,17 @@ static void ieee80211_get_stats(struct net_device *dev,
 	guard(wiphy)(local->hw.wiphy);
 
 	if (sdata->vif.type == NL80211_IFTYPE_STATION) {
-		sta = sta_info_get_bss(sdata, sdata->deflink.u.mgd.bssid);
+		rcu_read_lock();
+		sta = ieee80211_find_best_sta_link(sdata, &link);
+		rcu_read_unlock();
 
 		if (!(sta && !WARN_ON(sta->sdata->dev != dev)))
 			goto do_survey;
 
 		memset(&sinfo, 0, sizeof(sinfo));
+		/* sta_set_sinfo cannot hold rcu read lock since it can block
+		 * calling into firmware for stats.
+		 */
 		sta_set_sinfo(sta, &sinfo, false);
 
 		i = 0;
@@ -157,7 +163,9 @@ do_survey:
 
 	rcu_read_lock();
 	chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf);
-	if (chanctx_conf)
+	if (link)
+		channel = link->conf->chanreq.oper.chan;
+	else if (chanctx_conf)
 		channel = chanctx_conf->def.chan;
 	else if (local->open_count > 0 &&
 		 local->open_count == local->virt_monitors &&

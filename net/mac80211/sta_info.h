@@ -1029,6 +1029,10 @@ ieee80211_sta_current_bw(struct link_sta_info *link_sta,
 bool ieee80211_link_sta_update_rc_bw(struct ieee80211_link_data *link,
 				     struct link_sta_info *link_sta);
 
+struct sta_info *
+ieee80211_find_best_sta_link(struct ieee80211_sub_if_data *sdata,
+			     struct ieee80211_link_data **link);
+
 enum sta_stats_type {
 	STA_STATS_RATE_TYPE_INVALID = 0,
 	STA_STATS_RATE_TYPE_LEGACY,
