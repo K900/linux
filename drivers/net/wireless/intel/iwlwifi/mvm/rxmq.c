@@ -2301,11 +2301,11 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 	}
 
 	/* update aggregation data for monitor sake on default queue */
-	if (!queue && (phy_data.phy_info & IWL_RX_MPDU_PHY_AMPDU)) {
+	if (phy_data.phy_info & IWL_RX_MPDU_PHY_AMPDU) {
 		bool toggle_bit;
 
 		toggle_bit = phy_data.phy_info & IWL_RX_MPDU_PHY_AMPDU_TOGGLE;
-		rx_status->flag |= RX_FLAG_AMPDU_DETAILS;
+
 		/*
 		 * Toggle is switched whenever new aggregation starts. Make
 		 * sure ampdu_reference is never 0 so we can later use it to
@@ -2317,8 +2317,16 @@ void iwl_mvm_rx_mpdu_mq(struct iwl_mvm *mvm, struct napi_struct *napi,
 				mvm->ampdu_ref++;
 			mvm->ampdu_toggle = toggle_bit;
 			phy_data.first_subframe = true;
+			iwl_mvm_count_rx_histogram(mvm);
+			mvm->rx_this_ampdu_count = 1;
+		} else {
+			mvm->rx_this_ampdu_count++;
 		}
+		if (!queue)
+			rx_status->flag |= RX_FLAG_AMPDU_DETAILS;
 		rx_status->ampdu_reference = mvm->ampdu_ref;
+	} else {
+		iwl_mvm_count_rx_histogram(mvm);
 	}
 
 	rcu_read_lock();

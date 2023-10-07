@@ -1795,6 +1795,7 @@ static void iwl_mvm_update_tx_ampdu_histogram(struct iwl_mvm *mvm, int freed)
 		mvm->ethtool_stats.tx_ampdu_len[13]++;
 	else
 		mvm->ethtool_stats.tx_ampdu_len[14]++;
+	// TODO:  Consider higher buckets, quick experiment shows be200 freeing in the 250 range.
 }
 
 static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
