@@ -28,6 +28,9 @@ void iwl_mvm_rx_rx_phy_cmd(struct iwl_mvm *mvm, struct iwl_rx_cmd_buffer *rxb)
 	memcpy(&mvm->last_phy_info, pkt->data, sizeof(mvm->last_phy_info));
 	mvm->ampdu_ref++;
 
+	/* Add to histogram for last ampdu count */
+	iwl_mvm_count_rx_histogram(mvm);
+
 #ifdef CONFIG_IWLWIFI_DEBUGFS
 	if (mvm->last_phy_info.phy_flags & cpu_to_le16(RX_RES_PHY_FLAGS_AGG)) {
 		spin_lock(&mvm->drv_stats_lock);
@@ -196,6 +199,48 @@ static u32 iwl_mvm_set_mac80211_rx_flag(struct iwl_mvm *mvm,
 	}
 
 	return 0;
+}
+
+void iwl_mvm_count_rx_histogram(struct iwl_mvm *mvm)
+{
+	u32 count = mvm->rx_this_ampdu_count;
+
+	if (count == 0)
+		return;
+
+	/* rx-ampdu-len histogram, buckets match what mtk7915 supports. */
+	if (count <= 1)
+		mvm->ethtool_stats.rx_ampdu_len[0]++;
+	else if (count <= 10)
+		mvm->ethtool_stats.rx_ampdu_len[1]++;
+	else if (count <= 19)
+		mvm->ethtool_stats.rx_ampdu_len[2]++;
+	else if (count <= 28)
+		mvm->ethtool_stats.rx_ampdu_len[3]++;
+	else if (count <= 37)
+		mvm->ethtool_stats.rx_ampdu_len[4]++;
+	else if (count <= 46)
+		mvm->ethtool_stats.rx_ampdu_len[5]++;
+	else if (count <= 55)
+		mvm->ethtool_stats.rx_ampdu_len[6]++;
+	else if (count <= 79)
+		mvm->ethtool_stats.rx_ampdu_len[7]++;
+	else if (count <= 103)
+		mvm->ethtool_stats.rx_ampdu_len[8]++;
+	else if (count <= 127)
+		mvm->ethtool_stats.rx_ampdu_len[9]++;
+	else if (count <= 151)
+		mvm->ethtool_stats.rx_ampdu_len[10]++;
+	else if (count <= 175)
+		mvm->ethtool_stats.rx_ampdu_len[11]++;
+	else if (count <= 199)
+		mvm->ethtool_stats.rx_ampdu_len[12]++;
+	else if (count <= 223)
+		mvm->ethtool_stats.rx_ampdu_len[13]++;
+	else
+		mvm->ethtool_stats.rx_ampdu_len[14]++;
+
+	mvm->rx_this_ampdu_count = 0;
 }
 
 static void iwl_mvm_rx_handle_tcm(struct iwl_mvm *mvm,
@@ -480,6 +525,10 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 		 */
 		rx_status->flag |= RX_FLAG_AMPDU_DETAILS;
 		rx_status->ampdu_reference = mvm->ampdu_ref;
+		mvm->rx_this_ampdu_count++;
+	} else {
+		/* Add to histogram for last ampdu count */
+		iwl_mvm_count_rx_histogram(mvm);
 	}
 
 	/* Set up the HT phy flags */
