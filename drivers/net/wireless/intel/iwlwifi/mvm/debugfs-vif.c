@@ -803,7 +803,7 @@ void iwl_mvm_vif_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	mvmvif->dbgfs_dir = debugfs_create_dir("iwlmvm", dbgfs_dir);
 	if (IS_ERR_OR_NULL(mvmvif->dbgfs_dir)) {
-		IWL_ERR(mvm, "Failed to create debugfs directory under %pd\n",
+		IWL_ERR(mvm, "Failed to create debugfs directory under %pd (mvm-vif-add-debugfs)\n",
 			dbgfs_dir);
 		return;
 	}
@@ -901,8 +901,8 @@ void iwl_mvm_link_add_debugfs(struct ieee80211_hw *hw,
 	} else {
 		mvm_dir = debugfs_create_dir("iwlmvm", dir);
 		if (IS_ERR_OR_NULL(mvm_dir)) {
-			IWL_ERR(mvm, "Failed to create debugfs directory under %pd\n",
-				dir);
+			IWL_ERR(mvm, "Failed to create debugfs directory under %pd (mvm-link-add-debugfs) dir: %p  vif->debugfs_dir: %p mvm_dir: %p\n",
+				dir, dir, vif->debugfs_dir, mvm_dir);
 			return;
 		}
 	}
