@@ -333,7 +333,6 @@ static void ieee80211_set_vif_links_bitmaps(struct ieee80211_sub_if_data *sdata,
 		if (sdata->vif.active_links)
 			break;
 		sdata->vif.active_links = valid_links & ~dormant_links;
-		WARN_ON(hweight16(sdata->vif.active_links) > 1);
 		break;
 	default:
 		WARN_ON(1);
