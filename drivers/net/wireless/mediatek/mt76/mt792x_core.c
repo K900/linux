@@ -423,7 +423,158 @@ void mt792x_set_wakeup(struct ieee80211_hw *hw, bool enabled)
 }
 EXPORT_SYMBOL_GPL(mt792x_set_wakeup);
 
-static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
+static const char mt792x_gstrings_stats_ax[][ETH_GSTRING_LEN] = {
+	"tx_pkts_nic", /* from driver, phy tx-ok skb */
+	"tx_bytes_nic", /* from driver, phy tx-ok bytes */
+	"rx_pkts_nic", /* from driver, phy rx OK skb */
+	"rx_bytes_nic", /* from driver, phy rx OK bytes */
+	/* tx counters */
+	"tx_ampdu_cnt",
+	"tx_mpdu_attempts",
+	"tx_mpdu_success",
+	"tx_pkt_ebf_cnt",
+	"tx_pkt_ibf_cnt",
+	"tx_ampdu_len:0-1",
+	"tx_ampdu_len:2-10",
+	"tx_ampdu_len:11-19",
+	"tx_ampdu_len:20-28",
+	"tx_ampdu_len:29-37",
+	"tx_ampdu_len:38-46",
+	"tx_ampdu_len:47-55",
+	"tx_ampdu_len:56-79",
+	"tx_ampdu_len:80-103",
+	"tx_ampdu_len:104-127",
+	"tx_ampdu_len:128-151",
+	"tx_ampdu_len:152-175",
+	"tx_ampdu_len:176-199",
+	"tx_ampdu_len:200-223",
+	"tx_ampdu_len:224-247",
+	"ba_miss_count",
+	"tx_beamformer_ppdu_iBF",
+	"tx_beamformer_ppdu_eBF",
+	"tx_beamformer_rx_feedback_all",
+	"tx_beamformer_rx_feedback_he",
+	"tx_beamformer_rx_feedback_vht",
+	"tx_beamformer_rx_feedback_ht",
+	"tx_msdu_pack_1",
+	"tx_msdu_pack_2",
+	"tx_msdu_pack_3",
+	"tx_msdu_pack_4",
+	"tx_msdu_pack_5",
+	"tx_msdu_pack_6",
+	"tx_msdu_pack_7",
+	"tx_msdu_pack_8",
+	/* rx counters */
+	"rx_mpdu_cnt",
+	"rx_ampdu_cnt",
+	"rx_ampdu_bytes_cnt",
+	"rx_ba_cnt",
+
+	/* driver rx counters */
+	"d_rx_skb",
+	"d_rx_rxd2_amsdu_err",
+	"d_rx_null_channels",
+	"d_rx_max_len_err",
+	"d_rx_too_short",
+	"d_rx_bad_ht_rix",
+	"d_rx_bad_vht_rix",
+	"d_rx_bad_mode",
+	"d_rx_bad_bw",
+
+	/* per vif counters */
+	"v_tx_mpdu_attempts", /* counting any retries (all frames) */
+	"v_tx_mpdu_fail",  /* frames that failed even after retry (all frames) */
+	"v_tx_mpdu_retry", /* number of times frames were retried (all frames) */
+	"v_tx_mpdu_ok", /* frames that succeeded, perhaps after retry (all frames) */
+
+	"v_txo_tx_mpdu_attempts", /* counting any retries, txo frames */
+	"v_txo_tx_mpdu_fail",  /* frames that failed even after retry, txo frames */
+	"v_txo_tx_mpdu_retry", /* number of times frames were retried, txo frames */
+	"v_txo_tx_mpdu_ok", /* frames that succeeded, perhaps after retry, txo frames */
+
+	"v_tx_mode_cck",
+	"v_tx_mode_ofdm",
+	"v_tx_mode_ht",
+	"v_tx_mode_ht_gf",
+	"v_tx_mode_vht",
+	"v_tx_mode_he_su",
+	"v_tx_mode_he_ext_su",
+	"v_tx_mode_he_tb",
+	"v_tx_mode_he_mu",
+
+	"v_tx_bw_20",
+	"v_tx_bw_40",
+	"v_tx_bw_80",
+	"v_tx_bw_160",
+
+	"v_tx_mcs_0",
+	"v_tx_mcs_1",
+	"v_tx_mcs_2",
+	"v_tx_mcs_3",
+	"v_tx_mcs_4",
+	"v_tx_mcs_5",
+	"v_tx_mcs_6",
+	"v_tx_mcs_7",
+	"v_tx_mcs_8",
+	"v_tx_mcs_9",
+	"v_tx_mcs_10",
+	"v_tx_mcs_11",
+
+	"v_tx_nss_1",
+	"v_tx_nss_2",
+	"v_tx_nss_3",
+	"v_tx_nss_4",
+
+	/* per-vif rx counters */
+	"v_rx_nss_1",
+	"v_rx_nss_2",
+	"v_rx_nss_3",
+	"v_rx_nss_4",
+	"v_rx_mode_cck",
+	"v_rx_mode_ofdm",
+	"v_rx_mode_ht",
+	"v_rx_mode_ht_gf",
+	"v_rx_mode_vht",
+	"v_rx_mode_he_su",
+	"v_rx_mode_he_ext_su",
+	"v_rx_mode_he_tb",
+	"v_rx_mode_he_mu",
+	"v_rx_bw_20",
+	"v_rx_bw_40",
+	"v_rx_bw_80",
+	"v_rx_bw_160",
+	"v_rx_bw_he_ru",
+	"v_rx_ru_106",
+	"v_rx_mcs_0",
+	"v_rx_mcs_1",
+	"v_rx_mcs_2",
+	"v_rx_mcs_3",
+	"v_rx_mcs_4",
+	"v_rx_mcs_5",
+	"v_rx_mcs_6",
+	"v_rx_mcs_7",
+	"v_rx_mcs_8",
+	"v_rx_mcs_9",
+	"v_rx_mcs_10",
+	"v_rx_mcs_11",
+	"rx_ampdu_len:0-1",
+	"rx_ampdu_len:2-10",
+	"rx_ampdu_len:11-19",
+	"rx_ampdu_len:20-28",
+	"rx_ampdu_len:29-37",
+	"rx_ampdu_len:38-46",
+	"rx_ampdu_len:47-55",
+	"rx_ampdu_len:56-79",
+	"rx_ampdu_len:80-103",
+	"rx_ampdu_len:104-127",
+	"rx_ampdu_len:128-151",
+	"rx_ampdu_len:152-175",
+	"rx_ampdu_len:176-199",
+	"rx_ampdu_len:200-223",
+	"rx_ampdu_len:224-247",
+};
+
+static const char mt792x_gstrings_stats_eht[][ETH_GSTRING_LEN] = {
 	"tx_pkts_nic", /* from driver, phy tx-ok skb */
 	"tx_bytes_nic", /* from driver, phy tx-ok bytes */
 	"rx_pkts_nic", /* from driver, phy rx OK skb */
@@ -504,11 +655,13 @@ static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"v_tx_mode_eht_su",
 	"v_tx_mode_eht_trig",
 	"v_tx_mode_eht_mu",
+
 	"v_tx_bw_20",
 	"v_tx_bw_40",
 	"v_tx_bw_80",
 	"v_tx_bw_160",
 	"v_tx_bw_320",
+
 	"v_tx_mcs_0",
 	"v_tx_mcs_1",
 	"v_tx_mcs_2",
@@ -523,6 +676,7 @@ static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"v_tx_mcs_11",
 	"v_tx_mcs_12",
 	"v_tx_mcs_13",
+
 	"v_tx_nss_1",
 	"v_tx_nss_2",
 	"v_tx_nss_3",
@@ -546,6 +700,8 @@ static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"v_rx_bw_40",
 	"v_rx_bw_80",
 	"v_rx_bw_160",
+	"v_rx_bw_320",
+
 	"v_rx_bw_he_ru",
 	"v_rx_ru_106",
 	"v_rx_mcs_0",
@@ -560,6 +716,9 @@ static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"v_rx_mcs_9",
 	"v_rx_mcs_10",
 	"v_rx_mcs_11",
+	"v_rx_mcs_12",
+	"v_rx_mcs_13",
+
 	"rx_ampdu_len:0-1",
 	"rx_ampdu_len:2-10",
 	"rx_ampdu_len:11-19",
@@ -580,12 +739,20 @@ static const char mt792x_gstrings_stats[][ETH_GSTRING_LEN] = {
 void mt792x_get_et_strings(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			   u32 sset, u8 *data)
 {
+	struct mt792x_phy *phy = mt792x_hw_phy(hw);
+	struct mt792x_dev *dev = phy->dev;
+
 	if (sset != ETH_SS_STATS)
 		return;
 
-	memcpy(data, mt792x_gstrings_stats, sizeof(mt792x_gstrings_stats));
+	if (dev->has_eht) {
+		memcpy(data, mt792x_gstrings_stats_eht, sizeof(mt792x_gstrings_stats_eht));
+		data += sizeof(mt792x_gstrings_stats_eht);
+	} else {
+		memcpy(data, mt792x_gstrings_stats_ax, sizeof(mt792x_gstrings_stats_ax));
+		data += sizeof(mt792x_gstrings_stats_ax);
+	}
 
-	data += sizeof(mt792x_gstrings_stats);
 	page_pool_ethtool_stats_get_strings(data);
 }
 EXPORT_SYMBOL_GPL(mt792x_get_et_strings);
@@ -593,10 +760,17 @@ EXPORT_SYMBOL_GPL(mt792x_get_et_strings);
 int mt792x_get_et_sset_count(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			     int sset)
 {
+	struct mt792x_phy *phy = mt792x_hw_phy(hw);
+	struct mt792x_dev *dev = phy->dev;
+
 	if (sset != ETH_SS_STATS)
 		return 0;
 
-	return ARRAY_SIZE(mt792x_gstrings_stats) +
+	if (dev->has_eht)
+		return ARRAY_SIZE(mt792x_gstrings_stats_eht) +
+			page_pool_ethtool_stats_get_count();
+
+	return ARRAY_SIZE(mt792x_gstrings_stats_ax) +
 	       page_pool_ethtool_stats_get_count();
 }
 EXPORT_SYMBOL_GPL(mt792x_get_et_sset_count);
@@ -610,22 +784,28 @@ mt792x_ethtool_worker(void *wi_data, struct ieee80211_sta *sta)
 	if (msta->vif->bss_conf.mt76.idx != wi->idx)
 		return;
 
-	mt76_ethtool_worker(wi, &msta->deflink.wcid.stats, true);
+	mt76_ethtool_worker(wi, &msta->deflink.wcid.stats, wi->has_eht);
 }
 
 void mt792x_get_et_stats(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			 struct ethtool_stats *stats, u64 *data)
 {
 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
-	int stats_size = ARRAY_SIZE(mt792x_gstrings_stats);
+	int stats_size;
 	struct mt792x_phy *phy = mt792x_hw_phy(hw);
 	struct mt792x_dev *dev = phy->dev;
 	struct mt76_mib_stats *mib = &phy->mib;
 	struct mt76_ethtool_worker_info wi = {
 		.data = data,
 		.idx = mvif->bss_conf.mt76.idx,
+		.has_eht = dev->has_eht,
 	};
 	int i, ei = 0;
+
+	if (dev->has_eht)
+		stats_size = ARRAY_SIZE(mt792x_gstrings_stats_eht);
+	else
+		stats_size = ARRAY_SIZE(mt792x_gstrings_stats_ax);
 
 	mt792x_mutex_acquire(dev);
 
