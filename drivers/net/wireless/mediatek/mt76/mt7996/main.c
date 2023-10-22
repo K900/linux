@@ -2326,6 +2326,7 @@ void mt7996_get_et_stats(struct ieee80211_hw *hw,
 	struct mt76_ethtool_worker_info wi = {
 		.data = data,
 		.idx = mvif->deflink.mt76.idx,
+		.has_eht = true,
 	};
 	/* See mt7996_ampdu_stat_read_phy, etc */
 	int i, ei = 0;
