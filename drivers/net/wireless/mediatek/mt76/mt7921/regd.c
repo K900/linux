@@ -30,6 +30,9 @@ mt7921_regd_channel_update(struct wiphy *wiphy, struct mt792x_dev *dev)
 	struct ieee80211_channel *ch;
 	int i, cfreq;
 
+	if (!(dev->phy.chip_cap & MT792x_CHIP_CAP_CLC_EVT_EN))
+		dev->phy.clc_chan_conf = 0xff;
+
 	np = mt76_find_power_limits_node(mdev);
 
 	sband = wiphy->bands[NL80211_BAND_5GHZ];
