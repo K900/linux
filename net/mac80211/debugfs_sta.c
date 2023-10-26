@@ -697,7 +697,7 @@ static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
 	struct ieee80211_sta_vht_cap *vhtc = &link_sta->pub->vht_cap;
 	struct cfg80211_chan_def *chandef = &link_sta->sta->sdata->vif.bss_conf.chanreq.oper;
 	struct ieee80211_sub_if_data *sdata = link_sta->sta->sdata;
-	struct ieee80211_link_data *link = sdata_dereference(sdata->link[link_sta->link_id], sdata);
+	struct ieee80211_link_data *link;
 	ssize_t ret;
 	ssize_t bufsz = 512;
 
@@ -705,6 +705,9 @@ static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
 	if (!buf)
 		return -ENOMEM;
 	p = buf;
+
+	rcu_read_lock();
+	link = sdata_dereference(sdata->link[link_sta->link_id], sdata);
 
 	if (link && link->conf)
 		chandef = &link->conf->chanreq.oper;
@@ -888,6 +891,7 @@ static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
 #undef PFLAG
 	}
 
+	rcu_read_unlock();
 	ret = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
 	kfree(buf);
 	return ret;
