@@ -1015,6 +1015,14 @@ static inline int check_valid_pointer(struct kmem_cache *s,
 	object = restore_red_left(s, object);
 	if (object < base || object >= base + slab->objects * s->size ||
 		(object - base) % s->size) {
+		if (object < base)
+			pr_err("object: %p < base: %p\n", object, base);
+		else if (object >= base + slab->objects * s->size)
+			pr_err("object %p >= base: %p + slab->objects: %d * cache->size: %d\n",
+			       object, base, slab->objects, s->size);
+		else
+			pr_err("object: %p - base: %p MOD cache-size: %d is not zero: %ld\n",
+			       object, base, s->size, (object - base) % s->size);
 		return 0;
 	}
 
@@ -1599,7 +1607,7 @@ static bool on_freelist(struct kmem_cache *s, struct slab *slab, void *search)
 				set_freepointer(s, object, NULL);
 				break;
 			} else {
-				slab_err(s, slab, "Freepointer corrupt");
+				slab_err(s, slab, "on-free-list: Freepointer corrupt");
 				slab->freelist = NULL;
 				slab->inuse = slab->objects;
 				slab_fix(s, "Freelist cleared");
