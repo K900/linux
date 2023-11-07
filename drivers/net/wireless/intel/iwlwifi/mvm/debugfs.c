@@ -2373,6 +2373,10 @@ void iwl_mvm_dbgfs_register(struct iwl_mvm *mvm)
 	debugfs_create_file("set_rate_override", 0600, mvm->debugfs_dir,
 			    mvm, &fops_set_rate_override);
 
+	debugfs_create_u8("block_traffic", 0600,
+			   mvm->debugfs_dir,
+			   &mvm->block_traffic);
+
 	/*
 	 * Create a symlink with mac80211. It will be removed when mac80211
 	 * exists (before the opmode exists which removes the target.)

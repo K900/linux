@@ -1394,6 +1394,11 @@ int iwl_mvm_tx_skb_sta(struct iwl_mvm *mvm, struct sk_buff *skb,
 
 	memcpy(&info, skb->cb, sizeof(info));
 
+	if (unlikely(mvm->block_traffic & IWL_MVM_BLOCK_TX)) {
+		ieee80211_free_txskb(mvm->hw, skb);
+		return 0;
+	}
+
 	if (!skb_is_gso(skb))
 		return iwl_mvm_tx_mpdu(mvm, skb, &info, sta, NULL);
 

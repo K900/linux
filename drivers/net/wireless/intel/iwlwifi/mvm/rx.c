@@ -613,6 +613,11 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 		     ieee80211_is_probe_resp(hdr->frame_control)))
 		rx_status->boottime_ns = ktime_get_boottime_ns();
 
+	if (unlikely(mvm->block_traffic & IWL_MVM_BLOCK_RX)) {
+		dev_kfree_skb(skb);
+		return;
+	}
+
 	iwl_mvm_pass_packet_to_mac80211(mvm, sta, napi, skb, hdr, len,
 					crypt_len, rxb);
 }
