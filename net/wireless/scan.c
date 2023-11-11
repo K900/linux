@@ -1057,9 +1057,9 @@ skip:
 		err = rdev_scan(rdev, request);
 		if (err) {
 			rdev->int_scan_req = old;
-			kfree(request);
 			pr_err("cfg80211-scan-6ghz, rdev_scan failed: %d  n_channels: %d  need_scan_psc: %d req-n-channels: %d",
 			       err, request->req.n_channels, need_scan_psc, rdev_req->req.n_channels);
+			kfree(request);
 		} else {
 			kfree(old);
 		}
