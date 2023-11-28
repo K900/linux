@@ -718,6 +718,8 @@ static ssize_t iwl_dbgfs_tas_get_status_read(struct file *file,
 				 tmp / 8, 125 * (tmp % 8));
 	}
 
+	pos += scnprintf(pos, endpos - pos, "FW version: %s\n",
+			 mvm->fwrt.fw->fw_version);
 	pos += scnprintf(pos, endpos - pos, "Bus: %s\n",
 			 mvm->fwrt.dev->bus->name);
 	pos += scnprintf(pos, endpos - pos, "BusName: %s\n",
