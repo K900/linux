@@ -230,6 +230,10 @@ int iwl_mvm_link_changed(struct iwl_mvm *mvm, struct ieee80211_vif *vif,
 		cmd.bssid_index = link_conf->bssid_index;
 	}
 
+
+	IWL_ERR(mvm, "link-changed, link_conf->nontransmitted: %d  ref-bssid-addr: %pM  idx: %d\n",
+		link_conf->nontransmitted, cmd.ref_bssid_addr, cmd.bssid_index);
+
 send_cmd:
 	cmd.modify_mask = cpu_to_le32(changes);
 	cmd.flags = cpu_to_le32(flags);

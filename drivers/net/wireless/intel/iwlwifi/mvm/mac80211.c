@@ -2599,6 +2599,9 @@ static void iwl_mvm_cfg_he_sta(struct iwl_mvm *mvm,
 		sta_ctxt_cmd_v2.reserved3 = 0;
 	}
 
+	IWL_ERR(mvm, "cfg-he-sta, bss_conf.nontransmitted: %d  ref-bssid-addr: %pM  idx: %d\n",
+		vif->bss_conf.nontransmitted, sta_ctxt_cmd.ref_bssid_addr, sta_ctxt_cmd.bssid_index);
+
 	if (iwl_mvm_send_cmd_pdu(mvm, cmd_id, 0, size, cmd))
 		IWL_ERR(mvm, "Failed to config FW to work HE!\n");
 }
