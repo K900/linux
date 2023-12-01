@@ -1,0 +1,165 @@
+From e6ef0f2e797c66f00abe695718ec0218609637fc Mon Sep 17 00:00:00 2001
+From: Sujuan Chen <sujuan.chen@mediatek.com>
+Date: Fri, 17 Nov 2023 18:13:19 +0100
+Subject: [PATCH] wifi: mt76: mt7996: set DMA mask to 36 bits for boards with
+ more than 4GB of RAM
+
+Introduce the capability to run mt7996 driver on boards with more than
+4GB of memory.
+
+Co-developed-by: Rex Lu <rex.lu@mediatek.com>
+Signed-off-by: Rex Lu <rex.lu@mediatek.com>
+Signed-off-by: Sujuan Chen <sujuan.chen@mediatek.com>
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/wireless/mediatek/mt76/dma.c              | 6 +++++-
+ drivers/net/wireless/mediatek/mt76/dma.h              | 2 ++
+ drivers/net/wireless/mediatek/mt76/mt76.h             | 2 +-
+ drivers/net/wireless/mediatek/mt76/mt76_connac3_mac.h | 3 +++
+ drivers/net/wireless/mediatek/mt76/mt7996/dma.c       | 3 ++-
+ drivers/net/wireless/mediatek/mt76/mt7996/mac.c       | 6 +++++-
+ drivers/net/wireless/mediatek/mt76/mt7996/pci.c       | 6 +++++-
+ drivers/net/wireless/mediatek/mt76/mt7996/regs.h      | 5 +++--
+ 8 files changed, 26 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/wireless/mediatek/mt76/dma.c b/drivers/net/wireless/mediatek/mt76/dma.c
+index 14c82b269954..dabbd3543da2 100644
+--- a/drivers/net/wireless/mediatek/mt76/dma.c
++++ b/drivers/net/wireless/mediatek/mt76/dma.c
+@@ -218,11 +218,12 @@ mt76_dma_add_rx_buf(struct mt76_dev *dev, struct mt76_queue *q,
+	struct mt76_desc *desc = &q->desc[q->head];
+	struct mt76_queue_entry *entry = &q->entry[q->head];
+	struct mt76_txwi_cache *txwi = NULL;
+-	u32 buf1 = 0, ctrl;
+	int idx = q->head;
++	u32 buf1, ctrl;
+	int rx_token;
+
+	ctrl = FIELD_PREP(MT_DMA_CTL_SD_LEN0, buf[0].len);
++	buf1 = FIELD_PREP(MT_DMA_CTL_SDP0_H, buf->addr >> 32);
+
+	if (mt76_queue_is_wed_rx(q)) {
+		txwi = mt76_get_rxwi(dev);
+@@ -288,11 +289,14 @@ mt76_dma_add_buf(struct mt76_dev *dev, struct mt76_queue *q,
+		entry->dma_len[0] = buf[0].len;
+
+		ctrl = FIELD_PREP(MT_DMA_CTL_SD_LEN0, buf[0].len);
++		info |= FIELD_PREP(MT_DMA_CTL_SDP0_H, buf[0].addr >> 32);
+		if (i < nbufs - 1) {
+			entry->dma_addr[1] = buf[1].addr;
+			entry->dma_len[1] = buf[1].len;
+			buf1 = buf[1].addr;
+			ctrl |= FIELD_PREP(MT_DMA_CTL_SD_LEN1, buf[1].len);
++			info |= FIELD_PREP(MT_DMA_CTL_SDP1_H,
++					   buf[1].addr >> 32);
+			if (buf[1].skip_unmap)
+				entry->skip_buf1 = true;
+		}
+diff --git a/drivers/net/wireless/mediatek/mt76/dma.h b/drivers/net/wireless/mediatek/mt76/dma.h
+index 1b090d78cd05..bd87f232870f 100644
+--- a/drivers/net/wireless/mediatek/mt76/dma.h
++++ b/drivers/net/wireless/mediatek/mt76/dma.h
+@@ -19,6 +19,8 @@
+ #define MT_DMA_CTL_TO_HOST_A		BIT(12)
+ #define MT_DMA_CTL_DROP			BIT(14)
+ #define MT_DMA_CTL_TOKEN		GENMASK(31, 16)
++#define MT_DMA_CTL_SDP1_H		GENMASK(19, 16)
++#define MT_DMA_CTL_SDP0_H		GENMASK(3, 0)
+ #define MT_DMA_CTL_WO_DROP		BIT(8)
+
+ #define MT_DMA_PPE_CPU_REASON		GENMASK(15, 11)
+diff --git a/drivers/net/wireless/mediatek/mt76/mt76.h b/drivers/net/wireless/mediatek/mt76/mt76.h
+index 9178f4c3b201..2e4f56530dfe 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt76.h
++++ b/drivers/net/wireless/mediatek/mt76/mt76.h
+@@ -163,7 +163,7 @@ struct mt76_queue_entry {
+		struct urb *urb;
+		int buf_sz;
+	};
+-	u32 dma_addr[2];
++	dma_addr_t dma_addr[2];
+	u16 dma_len[2];
+	u16 wcid;
+	bool skip_buf0:1;
+diff --git a/drivers/net/wireless/mediatek/mt76/mt76_connac3_mac.h b/drivers/net/wireless/mediatek/mt76/mt76_connac3_mac.h
+index 2250252b2047..ec3e75ee6d41 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt76_connac3_mac.h
++++ b/drivers/net/wireless/mediatek/mt76/mt76_connac3_mac.h
+@@ -259,6 +259,9 @@ enum tx_mgnt_type {
+
+ #define MT_TXD9_WLAN_IDX		GENMASK(23, 8)
+
++#define MT_TXP_BUF_LEN			GENMASK(11, 0)
++#define MT_TXP_DMA_ADDR_H		GENMASK(15, 12)
++
+ #define MT_TX_RATE_STBC			BIT(14)
+ #define MT_TX_RATE_NSS			GENMASK(13, 10)
+ #define MT_TX_RATE_MODE			GENMASK(9, 6)
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7996/dma.c b/drivers/net/wireless/mediatek/mt76/mt7996/dma.c
+index 586e247a1e06..4d7e42f08fcc 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7996/dma.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7996/dma.c
+@@ -149,7 +149,8 @@ void mt7996_dma_start(struct mt7996_dev *dev, bool reset)
+				 MT_WFDMA0_GLO_CFG_TX_DMA_EN |
+				 MT_WFDMA0_GLO_CFG_RX_DMA_EN |
+				 MT_WFDMA0_GLO_CFG_OMIT_TX_INFO |
+-				 MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2);
++				 MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2 |
++				 MT_WFDMA0_GLO_CFG_EXT_EN);
+	}
+
+	/* enable interrupts for TX/RX rings */
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7996/mac.c b/drivers/net/wireless/mediatek/mt76/mt7996/mac.c
+index 44aa145b3475..69d6330c00bf 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7996/mac.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7996/mac.c
+@@ -1301,8 +1301,12 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
+
+	txp = (struct mt76_connac_txp_common *)(txwi + MT_TXD_SIZE);
+	for (i = 0; i < nbuf; i++) {
++		u16 len = FIELD_PREP(MT_TXP_BUF_LEN, tx_info->buf[i + 1].len) |
++			  FIELD_PREP(MT_TXP_DMA_ADDR_H,
++				     tx_info->buf[i + 1].addr >> 32);
++
+		txp->fw.buf[i] = cpu_to_le32(tx_info->buf[i + 1].addr);
+-		txp->fw.len[i] = cpu_to_le16(tx_info->buf[i + 1].len);
++		txp->fw.len[i] = cpu_to_le16(len);
+	}
+	txp->fw.nbuf = nbuf;
+
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7996/pci.c b/drivers/net/wireless/mediatek/mt76/mt7996/pci.c
+index c5301050ff8b..4a8904d44ba6 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7996/pci.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7996/pci.c
+@@ -107,7 +107,11 @@ static int mt7996_pci_probe(struct pci_dev *pdev,
+
+	pci_set_master(pdev);
+
+-	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
++	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(36));
++	if (ret)
++		return ret;
++
++	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret)
+		return ret;
+
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7996/regs.h b/drivers/net/wireless/mediatek/mt76/mt7996/regs.h
+index 0086a7866657..ac9a44786b0f 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7996/regs.h
++++ b/drivers/net/wireless/mediatek/mt76/mt7996/regs.h
+@@ -336,9 +336,10 @@ enum base_rev {
+ #define MT_WFDMA0_GLO_CFG			MT_WFDMA0(0x208)
+ #define MT_WFDMA0_GLO_CFG_TX_DMA_EN		BIT(0)
+ #define MT_WFDMA0_GLO_CFG_RX_DMA_EN		BIT(2)
+-#define MT_WFDMA0_GLO_CFG_OMIT_TX_INFO		BIT(28)
+-#define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO		BIT(27)
+ #define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2	BIT(21)
++#define MT_WFDMA0_GLO_CFG_EXT_EN		BIT(26)
++#define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO		BIT(27)
++#define MT_WFDMA0_GLO_CFG_OMIT_TX_INFO		BIT(28)
+
+ #define WF_WFDMA0_GLO_CFG_EXT0			MT_WFDMA0(0x2b0)
+ #define WF_WFDMA0_GLO_CFG_EXT0_RX_WB_RXD	BIT(18)
+--
+2.41.0
