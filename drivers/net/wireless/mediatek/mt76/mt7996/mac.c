@@ -706,12 +706,17 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 	if (status->amsdu) {
 		status->first_amsdu = amsdu_info == MT_RXD4_FIRST_AMSDU_FRAME;
 		status->last_amsdu = amsdu_info == MT_RXD4_LAST_AMSDU_FRAME;
+		//pr_info("fill-rx, wcid: %p first-amsdu: %d  last-amsdu: %d",
+		//	status->wcid, status->first_amsdu, status->last_amsdu);
 
 		/* Deal with rx ampdu histogram stats */
 		if (status->wcid) {
 			status->wcid->ampdu_chain++;
 			if (status->last_amsdu) {
 				mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+				//pr_info("fill-rx, last-amsdu, chain-count: %d [0]: %ld  [1]: %ld",
+				//	status->wcid->ampdu_chain, stats->rx_ampdu_len[0],
+				//	stats->rx_ampdu_len[1]);
 				status->wcid->ampdu_chain = 0;
 			}
 		}
