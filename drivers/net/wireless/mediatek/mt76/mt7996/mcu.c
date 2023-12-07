@@ -3525,6 +3525,8 @@ static int __mt7996_load_ram(struct mt7996_dev *dev, const char *fw_type,
 	hdr = (const void *)(fw->data + fw->size - sizeof(*hdr));
 	dev_info(dev->mt76.dev, "%s Firmware Version: %.10s, Build Time: %.15s\n",
 		 fw_type, hdr->fw_ver, hdr->build_date);
+	strscpy(dev->mt76.fw.wm_fw_ver, hdr->fw_ver, 10);
+	strscpy(dev->mt76.fw.wm_build_date, hdr->build_date, 15);
 
 	ret = mt7996_mcu_send_ram_firmware(dev, hdr, fw->data, ram_type);
 	if (ret) {
