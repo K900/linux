@@ -6427,6 +6427,8 @@ nfs4_get_uniquifier(struct nfs_client *clp, char *buf, size_t buflen)
 	return strlen(buf);
 }
 
+#define MAX_IP_ADDR_LEN 40
+
 static int
 nfs4_init_nonuniform_client_string(struct nfs_client *clp)
 {
@@ -6453,6 +6455,8 @@ nfs4_init_nonuniform_client_string(struct nfs_client *clp)
 	if (len > NFS4_OPAQUE_LIMIT + 1)
 		return -EINVAL;
 
+	len += strlen(clp->cl_ipaddr) + 1;
+
 	/*
 	 * Since this string is allocated at mount time, and held until the
 	 * nfs_client is destroyed, we can use GFP_KERNEL here w/o worrying
@@ -6464,15 +6468,17 @@ nfs4_init_nonuniform_client_string(struct nfs_client *clp)
 
 	rcu_read_lock();
 	if (buflen)
-		scnprintf(str, len, "Linux NFSv4.0 %s/%s/%s",
+		scnprintf(str, len, "Linux NFSv4.0 %s/%s/%s/%s",
 			  clp->cl_rpcclient->cl_nodename, buf,
 			  rpc_peeraddr2str(clp->cl_rpcclient,
-					   RPC_DISPLAY_ADDR));
+					   RPC_DISPLAY_ADDR),
+				clp->cl_ipaddr);
 	else
-		scnprintf(str, len, "Linux NFSv4.0 %s/%s",
+		scnprintf(str, len, "Linux NFSv4.0 %s/%s/%s",
 			  clp->cl_rpcclient->cl_nodename,
 			  rpc_peeraddr2str(clp->cl_rpcclient,
-					   RPC_DISPLAY_ADDR));
+					   RPC_DISPLAY_ADDR),
+				clp->cl_ipaddr);
 	rcu_read_unlock();
 
 	clp->cl_owner_id = str;
@@ -6500,6 +6506,8 @@ nfs4_init_uniform_client_string(struct nfs_client *clp)
 	if (len > NFS4_OPAQUE_LIMIT + 1)
 		return -EINVAL;
 
+	len += strlen(clp->cl_ipaddr) + 1;
+
 	/*
 	 * Since this string is allocated at mount time, and held until the
 	 * nfs_client is destroyed, we can use GFP_KERNEL here w/o worrying
@@ -6510,13 +6518,15 @@ nfs4_init_uniform_client_string(struct nfs_client *clp)
 		return -ENOMEM;
 
 	if (buflen)
+		scnprintf(str, len, "Linux NFSv%u.%u %s/%s/%s",
+			  clp->rpc_ops->version, clp->cl_minorversion,
+			  buf, clp->cl_rpcclient->cl_nodename,
+				clp->cl_ipaddr);
+	else
 		scnprintf(str, len, "Linux NFSv%u.%u %s/%s",
 			  clp->rpc_ops->version, clp->cl_minorversion,
-			  buf, clp->cl_rpcclient->cl_nodename);
-	else
-		scnprintf(str, len, "Linux NFSv%u.%u %s",
-			  clp->rpc_ops->version, clp->cl_minorversion,
-			  clp->cl_rpcclient->cl_nodename);
+			  clp->cl_rpcclient->cl_nodename,
+				clp->cl_ipaddr);
 	clp->cl_owner_id = str;
 	return 0;
 }
