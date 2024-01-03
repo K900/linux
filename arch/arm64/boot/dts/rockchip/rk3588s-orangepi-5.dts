@@ -289,7 +289,15 @@
 &pcie2x1l2 {
 	reset-gpios = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
 	vpcie3v3-supply = <&vcc3v3_pcie20>;
+	status = "disabled";
+};
+
+&sata0 {
 	status = "okay";
+
+	sata-port@0 {
+		target-supply = <&vcc3v3_pcie20>;
+	};
 };
 
 &pinctrl {
