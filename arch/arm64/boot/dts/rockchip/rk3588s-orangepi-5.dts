@@ -700,3 +700,8 @@
 		remote-endpoint = <&hdmi0_in_vp0>;
 	};
 };
+
+&i2c1 {
+	pinctrl-0 = <&i2c1m2_xfer>;
+	status = "okay";
+};
