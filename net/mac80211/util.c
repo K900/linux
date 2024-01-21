@@ -2047,7 +2047,9 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 			 * to notify user-space or set debugfs flag to WDT can be kicked in non-attended
 			 * devices such as APs...
 			 */
+#ifdef CONFIG_MAC80211_DEBUGFS
 			local->is_dead = 1;
+#endif
 		}
 		ieee80211_wake_queues_by_reason(hw, IEEE80211_MAX_QUEUE_MAP,
 						IEEE80211_QUEUE_STOP_REASON_SUSPEND,
