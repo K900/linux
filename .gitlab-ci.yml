@@ -73,11 +73,16 @@ generate tests:
     GIT_DEPTH: "1"
   needs:
     - "build arm64 debian package"
+  before_script:
+    - apt update
+    - apt install -y wget
   script:
     - mkdir deb
     - "for x in artifacts/linux-image*.deb ; do dpkg -x ${x} deb ; done"
     - cp deb/boot/vmlinuz* vmlinuz
-    - tar -f modules.tar.gz  -C deb  -c -z -v lib/modules
+    - mkdir -p deb/lib/firmware/arm/mali/arch10.8
+    - wget -O deb/lib/firmware/arm/mali/arch10.8/mali_csffw.bin "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/arm/mali/arch10.8/mali_csffw.bin"
+    - tar -f modules.tar.gz  -C deb  -c -z -v lib/modules lib/firmware
     - mkdir dtbs
     - cp -r deb/usr/lib/linux-image*/* dtbs
     - sed -i s,%%KERNEL_BUILD_JOB%%,${CI_JOB_ID},g lava/testjob.yaml
