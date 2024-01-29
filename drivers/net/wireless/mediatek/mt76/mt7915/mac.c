@@ -1173,7 +1173,7 @@ static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 
 	msta = container_of(wcid, struct mt7915_sta, wcid);
 
-	if (pid == MT_PACKET_ID_WED)
+	if (le32_get_bits(txs_data[0], MT_TXS0_TXS_FORMAT) == MT_TXS_PPDU_FMT)
 		mt76_connac2_mac_fill_txs(&dev->mt76, wcid, txs_data, NULL);
 	else
 		mt76_connac2_mac_add_txs_skb(&dev->mt76, wcid, pid, txs_data);
