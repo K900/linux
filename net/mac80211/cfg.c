@@ -1723,8 +1723,7 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 			      IEEE80211_HE_OPERATION_RTS_THRESHOLD_MASK);
 		changed |= BSS_CHANGED_HE_OBSS_PD;
 
-		if (params->beacon.he_bss_color.enabled)
-			changed |= BSS_CHANGED_HE_BSS_COLOR;
+		changed |= BSS_CHANGED_HE_BSS_COLOR;
 	}
 
 	if (params->he_cap) {
@@ -1965,6 +1964,7 @@ static int ieee80211_change_beacon(struct wiphy *wiphy, struct net_device *dev,
 	int err;
 	struct ieee80211_bss_conf *link_conf;
 	u64 changed = 0;
+	bool color_en;
 
 	lockdep_assert_wiphy(wiphy);
 
@@ -2007,9 +2007,9 @@ static int ieee80211_change_beacon(struct wiphy *wiphy, struct net_device *dev,
 			return err;
 	}
 
-	if (beacon->he_bss_color_valid &&
-	    beacon->he_bss_color.enabled != link_conf->he_bss_color.enabled) {
-		link_conf->he_bss_color.enabled = beacon->he_bss_color.enabled;
+	color_en = beacon->he_bss_color.enabled && beacon->he_bss_color_valid;
+	if (color_en != link_conf->he_bss_color.enabled) {
+		link_conf->he_bss_color.enabled = color_en;
 		changed |= BSS_CHANGED_HE_BSS_COLOR;
 	}
 
