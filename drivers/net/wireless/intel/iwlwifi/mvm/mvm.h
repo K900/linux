@@ -983,7 +983,7 @@ struct iwl_txo_data {
 	/* SGI:  VHT and lower: 0 off, 1 on
 	 * HE-SU: 0 1xLTF+0.8us, 1 2xLTF+0.8us, 2 2xLTF+1.6us, 3 4xLTF+3.2us, 4 4xLTF+0.8us
 	 */
-	u8 tx_rate_sgi;
+	u8 tx_rate_sgi; /* and LTF for HE/EHT */
 	u8 tx_rate_mode; /* 0=cck, 1=ofdm, 2=HT, 3=VHT, 4=HE_SU, 5=EHT */
 	u8 tx_rate_idx;
 	u8 tx_rate_nss;
@@ -992,6 +992,7 @@ struct iwl_txo_data {
 	u8 tx_xmit_count; /* 0 means no-ack, 1 means one transmit, etc */
 	u8 ldpc;
 	u8 stbc;
+	u8 beamforming; /* beamforming on or off */
 };
 
 struct iwl_mvm {

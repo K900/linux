@@ -2006,7 +2006,7 @@ static ssize_t iwl_dbgfs_read_set_rate_override(struct file *file,
 		"ldpc: 0 off, 1 on\n"
 		"nss is zero based (0 means nss-1, 1 means nss-2)\n"
 		" For example, wlan0:\n"
-		"echo \"wlan0 tpc=255 sgi=1 mcs=0 nss=1 pream=3 retries=1 bw=0 ldpc=0 stbc=0"
+		"echo \"wlan0 bf=0 tpc=255 sgi=1 mcs=0 nss=1 pream=3 retries=1 bw=0 ldpc=0 stbc=0"
 		" active=1\" > ...iwlwifi/set_rate_override\n";
 
 	buf2 = kzalloc(size, GFP_KERNEL);
@@ -2019,11 +2019,10 @@ static ssize_t iwl_dbgfs_read_set_rate_override(struct file *file,
 	td = rcu_dereference(mvm->txo_data);
 	if (td)
 		sofar += scnprintf(buf2 + sofar, size - sofar,
-				   "vdev (all) active=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d ldpc=%d stbc=%d\n",
-				   td->txo_active, td->tx_power,
-				   td->tx_rate_sgi, td->tx_rate_idx,
+				   "vdev (all) bf=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d ldpc=%d stbc=%d active=%d\n",
+				   td->beamforming, td->tx_power, td->tx_rate_sgi, td->tx_rate_idx,
 				   td->tx_rate_nss, td->tx_rate_mode,
-				   td->tx_xmit_count, td->txbw, td->ldpc, td->stbc);
+				   td->tx_xmit_count, td->txbw, td->ldpc, td->stbc, td->txo_active);
 	else
 		sofar += scnprintf(buf2 + sofar, size - sofar,
 				   "No TXO values set.\n");
@@ -2077,8 +2076,8 @@ static ssize_t iwl_dbgfs_write_set_rate_override(struct file *file,
 	 * matches the name. (Well, ignore that for now actually.)
 	 */
 	bufptr = strstr(buf, " ");
-	if (bufptr)
-		bufptr++; /* move past space */
+	if (!bufptr)
+		bufptr = buf;
 
 #define IWLWIFI_PARSE_LTOK(a, b)						\
 	do {								\
@@ -2093,7 +2092,7 @@ static ssize_t iwl_dbgfs_write_set_rate_override(struct file *file,
 				*tspace = 0;				\
 			if (kstrtol(tmp, 0, &rc) != 0)			\
 				pr_info(				\
-					"mt7915: set-rate-override: " #a \
+					"iwlwifi: set-rate-override: " #a \
 					"= could not be parsed, tmp: %s\n", \
 					tmp);				\
 			else						\
@@ -2101,6 +2100,7 @@ static ssize_t iwl_dbgfs_write_set_rate_override(struct file *file,
 		}							\
 	} while (0)
 
+	IWLWIFI_PARSE_LTOK(bf, beamforming);
 	IWLWIFI_PARSE_LTOK(tpc, tx_power);
 	IWLWIFI_PARSE_LTOK(sgi, tx_rate_sgi);
 	IWLWIFI_PARSE_LTOK(mcs, tx_rate_idx);
@@ -2112,8 +2112,8 @@ static ssize_t iwl_dbgfs_write_set_rate_override(struct file *file,
 	IWLWIFI_PARSE_LTOK(stbc, stbc);
 	IWLWIFI_PARSE_LTOK(active, txo_active);
 
-	pr_info("iwlwifi: set-rate-overrides, active=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d ldpc=%d stbc=%d\n",
-		td->txo_active, td->tx_power, td->tx_rate_sgi, td->tx_rate_idx,
+	pr_info("iwlwifi: set-rate-overrides, active=%d bf=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d ldpc=%d stbc=%d\n",
+		td->txo_active, td->beamforming, td->tx_power, td->tx_rate_sgi, td->tx_rate_idx,
 		td->tx_rate_nss, td->tx_rate_mode, td->tx_xmit_count,
 		td->txbw, td->ldpc, td->stbc);
 
