@@ -677,6 +677,7 @@ static ssize_t mt7996_read_set_rate_override(struct file *file,
 		"cck-mcs: 0=1Mbps, 1=2Mbps, 3=5.5Mbps, 3=11Mbps\n"
 		"ofdm-mcs: 0=6Mbps, 1=9Mbps, 2=12Mbps, 3=18Mbps, 4=24Mbps, 5=36Mbps,"
 		" 6=48Mbps, 7=54Mbps\n"
+		"sgi: HT/VHT: 0 | 1, HE 0: 1xLTF+0.8us, 1: 2xLTF+0.8us, 2: 2xLTF+1.6us, 3: 4xLTF+3.2us, 4: 4xLTF+0.8us\n"
 		"tpc: adjust power from defaults, in 1/2 db units 0 - 31, 16 is default\n"
 		"bw is 0-3 for 20-160\n"
 		"stbc: 0 off, 1 on\n"
@@ -822,11 +823,35 @@ static ssize_t mt7996_write_set_rate_override(struct file *file,
 				MT7996_PARSE_LTOK(ldpc, tx_rate_ldpc);
 				MT7996_PARSE_LTOK(stbc, tx_rate_stbc);
 
+				/* To match Intel's API
+				 * HE 0: 1xLTF+0.8us, 1: 2xLTF+0.8us, 2: 2xLTF+1.6us, 3: 4xLTF+3.2us, 4: 4xLTF+0.8us
+				 */
+				if (td->tx_rate_mode >= 4) {
+					if (td->tx_rate_sgi == 0) {
+						td->tx_rate_sgi = 0;
+						td->tx_ltf = 0;
+					} else if (td->tx_rate_sgi == 1) {
+						td->tx_rate_sgi = 0;
+						td->tx_ltf = 1;
+					} else if (td->tx_rate_sgi == 2) {
+						td->tx_rate_sgi = 1;
+						td->tx_ltf = 1;
+					} else if (td->tx_rate_sgi == 3) {
+						td->tx_rate_sgi = 2;
+						td->tx_ltf = 2;
+					}
+					else {
+						td->tx_rate_sgi = 0;
+						td->tx_ltf = 2;
+					}
+				}
+				//td->tx_ltf = 1; /* 0: HTLTF 3.2us, 1: HELTF, 6.4us, 2 HELTF 12,8us */
+
 				dev_info(dev->mt76.dev,
-					 "mt7996: set-rate-overrides, vdev %i(%s) active=%d tpc=%d sgi=%d mcs=%d"
+					 "mt7996: set-rate-overrides, vdev %i(%s) active=%d tpc=%d sgi=%d ltf=%d mcs=%d"
 					 " nss=%d pream=%d retries=%d dynbw=%d bw=%d ldpc=%d stbc=%d\n",
 					 vdev_id, dev_name_match,
-					 td->txo_active, td->tx_power[0], td->tx_rate_sgi, td->tx_rate_idx,
+					 td->txo_active, td->tx_power[0], td->tx_rate_sgi, td->tx_ltf, td->tx_rate_idx,
 					 td->tx_rate_nss, td->tx_rate_mode, td->tx_xmit_count, td->tx_dynbw,
 					 td->txbw, td->tx_rate_ldpc, td->tx_rate_stbc);
 			}
