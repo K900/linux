@@ -2243,7 +2243,8 @@ static void iwl_mvm_tx_reclaim(struct iwl_mvm *mvm, int sta_id, int tid,
 	 */
 	iwl_trans_reclaim(mvm->trans, txq, index, &reclaimed_skbs, is_flush);
 
-	mvmsta = iwl_mvm_sta_from_mac80211(sta);
+	if (!IS_ERR(sta))
+		mvmsta = iwl_mvm_sta_from_mac80211(sta);
 
 	skb_queue_walk(&reclaimed_skbs, skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
