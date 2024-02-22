@@ -1891,7 +1891,19 @@ static void iwl_mvm_rx_he(struct iwl_mvm *mvm, struct sk_buff *skb,
 		rx_status->he_ru = NL80211_RATE_INFO_HE_RU_ALLOC_106;
 		mvm->ethtool_stats.rx_bw_he_ru++;
 	} else {
-		mvm->ethtool_stats.rx_bw[rx_status->bw]++;
+		switch (rx_status->bw) {
+		case RATE_INFO_BW_40:
+			mvm->ethtool_stats.rx_bw[1]++;
+			break;
+		case RATE_INFO_BW_80:
+			mvm->ethtool_stats.rx_bw[2]++;
+			break;
+		case RATE_INFO_BW_160:
+			mvm->ethtool_stats.rx_bw[3]++;
+			break;
+		default:
+			mvm->ethtool_stats.rx_bw[0]++;
+		}
 	}
 	mvm->ethtool_stats.rx_he_type[he_type >> RATE_MCS_HE_TYPE_POS]++;
 
@@ -2129,6 +2141,8 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 	switch (format) {
 	case RATE_MCS_MOD_TYPE_VHT:
 		rx_status->encoding = RX_ENC_VHT;
+		/* HE and EHT account for rx_bw in their own decode,
+		 * so we just set VHT and HT in this method. */
 		mvm->ethtool_stats.rx_bw[bw_idx]++;
 		break;
 	case RATE_MCS_MOD_TYPE_HE:

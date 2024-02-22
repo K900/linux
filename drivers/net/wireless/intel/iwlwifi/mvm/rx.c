@@ -534,19 +534,21 @@ void iwl_mvm_rx_rx_mpdu(struct iwl_mvm *mvm, struct napi_struct *napi,
 	/* Set up the HT phy flags */
 	switch (rate_n_flags & RATE_MCS_CHAN_WIDTH_MSK_V1) {
 	case RATE_MCS_CHAN_WIDTH_20:
+		mvm->ethtool_stats.rx_bw[0]++;
 		break;
 	case RATE_MCS_CHAN_WIDTH_40:
 		rx_status->bw = RATE_INFO_BW_40;
+		mvm->ethtool_stats.rx_bw[1]++;
 		break;
 	case RATE_MCS_CHAN_WIDTH_80:
 		rx_status->bw = RATE_INFO_BW_80;
+		mvm->ethtool_stats.rx_bw[2]++;
 		break;
 	case RATE_MCS_CHAN_WIDTH_160:
 		rx_status->bw = RATE_INFO_BW_160;
+		mvm->ethtool_stats.rx_bw[3]++;
 		break;
 	}
-	mvm->ethtool_stats.rx_bw[(rate_n_flags & RATE_MCS_CHAN_WIDTH_MSK_V1)
-				 >> RATE_MCS_CHAN_WIDTH_POS]++;
 
 	if (!(rate_n_flags & RATE_MCS_CCK_MSK_V1) &&
 	    rate_n_flags & RATE_MCS_SGI_MSK_V1)
