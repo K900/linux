@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 /* Copyright (C) 2020 MediaTek Inc. */
 
+#include <linux/of.h>
 #include <linux/firmware.h>
 #include <linux/moduleparam.h>
 #include "mt7915.h"
@@ -28,6 +29,20 @@ static int mt7915_eeprom_load_precal(struct mt7915_dev *dev)
 		return -ENOMEM;
 
 	offs = is_mt7915(&dev->mt76) ? MT_EE_PRECAL : MT_EE_PRECAL_V2;
+
+#if defined(CONFIG_OF)
+	{
+		u32 dts_offset;
+		struct device_node *np = mdev->dev->of_node;
+
+		if (np && of_property_read_u32(np, "mediatek,eeprom-file-offset", &dts_offset) == 0) {
+			dev_warn(dev->mt76.dev, "pre-cal offset=0x%x dts offset=0x%x size=0x%x\n",
+					offs, dts_offset, val);
+
+			return mt76_get_of_data_from_file(mdev, dev->cal, (offs + dts_offset), val);
+		}
+	}
+#endif
 
 	ret = mt76_get_of_data_from_mtd(mdev, dev->cal, offs, size);
 	if (!ret)
