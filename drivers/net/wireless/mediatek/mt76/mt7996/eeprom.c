@@ -169,9 +169,13 @@ static int mt7996_eeprom_load(struct mt7996_dev *dev)
 	bool use_default = false;
 	int ret, i;
 
+	mtk_dbg(&dev->mt76, CFG, "attemping eeprom-init.\n");
+
 	ret = mt76_eeprom_init(&dev->mt76, MT7996_EEPROM_SIZE);
-	if (ret < 0)
+	if (ret < 0) {
+		mtk_dbg(&dev->mt76, CFG, "eeprom-init had error: %d\n", ret);
 		return ret;
+	}
 
 	if (ret && !mt7996_check_eeprom(dev)) {
 		dev->eeprom_mode = EEPROM_MODE_FLASH;

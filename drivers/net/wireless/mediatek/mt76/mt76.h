@@ -930,6 +930,7 @@ struct mt76_dev {
 	spinlock_t cc_lock;
 
 	u32 cur_cc_bss_rx;
+	u32 debug_lvl;
 
 	struct mt76_rx_status rx_ampdu_status;
 	u32 rx_ampdu_len;
@@ -1134,6 +1135,23 @@ struct mt76_mib_stats {
 	u32 ul_hetrig_3mu_cnt;
 	u32 ul_hetrig_4mu_cnt;
 };
+
+enum MTK_DEUBG {
+	MTK_DEBUG_TX		= 0x00000001, /* tx path */
+	MTK_DEBUG_TXV		= 0x00000002, /* verbose tx path */
+	MTK_DEBUG_FATAL		= 0x00000004,
+	MTK_DEBUG_WRN		= 0x00000008,
+	MTK_DEBUG_MSG		= 0x00000010, /* messages to/from firmware */
+	MTK_DEBUG_CFG		= 0x00000020, /* Configuration related */
+	MTK_DEBUG_ANY		= 0xffffffff
+};
+
+#define mtk_dbg(mt76, dbg_mask, fmt, ...)				\
+	do {								\
+		if ((mt76)->debug_lvl & MTK_DEBUG_##dbg_mask)		\
+			dev_info((mt76)->dev, fmt, ##__VA_ARGS__); \
+	} while (0)
+
 
 struct mt76_power_limits {
 	s8 cck[4];
