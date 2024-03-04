@@ -7,6 +7,19 @@
 #include "mcu.h"
 #include "mac.h"
 
+u32 debug_lvl = MTK_DEBUG_FATAL | MTK_DEBUG_WRN;
+module_param(debug_lvl, uint, 0644);
+MODULE_PARM_DESC(debug_lvl,
+		 "Enable debugging messages\n"
+		 "0x00001	tx path\n"
+		 "0x00002	tx path verbose\n"
+		 "0x00004	fatal/very-important messages\n"
+		 "0x00008	warning messages\n"
+		 "0x00010	Info about messages to/from firmware\n"
+		 "0x00020	Configuration logs.\n"
+		 "0xffffffff	any/all\n"
+	);
+
 int mt7996_run(struct mt7996_phy *phy)
 {
 	struct mt7996_dev *dev = phy->dev;
@@ -654,8 +667,11 @@ int mt7996_set_channel(struct mt76_phy *mphy)
 		goto out;
 
 	ret = mt7996_mcu_set_txpower_sku(phy);
-	if (ret)
+	if (ret) {
+		mtk_dbg(mphy->dev, CFG, "mcu-parse-response, firmware returned failure code: 0x%x.\n",
+			ret);
 		goto out;
+	}
 
 	ret = mt7996_dfs_init_radar_detector(phy);
 	mt7996_mac_cca_stats_reset(phy);
