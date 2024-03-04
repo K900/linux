@@ -254,6 +254,10 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		/* skip invalid event */
 		if (mcu_cmd != le16_to_cpu(event->cid))
 			ret = -EAGAIN;
+		if (ret) {
+			mtk_dbg(mdev, CFG, "mcu-parse-response, firmware returned failure code: 0x%x.\n",
+				ret);
+		}
 	} else {
 		skb_pull(skb, sizeof(struct mt7996_mcu_rxd));
 	}
