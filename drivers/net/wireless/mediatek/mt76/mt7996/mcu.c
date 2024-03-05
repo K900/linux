@@ -266,9 +266,16 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 
 	rxd = (struct mt7996_mcu_rxd *)skb->data;
 	if (seq != rxd->seq) {
-		dev_err(mdev->dev, "ERROR: MCU:  Sequence mismatch in response, seq: %d  rxd->seq: %d cmd: %0x\n",
-			seq, rxd->seq, cmd);
+		/* This can happen if the previous request didn't wait (which is normal).
+		 * Quietly return EAGAIN in that case, it is not something to warn about.
+		 */
 		return -EAGAIN;
+	} else {
+		/*
+		dev_info(mdev->dev, "NOTE: MCU:  Seq matched in response, seq: %d"
+			 "  rxd->seq: %d rxd->eid: %d rxd->ext_eid: %d rxd-option: 0x%x rxd->pkt-type-id: %d cmd: %0x\n",
+			 seq, rxd->seq, rxd->eid, rxd->ext_eid, rxd->option, rxd->pkt_type_id, cmd);
+		*/
 	}
 
 	if (cmd == MCU_CMD(PATCH_SEM_CONTROL)) {
@@ -280,8 +287,11 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		event = (struct mt7996_mcu_uni_event *)skb->data;
 		ret = le32_to_cpu(event->status);
 		/* skip invalid event */
-		if (mcu_cmd != le16_to_cpu(event->cid))
+		if (mcu_cmd != le16_to_cpu(event->cid)) {
+			dev_info(mdev->dev, "ERROR: MCU:  Seq matched in response, mcu-cmd did not, mcu-cmd: 0x%x cid: 0x%x status: %d\n",
+				 mcu_cmd, event->cid, ret);
 			ret = -EAGAIN;
+		}
 		if (ret) {
 			mtk_dbg(mdev, CFG, "mcu-parse-response, firmware returned failure code: 0x%x.\n",
 				ret);
@@ -329,6 +339,7 @@ mt7996_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 	enum mt76_mcuq_id qid;
 	__le32 *txd;
 	u32 val;
+	int ret;
 	u8 seq;
 
 	mt7996_mcu_set_timeout(mdev, cmd);
@@ -336,6 +347,9 @@ mt7996_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 	seq = ++dev->mt76.mcu.msg_seq & 0xf;
 	if (!seq)
 		seq = ++dev->mt76.mcu.msg_seq & 0xf;
+
+	//dev_info(mdev->dev, "mcu-send-message, msg_seq: %d  seq: %d cmd: 0x%x\n",
+	//	 dev->mt76.mcu.msg_seq, seq, cmd);
 
 	if (cmd == MCU_CMD(FW_SCATTER)) {
 		qid = MT_MCUQ_FWDL;
@@ -410,7 +424,11 @@ exit:
 	if (wait_seq)
 		*wait_seq = seq;
 
-	return mt76_tx_queue_skb_raw(dev, mdev->q_mcu[qid], skb, 0);
+	ret = mt76_tx_queue_skb_raw(dev, mdev->q_mcu[qid], skb, 0);
+	if (ret)
+		dev_info(mdev->dev, "ERROR: mcu-send-message, queue-skb-raw failed: %d  msg_seq: %d  seq: %d cmd: 0x%x\n",
+			 ret, dev->mt76.mcu.msg_seq, seq, cmd);
+	return ret;
 }
 
 int mt7996_mcu_wa_cmd(struct mt7996_dev *dev, int cmd, u32 a1, u32 a2, u32 a3)
