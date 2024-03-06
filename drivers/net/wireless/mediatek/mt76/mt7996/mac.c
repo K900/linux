@@ -502,12 +502,10 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 	u8 hw_aggr = false;
 	struct mt7996_sta *msta = NULL;
 	struct mt76_sta_stats *stats = NULL;
-	struct mt76_mib_stats *mib = &phy->mib;
+	struct mt76_mib_stats *mib;
 
 	hw_aggr = status->aggr;
 	memset(status, 0, sizeof(*status));
-
-	mib->rx_d_skb++;
 
 	band_idx = FIELD_GET(MT_RXD1_NORMAL_BAND_IDX, rxd1);
 	if (!mt7996_band_valid(dev, band_idx))
@@ -519,6 +517,9 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 
 	phy = mphy->priv;
 	status->phy_idx = mphy->band_idx;
+
+	mib = &phy->mib;
+	mib->rx_d_skb++;
 
 	if (!test_bit(MT76_STATE_RUNNING, &mphy->state))
 		return -EINVAL;
