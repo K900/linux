@@ -376,7 +376,7 @@ struct rockchip_clk_provider *rockchip_clk_init(struct device_node *np,
 		goto err_free;
 
 	for (i = 0; i < nr_clks; ++i)
-		clk_table[i] = ERR_PTR(-ENOENT);
+		clk_table[i] = ERR_PTR(-EPROBE_DEFER);
 
 	ctx->reg_base = base;
 	ctx->clk_data.clks = clk_table;
