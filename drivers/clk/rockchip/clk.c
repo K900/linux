@@ -19,8 +19,12 @@
 #include <linux/clk-provider.h>
 #include <linux/io.h>
 #include <linux/mfd/syscon.h>
+#include <linux/of_platform.h>
+#include <linux/pm_clock.h>
+#include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/reboot.h>
+#include <linux/platform_device.h>
 
 #include "../clk-fractional-divider.h"
 #include "clk.h"
@@ -446,6 +450,67 @@ unsigned long rockchip_clk_find_max_clk_id(struct rockchip_clk_branch *list,
 }
 EXPORT_SYMBOL_GPL(rockchip_clk_find_max_clk_id);
 
+static struct platform_device *rockchip_clk_register_pdev(
+		struct platform_device *parent,
+		int clk_id,
+		struct clk *linked_clk,
+		struct device_node *np)
+{
+	struct property_entry pdevprops[] = {
+		PROPERTY_ENTRY_STRING("linked-clk", __clk_get_name(linked_clk)),
+		{ }
+	};
+
+	struct platform_device_info pdevinfo = {
+		.parent = &parent->dev,
+		.name = "rockchip-gate-link-clk",
+		.id = clk_id,
+		.fwnode = of_fwnode_handle(np),
+		.of_node_reused = true,
+		.properties = pdevprops,
+	};
+
+	return platform_device_register_full(&pdevinfo);
+}
+
+static struct clk *rockchip_clk_register_linked_gate(
+	struct rockchip_clk_provider *ctx,
+	struct rockchip_clk_branch *clkbr)
+{
+	struct clk *linked_clk = ctx->clk_data.clks[clkbr->linked_clk_id];
+	unsigned long flags = clkbr->flags | CLK_SET_RATE_PARENT;
+	struct device_node *np = ctx->cru_node;
+	struct platform_device *parent, *pdev;
+	struct device *dev = NULL;
+	int ret;
+
+	parent = of_find_device_by_node(np);
+	if (!parent) {
+		pr_err("failed to find device for %pOF\n", np);
+		goto exit;
+	}
+
+	pdev = rockchip_clk_register_pdev(parent, clkbr->id, linked_clk, np);
+	put_device(&parent->dev);
+	if (!pdev) {
+		pr_err("failed to register device for clock %s\n", clkbr->name);
+		goto exit;
+	}
+	dev = &pdev->dev;
+
+	ret = device_attach(dev);
+	if (ret != 1) {
+		pr_err("failed to attach driver for %s\n", clkbr->name);
+	}
+
+exit:
+	return clk_register_gate(dev, clkbr->name,
+				 clkbr->parent_names[0], flags,
+				 ctx->reg_base + clkbr->gate_offset,
+				 clkbr->gate_shift, clkbr->gate_flags,
+				 &ctx->lock);
+}
+
 void rockchip_clk_register_branches(struct rockchip_clk_provider *ctx,
 				    struct rockchip_clk_branch *list,
 				    unsigned int nr_clk)
@@ -525,6 +590,9 @@ void rockchip_clk_register_branches(struct rockchip_clk_provider *ctx,
 				list->parent_names[0], flags,
 				ctx->reg_base + list->gate_offset,
 				list->gate_shift, list->gate_flags, &ctx->lock);
+			break;
+		case branch_linked_gate:
+			clk = rockchip_clk_register_linked_gate(ctx, list);
 			break;
 		case branch_composite:
 			clk = rockchip_clk_register_branch(list->name,
