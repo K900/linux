@@ -2073,6 +2073,11 @@ void mt76_ethtool_worker(struct mt76_ethtool_worker_info *wi,
 	data[ei++] += stats->rx_mode[MT_PHY_TYPE_HE_EXT_SU];
 	data[ei++] += stats->rx_mode[MT_PHY_TYPE_HE_TB];
 	data[ei++] += stats->rx_mode[MT_PHY_TYPE_HE_MU];
+	if (eht) {
+		data[ei++] += stats->rx_mode[MT_PHY_TYPE_EHT_SU];
+		data[ei++] += stats->rx_mode[MT_PHY_TYPE_EHT_TRIG];
+		data[ei++] += stats->rx_mode[MT_PHY_TYPE_EHT_MU];
+	}
 
 	data[ei++] += stats->rx_bw_20;
 	data[ei++] += stats->rx_bw_40;
