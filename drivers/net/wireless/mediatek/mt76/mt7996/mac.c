@@ -1084,9 +1084,13 @@ mt7996_mac_write_txwi_tm(struct mt7996_phy *phy, struct mt76_wcid *wcid, __le32 
 	txwi[1] |= cpu_to_le32(MT_TXD1_FIXED_RATE);
 
 	if (msta->deflink.test.txo_active) {
-		s8 txp = td->tx_power[0] - 16;
+		/* td->tx_power is in 1/2 db units, tx descriptor wants 1/4 db units.
+		 * So multiply by 2.  The range is -8 to +7.5.  We subtract 32 to
+		 * make it based on 0 starting point from user-space perspective.
+		 */
+		s8 txp = (td->tx_power[0] * 2) - 32;
 
-		/* Support per-skb txpower, p.15 of tx doc, DW2 29:24. */
+		/* Support per-skb txpower, 0.25db units.  DW2 31:26 */
 		le32p_replace_bits(&txwi[2], txp, MT_TXD2_POWER_OFFSET);
 
 		xmit_count = td->tx_xmit_count;
@@ -1101,10 +1105,11 @@ mt7996_mac_write_txwi_tm(struct mt7996_phy *phy, struct mt76_wcid *wcid, __le32 
 		txwi[3] |= cpu_to_le32(MT_TXD3_BA_DISABLE);
 
 	/* TODO:  Take tx_dynbw into account in txo mode. */
-	val = // TODO:  Port to 7996 MT_TXD6_FIXED_BW |
-	      FIELD_PREP(MT_TXD6_BW, bw) |
+	val = FIELD_PREP(MT_TXD6_BW, bw) |
 	      FIELD_PREP(MT_TXD6_TX_RATE, rateval);
-		// TODO:  FIXME | FIELD_PREP(MT_TXD6_SGI, td->tx_rate_sgi);
+	val |= cpu_to_le32(MT_TXD6_FIXED_BW); /* high bit of bw field */
+
+	// TODO:  FIXME | FIELD_PREP(MT_TXD6_SGI, td->tx_rate_sgi);
 
 	/* for HE_SU/HE_EXT_SU PPDU
 	 * - 1x, 2x, 4x LTF + 0.8us GI
