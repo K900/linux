@@ -322,7 +322,11 @@ static void iwl_mvm_get_signal_strength(struct iwl_mvm *mvm,
 			if (energy_b)
 				ewma_signal_add(&mvmsta->rx_avg_chain_signal[1], energy_b);
 		} else {
-			if (energy_a && (energy_a >= energy_b))
+			/* Here, energy_x is log(reference/signal), and so is the inverse
+			 * of what we typically expect when reading RSSI, hence this
+			 * comparison is done in an unexpected direction.
+			 */
+			if (energy_a && energy_a <= energy_b)
 				ewma_signal_add(&mvmsta->rx_avg_chain_signal[0], energy_a);
 			else if (energy_b)
 				ewma_signal_add(&mvmsta->rx_avg_chain_signal[1], energy_b);
@@ -2095,9 +2099,6 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 			my_beacon = true;
 	}
 
-	iwl_mvm_get_signal_strength(mvm, desc, hdr, rx_status, rate_n_flags, phy_data->energy_a,
-				    phy_data->energy_b, sta, is_beacon, my_beacon);
-
 	/* using TLV format and must be after all fixed len fields */
 	if (format == RATE_MCS_MOD_TYPE_EHT)
 		iwl_mvm_rx_eht(mvm, skb, phy_data, queue);
@@ -2189,6 +2190,9 @@ static void iwl_mvm_rx_fill_status(struct iwl_mvm *mvm,
 		break;
 		}
 	}
+
+	iwl_mvm_get_signal_strength(mvm, desc, hdr, rx_status, rate_n_flags, phy_data->energy_a,
+				    phy_data->energy_b, sta, is_beacon, my_beacon);
 
 	mvm->ethtool_stats.rx_mode[format >> RATE_MCS_MOD_TYPE_POS]++;
 	mvm->ethtool_stats.rx_nss[rx_status->nss - 1]++;
