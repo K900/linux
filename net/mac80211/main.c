@@ -831,8 +831,13 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 			    !ops->remove_chanctx ||
 			    !ops->change_chanctx ||
 			    !ops->assign_vif_chanctx ||
-			    !ops->unassign_vif_chanctx))
+			    !ops->unassign_vif_chanctx)) {
+			pr_err("ops->add_chanctx: %p  remove_chanctx: %p change_chanctx: %p  assign-vif-chanctx: %p  unassign-vif-chanctx: %p\n",
+			       ops->add_chanctx, ops->remove_chanctx,
+			       ops->change_chanctx, ops->assign_vif_chanctx,
+			       ops->unassign_vif_chanctx);
 			return NULL;
+		}
 		emulate_chanctx = false;
 	}
 
