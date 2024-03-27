@@ -271,8 +271,6 @@ mt7925_mac_fill_rx_rate(struct mt792x_dev *dev,
 	dcm = FIELD_GET(MT_PRXV_DCM, v2);
 	bw = FIELD_GET(MT_PRXV_FRAME_MODE, v2);
 
-	status->nss = nss;
-
 	switch (*mode) {
 	case MT_PHY_TYPE_CCK:
 		cck = true;
@@ -352,6 +350,8 @@ mt7925_mac_fill_rx_rate(struct mt792x_dev *dev,
 
 	switch (bw) {
 	case IEEE80211_STA_RX_BW_20:
+		if (stats)
+			stats->rx_bw_20++;
 		break;
 	case IEEE80211_STA_RX_BW_40:
 		if (*mode & MT_PHY_TYPE_HE_EXT_SU &&
@@ -359,15 +359,25 @@ mt7925_mac_fill_rx_rate(struct mt792x_dev *dev,
 			status->bw = RATE_INFO_BW_HE_RU;
 			status->he_ru =
 				NL80211_RATE_INFO_HE_RU_ALLOC_106;
+			if (stats) {
+				stats->rx_bw_he_ru++;
+				stats->rx_ru_106++;
+			}
 		} else {
 			status->bw = RATE_INFO_BW_40;
+			if (stats)
+				stats->rx_bw_40++;
 		}
 		break;
 	case IEEE80211_STA_RX_BW_80:
 		status->bw = RATE_INFO_BW_80;
+		if (stats)
+			stats->rx_bw_80++;
 		break;
 	case IEEE80211_STA_RX_BW_160:
 		status->bw = RATE_INFO_BW_160;
+		if (stats)
+			stats->rx_bw_160++;
 		break;
 	/* RXV can report 320 in two positions */
 	case IEEE80211_STA_RX_BW_320:
@@ -382,6 +392,17 @@ mt7925_mac_fill_rx_rate(struct mt792x_dev *dev,
 	status->enc_flags |= RX_ENC_FLAG_STBC_MASK * stbc;
 	if (*mode < MT_PHY_TYPE_HE_SU && gi)
 		status->enc_flags |= RX_ENC_FLAG_SHORT_GI;
+
+	/* in case stbc is set, the nss value returned by hardware is already
+	 * correct (ie, 2 instead of 1 for 1 spatial stream).  But, at least in cases
+	 * where we are configured for a single antenna, then the second chain RSSI is '17',
+	 * which I take to mean 'not set'.  To keep from adding this to the average rssi up in
+	 * mac80211 rx logic, decrease nss here.
+	 */
+	if (stbc)
+		nss >>= 1;
+
+	status->nss = nss;
 
 	return 0;
 }
