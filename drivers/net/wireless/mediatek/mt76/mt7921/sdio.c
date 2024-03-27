@@ -132,7 +132,8 @@ static int mt7921s_probe(struct sdio_func *func,
 	int ret;
 
 	ops = mt792x_get_mac80211_ops(&func->dev, &mt7921_ops,
-				      (void *)id->driver_data, &features, true);
+				      (void *)id->driver_data, &features,
+				      true, true);
 	if (!ops)
 		return -ENOMEM;
 
