@@ -801,10 +801,13 @@ mt7925_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 	txwi[4] = 0;
 
 	val = FIELD_PREP(MT_TXD5_PID, pid);
-	if (pid >= MT_PACKET_ID_FIRST) {
+	if (pid >= MT_PACKET_ID_FIRST ||
+	    (pid == MT_PACKET_ID_NO_SKB && dev->txs_for_no_skb_enabled)) {
 		val |= MT_TXD5_TX_STATUS_HOST;
-		txwi[3] |= cpu_to_le32(MT_TXD3_BA_DISABLE);
-		txwi[3] &= ~cpu_to_le32(MT_TXD3_HW_AMSDU);
+		if (pid != MT_PACKET_ID_NO_SKB) {
+			txwi[3] |= cpu_to_le32(MT_TXD3_BA_DISABLE);
+			txwi[3] &= ~cpu_to_le32(MT_TXD3_HW_AMSDU);
+		}
 	}
 
 	txwi[5] = cpu_to_le32(val);
@@ -904,7 +907,6 @@ mt7925_mac_add_txs_skb(struct mt792x_dev *dev, struct mt76_wcid *wcid,
 	struct ieee80211_supported_band *sband;
 	struct mt76_dev *mdev = &dev->mt76;
 	struct mt76_phy *mphy;
-	struct ieee80211_tx_info *info;
 	struct sk_buff_head list;
 	struct rate_info rate = {};
 	struct sk_buff *skb;
@@ -913,20 +915,22 @@ mt7925_mac_add_txs_skb(struct mt792x_dev *dev, struct mt76_wcid *wcid,
 
 	mt76_tx_status_lock(mdev, &list);
 	skb = mt76_tx_status_skb_get(mdev, wcid, pid, &list);
-	if (!skb)
-		goto out_no_skb;
 
 	txs = le32_to_cpu(txs_data[0]);
 
-	info = IEEE80211_SKB_CB(skb);
-	if (!(txs & MT_TXS0_ACK_ERROR_MASK))
-		info->flags |= IEEE80211_TX_STAT_ACK;
+	if (skb) {
+		struct ieee80211_tx_info *info;
 
-	info->status.ampdu_len = 1;
-	info->status.ampdu_ack_len = !!(info->flags &
-					IEEE80211_TX_STAT_ACK);
+		info = IEEE80211_SKB_CB(skb);
+		if (!(txs & MT_TXS0_ACK_ERROR_MASK))
+			info->flags |= IEEE80211_TX_STAT_ACK;
 
-	info->status.rates[0].idx = -1;
+		info->status.ampdu_len = 1;
+		info->status.ampdu_ack_len = !!(info->flags &
+						IEEE80211_TX_STAT_ACK);
+
+		info->status.rates[0].idx = -1;
+	}
 
 	txrate = FIELD_GET(MT_TXS0_TX_RATE, txs);
 
@@ -1026,9 +1030,9 @@ mt7925_mac_add_txs_skb(struct mt792x_dev *dev, struct mt76_wcid *wcid,
 	wcid->rate = rate;
 
 out:
-	mt76_tx_status_skb_done(mdev, skb, &list);
+	if (skb)
+		mt76_tx_status_skb_done(mdev, skb, &list);
 
-out_no_skb:
 	mt76_tx_status_unlock(mdev, &list);
 
 	return !!skb;
@@ -1048,7 +1052,7 @@ void mt7925_mac_add_txs(struct mt792x_dev *dev, void *data)
 	wcidx = le32_get_bits(txs_data[2], MT_TXS2_WCID);
 	pid = le32_get_bits(txs_data[3], MT_TXS3_PID);
 
-	if (pid < MT_PACKET_ID_FIRST)
+	if (pid < MT_PACKET_ID_NO_SKB)
 		return;
 
 	if (wcidx >= MT792x_WTBL_SIZE)
