@@ -31,7 +31,7 @@ properties:
 
   clocks:
     minItems: 2
-    maxItems: 5
+    maxItems: 10
     items:
       - description: The bus clock for either AHB and APB
       - description: The internal register configuration clock
@@ -39,14 +39,12 @@ properties:
 
   clock-names:
     minItems: 2
-    maxItems: 5
-    items:
-      - const: iahb
-      - const: isfr
+    maxItems: 10
     additionalItems: true
 
   interrupts:
-    maxItems: 1
+    minItems: 1
+    maxItems: 5
 
 additionalProperties: true
 
