@@ -467,7 +467,7 @@ struct ieee80211_ops *
 mt792x_get_mac80211_ops(struct device *dev,
 			const struct ieee80211_ops *mac80211_ops,
 			void *drv_data, u8 *fw_features,
-			bool can_disable_fw_cap_cnm);
+			bool can_disable_fw_cap_cnm, bool reassign_ops);
 int mt792x_init_wcid(struct mt792x_dev *dev);
 int mt792x_mcu_drv_pmctrl(struct mt792x_dev *dev);
 int mt792x_mcu_fw_pmctrl(struct mt792x_dev *dev);
