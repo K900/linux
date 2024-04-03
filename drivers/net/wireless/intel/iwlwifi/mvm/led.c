@@ -55,6 +55,8 @@ int iwl_mvm_leds_init(struct iwl_mvm *mvm)
 	int mode = iwlwifi_mod_params.led_mode;
 	int ret;
 
+	return 0; /* disabled */
+
 	switch (mode) {
 	case IWL_LED_BLINK:
 		IWL_ERR(mvm, "Blink led mode not supported, used default\n");
