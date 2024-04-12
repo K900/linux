@@ -2585,6 +2585,26 @@ static void sta_stats_decode_rate(struct ieee80211_local *local, u32 rate,
 		int band = STA_STATS_GET(LEGACY_BAND, rate);
 		int rate_idx = STA_STATS_GET(LEGACY_IDX, rate);
 
+		/* Note: band and rate_idx take values from wifi packets that are not bounds checked.
+		         So, do some checks here.
+		   TODO: We wish to Range check rate_idx but not sure here what to check it against.  */
+		if (band >= NUM_NL80211_BANDS) {
+			pr_info("ERROR: band index out of range: rate=%d 0x%x, band=%d, rate_idx=%d\n",
+				rate, rate,
+				band,
+				rate_idx);
+			break;
+		}
+
+		sband = local->hw.wiphy->bands[band];
+		if (!sband) {
+			pr_info("ERROR: sband is NULL: rate=%d 0x%x, band=%d, rate_idx=%d\n",
+				rate, rate,
+				band,
+				rate_idx);
+			break;
+		}
+
 		sband = local->hw.wiphy->bands[band];
 
 		if (WARN_ON_ONCE(!sband->bitrates))
