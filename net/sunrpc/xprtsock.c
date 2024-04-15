@@ -1757,6 +1757,22 @@ static void xs_set_port(struct rpc_xprt *xprt, unsigned short port)
 	xs_update_peer_port(xprt);
 }
 
+static bool xs_is_anyaddr(const struct sockaddr *sap) {
+	switch (sap->sa_family) {
+	case AF_LOCAL:
+		return true;
+	case AF_INET:
+		return ((struct sockaddr_in *)sap)->sin_addr.s_addr == htonl(INADDR_ANY);
+	case AF_INET6:
+		return !memcmp(&((struct sockaddr_in6 *)sap)->sin6_addr, &in6addr_any,
+		               sizeof(struct in6_addr));
+	default:
+		dprintk("RPC:       %s: Bad address family %d\n", __func__, sap->sa_family);
+	}
+
+	return false;
+}
+
 static void xs_reset_srcport(struct sock_xprt *transport)
 {
 	transport->srcport = 0;
@@ -1839,8 +1855,11 @@ static int xs_bind(struct sock_xprt *transport, struct socket *sock)
 	 * transport->xprt.resvport == 1) xs_get_srcport above will
 	 * ensure that port is non-zero and we will bind as needed.
 	 */
-	if (port <= 0)
+	if (port <= 0 && xs_is_anyaddr((struct sockaddr *)&transport->srcaddr)) {
+		dprintk("RPC:       %s: Deferring bind to invalid or ephemeral port: %d\n",
+		        __func__, port);
 		return port;
+	}
 
 	memcpy(&myaddr, &transport->srcaddr, transport->xprt.addrlen);
 	do {
