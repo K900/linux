@@ -1757,7 +1757,8 @@ static void xs_set_port(struct rpc_xprt *xprt, unsigned short port)
 	xs_update_peer_port(xprt);
 }
 
-static bool xs_is_anyaddr(const struct sockaddr *sap) {
+static bool xs_is_anyaddr(const struct sockaddr *sap)
+{
 	switch (sap->sa_family) {
 	case AF_LOCAL:
 		return true;
@@ -1765,7 +1766,7 @@ static bool xs_is_anyaddr(const struct sockaddr *sap) {
 		return ((struct sockaddr_in *)sap)->sin_addr.s_addr == htonl(INADDR_ANY);
 	case AF_INET6:
 		return !memcmp(&((struct sockaddr_in6 *)sap)->sin6_addr, &in6addr_any,
-		               sizeof(struct in6_addr));
+			       sizeof(struct in6_addr));
 	default:
 		dprintk("RPC:       %s: Bad address family %d\n", __func__, sap->sa_family);
 	}
