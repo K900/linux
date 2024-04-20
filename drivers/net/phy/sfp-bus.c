@@ -310,7 +310,7 @@ static void sfp_module_parse_support(struct sfp_bus *bus,
 		}
 	}
 
-	phylink_set(modes, Autoneg);
+	phylink_clear(modes, Autoneg);
 	phylink_set(modes, Pause);
 	phylink_set(modes, Asym_Pause);
 }
