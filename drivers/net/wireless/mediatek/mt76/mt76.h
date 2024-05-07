@@ -1279,12 +1279,20 @@ enum MTK_DEUBG {
 	MTK_DEBUG_BA		= 0x00000040, /* block-ack and aggregation related */
 	MTK_DEBUG_RXV		= 0x00000080, /* verbose rx path */
 	MTK_DEBUG_MCU_DUMP	= 0x00000100, /* Last n messages to MCU when something goes wrong */
+	MT76_DBG_MLD	 	= 0x00000200, /* MLD related, upstream format */
 	MTK_DEBUG_ANY		= 0xffffffff
 };
 
 #define mtk_dbg(mt76, dbg_mask, fmt, ...)				\
 	do {								\
 		if ((mt76)->debug_lvl & MTK_DEBUG_##dbg_mask)		\
+			dev_info((mt76)->dev, fmt, ##__VA_ARGS__); \
+	} while (0)
+
+/* For compat with out-of-tree mtk patches */
+#define mt76_dbg(mt76, dbg_mask, fmt, ...)				\
+	do {								\
+		if ((mt76)->debug_lvl & dbg_mask)		\
 			dev_info((mt76)->dev, fmt, ##__VA_ARGS__); \
 	} while (0)
 
