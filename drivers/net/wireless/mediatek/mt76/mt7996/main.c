@@ -1189,7 +1189,7 @@ mt7996_mac_sta_init_link(struct mt7996_dev *dev,
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
 	struct mt7996_phy *phy = mt7996_vif_link_phy(link);
 	struct mt7996_sta_link *msta_link;
-	int idx;
+	int idx, ret = 0;
 
 	if (!phy)
 		return -EINVAL;
@@ -1235,10 +1235,17 @@ mt7996_mac_sta_init_link(struct mt7996_dev *dev,
 	mt7996_mcu_add_sta(dev, link_conf, link_sta, link, msta_link,
 			   CONN_STATE_DISCONNECT, true);
 
+	if (link_sta->eht_cap.has_eht && link_conf->vif->type == NL80211_IFTYPE_STATION) {
+		ret = mt7996_mcu_set_pp_sta_dscb(phy, &link_conf->chanreq.oper, link->mt76.omac_idx);
+		if (ret)
+			goto error;
+	}
+
 	rcu_assign_pointer(dev->mt76.wcid[idx], &msta_link->wcid);
 	mt76_wcid_init(&msta_link->wcid, phy->mt76->band_idx);
 
-	return 0;
+error:
+	return ret;
 }
 
 void mt7996_mac_sta_remove_link(struct mt7996_dev *dev,
