@@ -1237,6 +1237,7 @@ enum {
 
 enum {
 	UNI_CMD_PP_EN_CTRL,
+	UNI_CMD_PP_DSCB_CTRL,
 };
 
 enum pp_mode {
@@ -1244,6 +1245,39 @@ enum pp_mode {
 	PP_FW_MODE,
 	PP_USR_MODE,
 };
+
+enum {
+	UNI_EVENT_PP_TAG_ALG_CTRL = 1,
+	UNI_EVENT_STATIC_PP_TAG_DSCB_IE,
+	UNI_EVENT_STATIC_PP_TAG_CSA_DSCB_IE,
+	UNI_EVENT_PP_SHOW_INFO,
+};
+
+struct mt7996_mcu_pp_basic_event {
+	struct mt7996_mcu_rxd rxd;
+
+	u8 __rsv1[4];
+
+	__le16 tag;
+	__le16 len;
+	u8 band_idx;
+	u8 __rsv2[3];
+} __packed;
+
+struct mt7996_mcu_pp_dscb_event {
+	struct mt7996_mcu_rxd rxd;
+
+	u8 __rsv1[4];
+
+	__le16 tag;
+	__le16 len;
+	u8 band_idx;
+	u8 omac_idx;
+	u8 new_dscb;
+	u8 __rsv2;
+	__le16 punct_bitmap;
+	u8 __rsv3[2];
+} __packed;
 
 enum {
 	UNI_CMD_SCS_SEND_DATA,
