@@ -958,6 +958,39 @@ mt7996_mcu_wed_rro_event(struct mt7996_dev *dev, struct sk_buff *skb)
 }
 
 static void
+mt7996_dump_pp_statistic_event(struct mt7996_dev *dev,
+			       struct mt7996_mcu_pp_alg_ctrl_event *event)
+{
+	u32 unit_time = le32_to_cpu(event->pp_timer_intv);
+
+	dev_info(dev->mt76.dev, "band idx = %u\n", le32_to_cpu(event->band_idx));
+	dev_info(dev->mt76.dev, "x2 value = %u\n", le32_to_cpu(event->thr_x2_value));
+	dev_info(dev->mt76.dev, "x2 shift = %u\n", le32_to_cpu(event->thr_x2_shift));
+	dev_info(dev->mt76.dev, "x3 value = %u\n", le32_to_cpu(event->thr_x3_value));
+	dev_info(dev->mt76.dev, "x3 shift = %u\n", le32_to_cpu(event->thr_x3_shift));
+	dev_info(dev->mt76.dev, "x4 value = %u\n", le32_to_cpu(event->thr_x4_value));
+	dev_info(dev->mt76.dev, "x4 shift = %u\n", le32_to_cpu(event->thr_x4_shift));
+	dev_info(dev->mt76.dev, "x5 value = %u\n", le32_to_cpu(event->thr_x5_value));
+	dev_info(dev->mt76.dev, "x5 shift = %u\n", le32_to_cpu(event->thr_x5_shift));
+	dev_info(dev->mt76.dev, "x6 value = %u\n", le32_to_cpu(event->thr_x6_value));
+	dev_info(dev->mt76.dev, "x6 shift = %u\n", le32_to_cpu(event->thr_x6_shift));
+	dev_info(dev->mt76.dev, "x7 value = %u\n", le32_to_cpu(event->thr_x7_value));
+	dev_info(dev->mt76.dev, "x7 shift = %u\n", le32_to_cpu(event->thr_x7_shift));
+	dev_info(dev->mt76.dev, "x8 value = %u\n", le32_to_cpu(event->thr_x8_value));
+	dev_info(dev->mt76.dev, "x8 shift = %u\n", le32_to_cpu(event->thr_x8_shift));
+	dev_info(dev->mt76.dev, "sw_pp_time = %u (Unit: %u ms)\n",
+		 le32_to_cpu(event->sw_pp_time), unit_time);
+	dev_info(dev->mt76.dev, "hw_pp_time = %u (Unit: %u ms)\n",
+		 le32_to_cpu(event->hw_pp_time), unit_time);
+	dev_info(dev->mt76.dev, "no_pp_time = %u (Unit: %u ms)\n",
+		 le32_to_cpu(event->no_pp_time), unit_time);
+	dev_info(dev->mt76.dev, "auto_bw_time = %u (Unit: %u ms)\n",
+		 le32_to_cpu(event->auto_bw_time), unit_time);
+	dev_info(dev->mt76.dev, "punct_bitmap = 0x%04x\n",
+		 le16_to_cpu(event->punct_bitmap));
+}
+
+static void
 mt7996_mcu_pp_event(struct mt7996_dev *dev, struct sk_buff *skb)
 {
 	struct mt7996_mcu_pp_basic_event *event;
@@ -983,9 +1016,15 @@ mt7996_mcu_pp_event(struct mt7996_dev *dev, struct sk_buff *skb)
 		if (phy->punct_bitmap == report_bitmap)
 			return;
 
-		if (phy->pp_mode == PP_FW_MODE)
+		if (phy->pp_mode == PP_FW_MODE) {
 			phy->punct_bitmap = report_bitmap;
-
+			/* TODO:  Consider enabling this?
+			mt7996_vendor_pp_bitmap_update(phy, report_bitmap);
+			*/
+		}
+		break;
+	case UNI_EVENT_PP_TAG_ALG_CTRL:
+		mt7996_dump_pp_statistic_event(dev, (struct mt7996_mcu_pp_alg_ctrl_event *)event);
 		break;
 	}
 }
@@ -6126,6 +6165,35 @@ int mt7996_mcu_set_scs(struct mt7996_phy *phy, u8 enable)
 		ieee80211_queue_delayed_work(mt76_hw(dev), &dev->scs_work, HZ);
 
 	return mt76_mcu_send_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(SCS),
+				 &req, sizeof(req), false);
+}
+
+int mt7996_mcu_set_pp_alg_ctrl(struct mt7996_phy *phy, u8 action)
+{
+	struct mt7996_dev *dev = phy->dev;
+	struct {
+		u8 _rsv1[4];
+
+		__le16 tag;
+		__le16 len;
+
+		__le32 pp_timer_intv;
+		__le32 rsv2[14];
+		u8 band_idx;
+		u8 pp_action;
+		u8 reset;
+		u8 _rsv3;
+	} __packed req = {
+		.tag = cpu_to_le16(UNI_CMD_PP_ALG_CTRL),
+		.len = cpu_to_le16(sizeof(req) - 4),
+
+		.pp_timer_intv = action == PP_ALG_SET_TIMER ? 2000 : 0,
+		.band_idx = phy->mt76->band_idx,
+		.pp_action = action,
+		.reset = 0,
+	};
+
+	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(PP),
 				 &req, sizeof(req), false);
 }
 

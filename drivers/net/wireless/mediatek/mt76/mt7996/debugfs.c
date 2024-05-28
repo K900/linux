@@ -1768,6 +1768,18 @@ mt7996_sr_scene_cond_show(struct seq_file *file, void *data)
 }
 DEFINE_SHOW_ATTRIBUTE(mt7996_sr_scene_cond);
 
+static int mt7996_pp_alg_show(struct seq_file *s, void *data)
+{
+	struct mt7996_phy *phy = s->private;
+	struct mt7996_dev *dev = phy->dev;
+
+	dev_info(dev->mt76.dev, "pp_mode = %d\n", phy->pp_mode);
+	mt7996_mcu_set_pp_alg_ctrl(phy, PP_ALG_GET_STATISTICS);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(mt7996_pp_alg);
+
 int mt7996_init_debugfs(struct mt7996_dev *dev)
 {
 	struct dentry *dir;
@@ -1814,6 +1826,8 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 
 	debugfs_create_bool("mgmt_pwr_enhance", 0600, dir, &dev->mt76.mgmt_pwr_enhance);
 	debugfs_create_file("scs_enable", 0200, dir, phy, &fops_scs_enable);
+
+	debugfs_create_file("pp_alg", 0200, dir, phy, &mt7996_pp_alg_fops);
 
 	debugfs_create_u32("dfs_hw_pattern", 0400, dir, &dev->hw_pattern);
 	debugfs_create_file("radar_trigger", 0200, dir, dev,
