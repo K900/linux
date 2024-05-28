@@ -1237,6 +1237,7 @@ enum {
 
 enum {
 	UNI_CMD_PP_EN_CTRL,
+	UNI_CMD_PP_ALG_CTRL,
 	UNI_CMD_PP_DSCB_CTRL,
 };
 
@@ -1244,6 +1245,11 @@ enum pp_mode {
 	PP_DISABLE = 0,
 	PP_FW_MODE,
 	PP_USR_MODE,
+};
+
+enum pp_alg_action {
+	PP_ALG_SET_TIMER,
+	PP_ALG_GET_STATISTICS = 2,
 };
 
 enum {
@@ -1277,6 +1283,38 @@ struct mt7996_mcu_pp_dscb_event {
 	u8 __rsv2;
 	__le16 punct_bitmap;
 	u8 __rsv3[2];
+} __packed;
+
+struct mt7996_mcu_pp_alg_ctrl_event {
+	struct mt7996_mcu_rxd rxd;
+
+	u8 __rsv1[4];
+
+	__le16 tag;
+	__le16 len;
+
+	__le32 pp_timer_intv;
+	__le32 thr_x2_value;
+	__le32 thr_x2_shift;
+	__le32 thr_x3_value;
+	__le32 thr_x3_shift;
+	__le32 thr_x4_value;
+	__le32 thr_x4_shift;
+	__le32 thr_x5_value;
+	__le32 thr_x5_shift;
+	__le32 thr_x6_value;
+	__le32 thr_x6_shift;
+	__le32 thr_x7_value;
+	__le32 thr_x7_shift;
+	__le32 thr_x8_value;
+	__le32 thr_x8_shift;
+	__le32 sw_pp_time;
+	__le32 hw_pp_time;
+	__le32 no_pp_time;
+	__le32 auto_bw_time;
+	u8 band_idx;
+	u8 __rsv2;
+	__le16 punct_bitmap;
 } __packed;
 
 enum {
