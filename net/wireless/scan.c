@@ -1067,8 +1067,8 @@ skip:
 		return err;
 	}
 
-	pr_err("cfg80211-scan-6ghz, n-channels is 0, flags: 0x%x  need_scan_psc: %d req-n-channels: %d\n",
-	       request->req.flags, need_scan_psc, rdev_req->req.n_channels);
+	//pr_err("cfg80211-scan-6ghz, n-channels is 0, flags: 0x%x  need_scan_psc: %d req-n-channels: %d\n",
+	//       request->req.flags, need_scan_psc, rdev_req->req.n_channels);
 	kfree(request);
 	return -EINVAL;
 }
