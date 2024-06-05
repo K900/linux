@@ -1,0 +1,35 @@
+diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-trans.c b/drivers/net/wireless/intel/iwlwifi/iwl-trans.c
+index f95098c21c7d..52ec5292d706 100644
+--- a/drivers/net/wireless/intel/iwlwifi/iwl-trans.c
++++ b/drivers/net/wireless/intel/iwlwifi/iwl-trans.c
+@@ -146,6 +146,7 @@ void iwl_trans_free(struct iwl_trans *trans)
+ int iwl_trans_send_cmd(struct iwl_trans *trans, struct iwl_host_cmd *cmd)
+ {
+	int ret;
++	unsigned long start_jiffies;
+
+	if (unlikely(!(cmd->flags & CMD_SEND_IN_RFKILL) &&
+		     test_bit(STATUS_RFKILL_OPMODE, &trans->status)))
+@@ -172,6 +173,7 @@ int iwl_trans_send_cmd(struct iwl_trans *trans, struct iwl_host_cmd *cmd)
+		return -EIO;
+	}
+
++	start_jiffies = jiffies;
+	if (!(cmd->flags & CMD_ASYNC))
+		lock_map_acquire_read(&trans->sync_cmd_lockdep_map);
+
+@@ -184,6 +186,14 @@ int iwl_trans_send_cmd(struct iwl_trans *trans, struct iwl_host_cmd *cmd)
+
+	if (!(cmd->flags & CMD_ASYNC))
+		lock_map_release(&trans->sync_cmd_lockdep_map);
++	if (time_is_before_jiffies(start_jiffies + 2)) {
++		/* been more than 2 jiffies, report what and how long */
++		IWL_INFO(trans, "txq-send-hcmd took: %lu jiffies, cmd-id: %d\n",
++			 jiffies - start_jiffies, cmd->id);
++		if (time_is_before_jiffies(start_jiffies + 10)) {
++			WARN_ON(1);
++		}
++	}
+
+	if (WARN_ON((cmd->flags & CMD_WANT_SKB) && !ret && !cmd->resp_pkt))
+		return -EIO;
