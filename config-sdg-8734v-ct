@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 6.10.0-rc2 Kernel Configuration
+# Linux/arm64 6.10.0-rc3 Kernel Configuration
 #
 CONFIG_CC_VERSION_TEXT="aarch64-linux-gnu-gcc (GCC) 13.2.1 20230728 (Red Hat Cross 13.2.1-1)"
 CONFIG_CC_IS_GCC=y
@@ -114,7 +114,10 @@ CONFIG_HAVE_SCHED_AVG_IRQ=y
 CONFIG_SCHED_HW_PRESSURE=y
 CONFIG_BSD_PROCESS_ACCT=y
 CONFIG_BSD_PROCESS_ACCT_V3=y
-# CONFIG_TASKSTATS is not set
+CONFIG_TASKSTATS=y
+CONFIG_TASK_DELAY_ACCT=y
+CONFIG_TASK_XACCT=y
+CONFIG_TASK_IO_ACCOUNTING=y
 # CONFIG_PSI is not set
 # end of CPU/Task time and stats accounting
 
@@ -6356,6 +6359,7 @@ CONFIG_HAVE_HARDLOCKUP_DETECTOR_BUDDY=y
 # Scheduler Debugging
 #
 CONFIG_SCHED_DEBUG=y
+CONFIG_SCHED_INFO=y
 # CONFIG_SCHEDSTATS is not set
 # end of Scheduler Debugging
 
