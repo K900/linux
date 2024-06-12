@@ -7627,6 +7627,7 @@ static int nl80211_set_beacon(struct sk_buff *skb, struct genl_info *info)
 					  &wdev->links[link_id].ap.chandef,
 					  &beacon_check)) {
 		err = -EINVAL;
+		pr_info("set-beacon, reg-check-beaconing failed; %d\n", err);
 		goto out;
 	}
 
@@ -7634,16 +7635,20 @@ static int nl80211_set_beacon(struct sk_buff *skb, struct genl_info *info)
 	if (attr) {
 		err = nl80211_parse_fils_discovery(rdev, attr,
 						   &params->fils_discovery);
-		if (err)
+		if (err) {
+			pr_info("set-beacon, parse-fils-discovery failed: %d\n", err);
 			goto out;
+		}
 	}
 
 	attr = info->attrs[NL80211_ATTR_UNSOL_BCAST_PROBE_RESP];
 	if (attr) {
 		err = nl80211_parse_unsol_bcast_probe_resp(rdev, attr,
 							   &params->unsol_bcast_probe_resp);
-		if (err)
+		if (err) {
+			pr_info("parse-beacond, parse_unsol_bcast_probe failed: %d\n", err);
 			goto out;
+		}
 	}
 
 	attr = info->attrs[NL80211_ATTR_S1G_SHORT_BEACON];
