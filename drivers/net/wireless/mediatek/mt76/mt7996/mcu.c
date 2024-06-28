@@ -5649,6 +5649,8 @@ int mt7996_mcu_set_sr_enable(struct mt7996_phy *phy, u8 action, u64 val, bool se
 		.val = cpu_to_le32((u32) val),
 	};
 
+	mtk_dbg(&phy->dev->mt76, CFG, "mcu-set-sr-enable, action: 0x%x val: %d set: %d\n",
+		action, (int)val, set);
 	if (set)
 		return mt76_mcu_send_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(SR), &req,
 					 sizeof(req), false);
@@ -5725,9 +5727,13 @@ void mt7996_mcu_rx_sr_event(struct mt7996_dev *dev, struct sk_buff *skb)
 	switch (le16_to_cpu(event->basic.tag)) {
 	case UNI_EVENT_SR_CFG_SR_ENABLE:
 		phy->sr_enable = le32_to_cpu(event->value) ? true : false;
+		mtk_dbg(&phy->dev->mt76, CFG, "rx-sr-event, sr-enabled: %d\n",
+			phy->sr_enable);
 		break;
 	case UNI_EVENT_SR_HW_ESR_ENABLE:
 		phy->enhanced_sr_enable = le32_to_cpu(event->value) ? true : false;
+		mtk_dbg(&phy->dev->mt76, CFG, "rx-sr-event, enhanced-sr-enabled: %d\n",
+			phy->enhanced_sr_enable);
 		break;
 	case UNI_EVENT_SR_SW_SD:
 		mt7996_mcu_rx_sr_swsd(dev, skb);
