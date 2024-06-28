@@ -5589,31 +5589,41 @@ int mt7996_mcu_set_dup_wtbl(struct mt7996_dev *dev)
 				 sizeof(req), true);
 }
 
-int mt7996_mcu_set_pp_en(struct mt7996_phy *phy, bool auto_mode,
-			 u8 force_bitmap_ctrl, u16 bitmap)
+int mt7996_mcu_set_pp_en(struct mt7996_phy *phy, u8 mode, u16 bitmap)
 {
 	struct mt7996_dev *dev = phy->dev;
+	bool pp_auto = (mode == PP_FW_MODE);
 	struct {
-		u8 _rsv[4];
+		u8 _rsv1[4];
 
 		__le16 tag;
 		__le16 len;
-		bool mgmt_mode;
+		u8 mgmt_mode;
 		u8 band_idx;
 		u8 force_bitmap_ctrl;
-		bool auto_mode;
+		u8 auto_mode;
 		__le16 bitmap;
 		u8 _rsv2[2];
 	} __packed req = {
 		.tag = cpu_to_le16(UNI_CMD_PP_EN_CTRL),
 		.len = cpu_to_le16(sizeof(req) - 4),
 
-		.mgmt_mode = !auto_mode,
+		.mgmt_mode = !pp_auto,
 		.band_idx = phy->mt76->band_idx,
-		.force_bitmap_ctrl = force_bitmap_ctrl,
-		.auto_mode = auto_mode,
+		.force_bitmap_ctrl = (mode == PP_USR_MODE) ? 2 : 0,
+		.auto_mode = pp_auto,
 		.bitmap = cpu_to_le16(bitmap),
 	};
+
+	if (phy->mt76->chandef.chan->band == NL80211_BAND_2GHZ ||
+	    mode > PP_USR_MODE)
+		return 0;
+
+	if (bitmap && phy->punct_bitmap == bitmap)
+		return 0;
+
+	phy->punct_bitmap = bitmap;
+	phy->pp_mode = mode;
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(PP),
 				 &req, sizeof(req), false);

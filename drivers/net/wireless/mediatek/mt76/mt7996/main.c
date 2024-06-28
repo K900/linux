@@ -1419,6 +1419,11 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			if (err)
 				goto unlock;
 
+			err = mt7996_mcu_set_pp_en(&dev->phy, PP_USR_MODE,
+						   dev->phy.mt76->chandef.punctured);
+			if (err)
+				return err;
+
 			err = mt7996_mcu_add_rate_ctrl(dev, msta_link->sta, vif,
 						       link_id, false);
 			if (err)

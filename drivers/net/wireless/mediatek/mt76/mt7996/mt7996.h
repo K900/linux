@@ -403,8 +403,10 @@ struct mt7996_phy {
 	bool counter_reset;
 	bool rdd_tx_paused;
 
-	bool sr_enable:1;
-	bool enhanced_sr_enable:1;
+	bool sr_enable;
+	bool enhanced_sr_enable;
+	u8 pp_mode;
+	u16 punct_bitmap;
 };
 
 struct mt7996_dev {
@@ -942,8 +944,7 @@ int mt7996_mcu_set_emlsr_mode(struct mt7996_dev *dev,
 			      struct ieee80211_vif *vif,
 			      struct ieee80211_sta *sta,
 			      struct ieee80211_eml_params *eml_params);
-int mt7996_mcu_set_pp_en(struct mt7996_phy *phy, bool auto_mode, u8 force_bitmap,
-			 u16 bitmap);
+int mt7996_mcu_set_pp_en(struct mt7996_phy *phy, u8 mode, u16 bitmap);
 #ifdef CONFIG_MAC80211_DEBUGFS
 void mt7996_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta, struct dentry *dir);
