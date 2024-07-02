@@ -1676,6 +1676,9 @@ iwl_mvm_umac_scan_cfg_channels_v7(struct iwl_mvm *mvm,
 		else
 			cfg->flags |= cpu_to_le32((iwl_band <<
 						   IWL_CHAN_CFG_FLAGS_BAND_POS));
+		IWL_DEBUG_SCAN(mvm,
+			       "Scan umac-scan-cfg-channels-v7[%i] hw-ch-num: %i  is-psc: %d\n",
+			       i, channels[i]->hw_value, cfg80211_channel_is_psc(channels[i]));
 	}
 }
 
@@ -1779,13 +1782,20 @@ iwl_mvm_umac_scan_cfg_channels_v7_6g(struct iwl_mvm *mvm,
 		     unsolicited_probe_on_chan = false, psc_no_listen = false;
 		s8 psd_20 = IEEE80211_RNR_TBTT_PARAMS_PSD_RESERVED;
 
+		IWL_DEBUG_SCAN(mvm,
+			       "Scan umac-scan-cfg-channels-v7-6g[%i] hw-ch-num: %i  is-psc: %d  n-6ghz-params: %d  n-ssids:%d  coloc-6ghz: %d\n",
+			       i, params->channels[i]->hw_value, cfg80211_channel_is_psc(params->channels[i]),
+			       params->n_6ghz_params, params->n_ssids,
+			       !!(params->flags & NL80211_SCAN_FLAG_COLOCATED_6GHZ));
+
 		/*
 		 * Avoid performing passive scan on non PSC channels unless the
 		 * scan is specifically a passive scan, i.e., no SSIDs
 		 * configured in the scan command.
 		 */
 		if (!cfg80211_channel_is_psc(params->channels[i]) &&
-		    !params->n_6ghz_params && params->n_ssids)
+		    !params->n_6ghz_params && params->n_ssids &&
+		    params->flags & NL80211_SCAN_FLAG_COLOCATED_6GHZ)
 			continue;
 
 		cfg->channel_num = params->channels[i]->hw_value;
@@ -1820,6 +1830,10 @@ iwl_mvm_umac_scan_cfg_channels_v7_6g(struct iwl_mvm *mvm,
 
 			psc_no_listen |= scan_6ghz_params[j].psc_no_listen;
 		}
+
+		IWL_DEBUG_SCAN(mvm,
+			       "Scan umac-scan-cfg-channels-v7-6g[%i] psc-no-listen: %d  un-sol-probe-on-channel: %d\n",
+			       i, psc_no_listen, unsolicited_probe_on_chan);
 
 		/*
 		 * In the following cases apply passive scan:
@@ -1951,6 +1965,10 @@ iwl_mvm_umac_scan_cfg_channels_v7_6g(struct iwl_mvm *mvm,
 		if (version >= 17)
 			cfg->v5.psd_20 = psd_20;
 
+		IWL_DEBUG_SCAN(mvm,
+			       "Scan umac-scan-cfg-channels-v7-6g[%i] psc-no-listen: %d allow-passive: %d  force_passive: %d  un-sol-probe-on-channel: %d flags: 0x%x\n",
+			       i, psc_no_listen,  unsolicited_probe_on_chan, allow_passive, force_passive, flags);
+
 		ch_cnt++;
 	}
 
@@ -2078,8 +2096,13 @@ static void iwl_mvm_scan_6ghz_passive_scan(struct iwl_mvm *mvm,
 	 */
 	if (n_disabled != sband->n_channels) {
 		IWL_DEBUG_SCAN(mvm,
-			       "6GHz passive scan: 6GHz channels enabled\n");
-		return;
+			       "6GHz passive scan: some 6GHz channels enabled, coloc-6ghz: %d\n",
+			       !!(params->flags & NL80211_SCAN_FLAG_COLOCATED_6GHZ));
+		/* if user has disabled colocated-6ghz flag, they are asking for all channels
+		 * to be scanned, so allow passive scanning.
+		 */
+		if (params->flags & NL80211_SCAN_FLAG_COLOCATED_6GHZ)
+			return;
 	}
 
 	/* all conditions to enable 6ghz passive scan are satisfied */
@@ -2461,6 +2484,10 @@ iwl_mvm_scan_umac_fill_ch_p_v7(struct iwl_mvm *mvm,
 					  channel_cfg_flags,
 					  vif->type, version);
 
+	IWL_DEBUG_SCAN(mvm,
+		       "Scan umac-scan-cfg-ch-p-v7, enable-passive: %d  n-channels: n_channels: %d\n",
+		       params->enable_6ghz_passive, params->n_channels);
+
 	if (params->enable_6ghz_passive) {
 		struct ieee80211_supported_band *sband =
 			&mvm->nvm_data->bands[NL80211_BAND_6GHZ];
@@ -2559,6 +2586,9 @@ static int iwl_mvm_scan_umac_v14_and_above(struct iwl_mvm *mvm,
 	if (ret)
 		return ret;
 
+	IWL_DEBUG_SCAN(mvm,
+		       "Scan umac-scan-v14-above, scan-6ghz: %d\n",
+		       params->scan_6ghz);
 	if (!params->scan_6ghz) {
 		iwl_mvm_scan_umac_fill_probe_p_v4(params,
 						  &scan_p->probe_params,
@@ -2582,12 +2612,19 @@ static int iwl_mvm_scan_umac_v14_and_above(struct iwl_mvm *mvm,
 							 params->n_channels,
 							 pb, cp, vif->type,
 							 version);
+	IWL_DEBUG_SCAN(mvm,
+		       "Scan umac-scan-v14-above, v7-6g count: %d\n",
+		       cp->count);
 	if (!cp->count)
 		return -EINVAL;
 
 	if (!params->n_ssids ||
-	    (params->n_ssids == 1 && !params->ssids[0].ssid_len))
+	    (params->n_ssids == 1 && !params->ssids[0].ssid_len)) {
+		IWL_DEBUG_SCAN(mvm,
+			       "Scan umac-scan-v14-above, setting 6G_PSC_NO_FILTER\n");
+
 		cp->flags |= IWL_SCAN_CHANNEL_FLAG_6G_PSC_NO_FILTER;
+	}
 
 	return 0;
 }
@@ -3155,6 +3192,11 @@ int iwl_mvm_sched_scan_start(struct iwl_mvm *mvm,
 		}
 	}
 
+	IWL_DEBUG_SCAN(mvm,
+		       "Scan sched-scan-start, non-psc-included: %d  n-channels: %d scan-colocated-6g: %d\n",
+		       non_psc_included, params.n_channels,
+		       !!((params.flags & NL80211_SCAN_FLAG_COLOCATED_6GHZ)));
+
 	if (non_psc_included) {
 		params.channels = kmemdup(params.channels,
 					  sizeof(params.channels[0]) *
@@ -3165,8 +3207,13 @@ int iwl_mvm_sched_scan_start(struct iwl_mvm *mvm,
 
 		for (i = j = 0; i < params.n_channels; i++) {
 			if (params.channels[i]->band == NL80211_BAND_6GHZ &&
-			    !cfg80211_channel_is_psc(params.channels[i]))
+			    (params.flags & NL80211_SCAN_FLAG_COLOCATED_6GHZ) &&
+			    !cfg80211_channel_is_psc(params.channels[i])) {
+				IWL_DEBUG_SCAN(mvm,
+					       "Scan sched-scan-start, skipping non-psc channel[%d]\n",
+					       i);
 				continue;
+			}
 			params.channels[j++] = params.channels[i];
 		}
 		params.n_channels = j;
