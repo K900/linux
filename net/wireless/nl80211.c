@@ -9163,7 +9163,7 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 		return -EINVAL;
 
 	if (!rdev->ops->change_station) {
-		pr_err("%s: new-station failed, op not supported.\n", dev->name);
+		pr_err("%s: set-station failed, op not supported.\n", dev->name);
 		return -EOPNOTSUPP;
 	}
 
@@ -9191,12 +9191,15 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 		params.support_p2p_ps = -1;
 
 	if (!info->attrs[NL80211_ATTR_MAC]) {
-		pr_err("%s: new-station failed, MAC not specified.\n", dev->name);
+		pr_err("%s: set-station failed, MAC not specified.\n", dev->name);
 		return -EINVAL;
 	}
 
 	params.link_sta_params.link_id =
 		nl80211_link_id_or_invalid(info->attrs);
+
+	pr_info("nl80211-set-station, link-id: %d\n",
+		params.link_sta_params.link_id);
 
 	if (info->attrs[NL80211_ATTR_MLD_ADDR]) {
 		/* If MLD_ADDR attribute is set then this is an MLD station
@@ -9211,8 +9214,11 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 		params.link_sta_params.mld_mac = mac_addr;
 		params.link_sta_params.link_mac =
 			nla_data(info->attrs[NL80211_ATTR_MAC]);
-		if (!is_valid_ether_addr(params.link_sta_params.link_mac))
+		if (!is_valid_ether_addr(params.link_sta_params.link_mac)) {
+			pr_err("%s: new-station failed, invalid link-mac: %pM\n",
+			       dev->name, params.link_sta_params.link_mac);
 			return -EINVAL;
+		}
 	} else {
 		mac_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
 	}
@@ -9239,7 +9245,7 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (parse_station_flags(info, wdev->iftype, &params)) {
-		pr_err("%s: new-station failed, parse-station-flags failed.\n", dev->name);
+		pr_err("%s: set-station failed, parse-station-flags failed.\n", dev->name);
 		return -EINVAL;
 	}
 
@@ -9294,13 +9300,13 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 	/* Include parameters for TDLS peer (will check later) */
 	err = nl80211_set_station_tdls(info, &params);
 	if (err) {
-		pr_err("%s: new-station failed, set_station_tdls failed.\n", dev->name);
+		pr_err("%s: set-station failed, set_station_tdls failed.\n", dev->name);
 		return err;
 	}
 
 	params.vlan = get_vlan(info, rdev);
 	if (IS_ERR(params.vlan)) {
-		pr_err("%s: new-station failed, get_vlan failed failed.\n", dev->name);
+		pr_err("%s: set-station failed, get_vlan failed failed.\n", dev->name);
 		return PTR_ERR(params.vlan);
 	}
 
@@ -9317,7 +9323,7 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 		break;
 	default:
 		err = -EOPNOTSUPP;
-		pr_err("%s: new-station failed, invalid iftype: %d\n", dev->name, dev->ieee80211_ptr->iftype);
+		pr_err("%s: set-station failed, invalid iftype: %d\n", dev->name, dev->ieee80211_ptr->iftype);
 		goto out_put_vlan;
 	}
 
@@ -9325,7 +9331,7 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 	err = rdev_change_station(rdev, wdev, mac_addr, &params);
 
 	if (err)
-		pr_err("%s:  new-station failed due to rdev_change_station returing error: %d\n", dev->name, err);
+		pr_err("%s:  set-station failed due to rdev_change_station returing error: %d\n", dev->name, err);
 
  out_put_vlan:
 	dev_put(params.vlan);
