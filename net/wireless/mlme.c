@@ -375,6 +375,8 @@ cfg80211_mlme_check_mlo_compat(const struct ieee80211_multi_link_elem *mle_a,
 			       struct netlink_ext_ack *extack)
 {
 	const struct ieee80211_mle_basic_common_info *common_a, *common_b;
+	u16 tmpa;
+	u16 tmpb;
 
 	common_a = (const void *)mle_a->variable;
 	common_b = (const void *)mle_b->variable;
@@ -384,15 +386,19 @@ cfg80211_mlme_check_mlo_compat(const struct ieee80211_multi_link_elem *mle_a,
 		return -EINVAL;
 	}
 
-	if (ieee80211_mle_get_eml_cap((const u8 *)mle_a) !=
-	    ieee80211_mle_get_eml_cap((const u8 *)mle_b)) {
-		NL_SET_ERR_MSG(extack, "link EML capabilities mismatch");
+	tmpa = ieee80211_mle_get_eml_cap((const u8 *)mle_a);
+	tmpb = ieee80211_mle_get_eml_cap((const u8 *)mle_b);
+	if (tmpa != tmpb) {
+		NL_SET_ERR_MSG_FMT(extack, "link EML capabilities mismatch: %d != %d",
+				   tmpa, tmpb);
 		return -EINVAL;
 	}
 
-	if (ieee80211_mle_get_mld_capa_op((const u8 *)mle_a) !=
-	    ieee80211_mle_get_mld_capa_op((const u8 *)mle_b)) {
-		NL_SET_ERR_MSG(extack, "link MLD capabilities/ops mismatch");
+	tmpa = ieee80211_mle_get_mld_capa_op((const u8 *)mle_a);
+	tmpb = ieee80211_mle_get_mld_capa_op((const u8 *)mle_b);
+	if (tmpa != tmpb) {
+		NL_SET_ERR_MSG_FMT(extack, "link MLD capabilities/ops mismatch: %d != %d",
+				   tmpa, tmpb);
 		return -EINVAL;
 	}
 
