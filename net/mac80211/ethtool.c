@@ -65,6 +65,7 @@ static void ieee80211_get_ringparam(struct net_device *dev,
 static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	/* per sdata stats len */
 	"bss_color",
+	"valid_links",
 	"active_links",
 	"dormant_links",
 
@@ -153,7 +154,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"L2:ch_time_tx",
 };
 #define STA_STATS_LEN	ARRAY_SIZE(ieee80211_gstrings_sta_stats)
-#define SDATA_STATS_LEN 3 /* bss color, active_links ... */
+#define SDATA_STATS_LEN 4 /* bss color, active_links ... */
 #define ETHTOOL_LINK_COUNT 3 /* we will show stats for first 3 links */
 #define PER_LINK_STATS_LEN ((STA_STATS_LEN - SDATA_STATS_LEN) / ETHTOOL_LINK_COUNT)
 
@@ -283,6 +284,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		data[i++] = sdata->vif.bss_conf.he_bss_color.color;
 	else
 		data[i++] = 0;
+	data[i++] = sdata->vif.valid_links;
 	data[i++] = sdata->vif.active_links;
 	data[i++] = sdata->vif.dormant_links;
 
