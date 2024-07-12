@@ -2646,6 +2646,27 @@ sta_get_last_rx_stats(struct sta_info *sta, int link_id)
 	return stats;
 }
 
+struct ieee80211_sta_rx_stats *
+link_sta_get_last_rx_stats(struct link_sta_info *link_sta)
+{
+	struct ieee80211_sta_rx_stats *stats = &link_sta->rx_stats;
+	int cpu;
+
+	if (!link_sta->pcpu_rx_stats)
+		return stats;
+
+	for_each_possible_cpu(cpu) {
+		struct ieee80211_sta_rx_stats *cpustats;
+
+		cpustats = per_cpu_ptr(link_sta->pcpu_rx_stats, cpu);
+
+		if (time_after(cpustats->last_rx, stats->last_rx))
+			stats = cpustats;
+	}
+
+	return stats;
+}
+
 static void sta_stats_decode_rate(struct ieee80211_local *local, u32 rate,
 				  struct rate_info *rinfo)
 {
@@ -2774,6 +2795,18 @@ static int sta_set_rate_info_rx(struct sta_info *sta, struct rate_info *rinfo,
 		return -EINVAL;
 
 	sta_stats_decode_rate(sta->local, rate, rinfo);
+	return 0;
+}
+
+int link_sta_set_rate_info_rx(struct link_sta_info *link_sta, struct rate_info *rinfo,
+			      struct ieee80211_sta_rx_stats* lastrx)
+{
+	u32 rate = READ_ONCE(lastrx->last_rate);
+
+	if (rate == STA_STATS_RATE_INVALID)
+		return -EINVAL;
+
+	sta_stats_decode_rate(link_sta->sta->local, rate, rinfo);
 	return 0;
 }
 
