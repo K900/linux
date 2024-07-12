@@ -324,6 +324,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		struct sta_info *tmp_sta;
 		bool mld = ieee80211_vif_is_mld(&sdata->vif);
 		struct ieee80211_sta_rx_stats link_rx_stats;
+		struct ieee80211_sta_rx_stats *last_rxstats;
 
 		// From struct sta_info *sta, I can get link_sta_info, which has the stats.
 		// struct ieee80211_link_data *link
@@ -364,6 +365,8 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			sta_set_sinfo(sta, &sinfo, false);
 
 			if (mld) {
+				last_rxstats = link_sta_get_last_rx_stats(link_sta);
+
 				link_sta_accum_rx_stats(&link_sta->rx_stats, link_sta->pcpu_rx_stats,
 							&link_rx_stats);
 				ADD_LINK_STA_STATS(link_sta, link_rx_stats,
@@ -379,47 +382,90 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				data[i] = 100000ULL *
 					cfg80211_calculate_bitrate(&sinfo.txrate);
 			i++;
-			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_RX_BITRATE))
-				data[i] = 100000ULL *
-					cfg80211_calculate_bitrate(&sinfo.rxrate);
-			i++;
+			if (mld) {
+				struct rate_info rxrate;
+				int mn;
+				u64 accum;
 
-			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
-				data[i] = (u8)sinfo.signal_avg;
-			i++;
+				link_sta_set_rate_info_rx(link_sta, &rxrate, last_rxstats);
+				data[i++] = 100000ULL *
+					cfg80211_calculate_bitrate(&rxrate);
 
-			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
-				data[i] = (u8)sinfo.rx_beacon_signal_avg;
-			i++;
+				data[i++] = (u8)last_rxstats->last_signal;
 
-			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
-				int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
-				u64 accum = (u8)sinfo.chain_signal[0];
+				/* No beacon signal in sta_rx_stats, get something from sinfo */
+				data[i++] = (u8)sinfo.rx_beacon_signal_avg;
 
-				mn = min_t(int, mn, sinfo.chains);
+				/* signal chains */
+				mn = min_t(int, sizeof(u64), ARRAY_SIZE(last_rxstats->chain_signal_last));
+				accum = (u8)last_rxstats->chain_signal_last[0];
+
+				mn = min_t(int, mn, last_rxstats->chains);
 				for (z = 1; z < mn; z++) {
-					u64 csz = sinfo.chain_signal[z] & 0xFF;
+					u64 csz = last_rxstats->chain_signal_last[z] & 0xFF;
 					u64 cs = csz << (8 * z);
 
 					accum |= cs;
 				}
-				data[i] = accum;
-			}
-			i++;
+				data[i++] = accum;
 
-			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
-				int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
-				u64 accum = (u8)sinfo.chain_signal_avg[0];
+				/* No chain signal avg per link, get from sinfo */
+				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
+					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
+					u64 accum = (u8)sinfo.chain_signal_avg[0];
 
-				for (z = 1; z < mn; z++) {
-					u64 csz = sinfo.chain_signal_avg[z] & 0xFF;
-					u64 cs = csz << (8 * z);
+					for (z = 1; z < mn; z++) {
+						u64 csz = sinfo.chain_signal_avg[z] & 0xFF;
+						u64 cs = csz << (8 * z);
 
-					accum |= cs;
+						accum |= cs;
+					}
+					data[i] = accum;
 				}
-				data[i] = accum;
+				i++;
+			} else {
+				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_RX_BITRATE))
+					data[i] = 100000ULL *
+						cfg80211_calculate_bitrate(&sinfo.rxrate);
+				i++;
+
+				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
+					data[i] = (u8)sinfo.signal_avg;
+				i++;
+
+				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
+					data[i] = (u8)sinfo.rx_beacon_signal_avg;
+				i++;
+
+				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
+					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
+					u64 accum = (u8)sinfo.chain_signal[0];
+
+					mn = min_t(int, mn, sinfo.chains);
+					for (z = 1; z < mn; z++) {
+						u64 csz = sinfo.chain_signal[z] & 0xFF;
+						u64 cs = csz << (8 * z);
+
+						accum |= cs;
+					}
+					data[i] = accum;
+				}
+				i++;
+
+				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
+					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
+					u64 accum = (u8)sinfo.chain_signal_avg[0];
+
+					for (z = 1; z < mn; z++) {
+						u64 csz = sinfo.chain_signal_avg[z] & 0xFF;
+						u64 cs = csz << (8 * z);
+
+						accum |= cs;
+					}
+					data[i] = accum;
+				}
+				i++;
 			}
-			i++;
 
 			ADD_SURVEY_STATS;
 		} /* for first 3 links */
