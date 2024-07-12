@@ -3492,21 +3492,22 @@ unsigned long ieee80211_sta_last_active(struct sta_info *sta, int link_id)
 	return link_sta_info->status_stats.last_ack;
 }
 
-void sta_accum_rx_stats(struct sta_info *sta,
-			struct ieee80211_sta_rx_stats *rx_stats)
+void link_sta_accum_rx_stats(struct ieee80211_sta_rx_stats *ncpu_rx_stats,
+			     struct ieee80211_sta_rx_stats __percpu *pcpu,
+			     struct ieee80211_sta_rx_stats *rx_stats)
 {
 	int cpu;
 	int i;
 
-	memcpy(rx_stats, &sta->deflink.rx_stats, sizeof(*rx_stats));
+	memcpy(rx_stats, ncpu_rx_stats, sizeof(*rx_stats));
 
-	if (!sta->deflink.pcpu_rx_stats)
+	if (!pcpu)
 		return;
 
 	for_each_possible_cpu(cpu) {
 		struct ieee80211_sta_rx_stats *cpurxs;
 
-		cpurxs = per_cpu_ptr(sta->deflink.pcpu_rx_stats, cpu);
+		cpurxs = per_cpu_ptr(pcpu, cpu);
 		rx_stats->packets += cpurxs->packets;
 		if (time_after(cpurxs->last_rx, rx_stats->last_rx)) {
 			rx_stats->last_rx = cpurxs->last_rx;
@@ -3541,6 +3542,14 @@ void sta_accum_rx_stats(struct sta_info *sta,
 			rx_stats->msdu_rate_idx[i] += cpurxs->msdu_rate_idx[i];
 #endif
 	}
+}
+
+void sta_accum_rx_stats(struct sta_info *sta,
+			struct ieee80211_sta_rx_stats *rx_stats)
+{
+	return link_sta_accum_rx_stats(&sta->deflink.rx_stats,
+				       sta->deflink.pcpu_rx_stats,
+				       rx_stats);
 }
 
 int ieee80211_sta_allocate_link(struct sta_info *sta, unsigned int link_id)
