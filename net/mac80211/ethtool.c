@@ -272,6 +272,35 @@ static void ieee80211_get_stats2(struct net_device *dev,
 	} while (0)
 #define STA_STATS_COUNT 10
 
+	/* NOTE/HACK:  TX stats are not updated for anything except
+	 * deflink currently.  Use those stats on the active link.
+	 */
+#define ADD_LINK_STA_STATS(sta, link_rx_stats, active)		\
+	do {							\
+		data[i++] += link_rx_stats.packets;		\
+		data[i++] += link_rx_stats.bytes;		\
+		data[i++] += link_rx_stats.num_duplicates;	\
+		data[i++] += link_rx_stats.fragments;		\
+		data[i++] += link_rx_stats.dropped;		\
+								\
+		if (active) {						\
+			data[i++] += sinfo.tx_packets;			\
+			data[i++] += sinfo.tx_bytes;			\
+			data[i++] += (sta)->status_stats.filtered;	\
+			data[i++] += sinfo.tx_failed;			\
+			data[i++] += sinfo.tx_retries;			\
+			/*
+			data[i++] += _sum_acs((sta)->tx_stats.packets);	\
+			data[i++] += _sum_acs((sta)->tx_stats.bytes);	\
+			data[i++] += (sta)->status_stats.filtered;	\
+			data[i++] += (sta)->status_stats.retry_failed;	\
+			data[i++] += (sta)->status_stats.retry_count;	\
+			*/						\
+		} else {						\
+			i += 5;	/* skip non active links */		\
+		}							\
+	} while (0)
+
 	/* For Managed stations, find the single station based on BSSID
 	 * and use that.  For interface types, iterate through all available
 	 * stations and add stats for any station that is assigned to this
@@ -293,6 +322,8 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		int li;
 		struct link_sta_info *link_sta;
 		struct sta_info *tmp_sta;
+		bool mld = ieee80211_vif_is_mld(&sdata->vif);
+		struct ieee80211_sta_rx_stats link_rx_stats;
 
 		// From struct sta_info *sta, I can get link_sta_info, which has the stats.
 		// struct ieee80211_link_data *link
@@ -332,7 +363,14 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			 */
 			sta_set_sinfo(sta, &sinfo, false);
 
-			ADD_STA_STATS(link_sta);
+			if (mld) {
+				link_sta_accum_rx_stats(&link_sta->rx_stats, link_sta->pcpu_rx_stats,
+							&link_rx_stats);
+				ADD_LINK_STA_STATS(link_sta, link_rx_stats,
+						   sdata->vif.active_links & (1<<li));
+			} else {
+				ADD_STA_STATS(link_sta);
+			}
 
 			data[i++] = sdata->tx_handlers_drop;
 			data[i++] = sta->sta_state;
