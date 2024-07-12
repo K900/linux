@@ -617,6 +617,17 @@ struct link_sta_info {
 	struct ieee80211_link_sta *pub;
 };
 
+/** Sum up ACS stats array.
+ */
+static inline u64 _sum_acs(u64* a) {
+	u64 rv = 0;
+	int i;
+
+	for (i = 0; i<IEEE80211_NUM_ACS; i++)
+		rv += a[i];
+	return rv;
+}
+
 /**
  * struct ieee80211_sta_removed_link_stats - Removed link sta data
  *
@@ -1214,5 +1225,9 @@ static inline u32 sta_stats_encode_rate(struct ieee80211_rx_status *s)
 
 void sta_accum_rx_stats(struct sta_info *sta,
 			struct ieee80211_sta_rx_stats *rx_stats);
+
+void link_sta_accum_rx_stats(struct ieee80211_sta_rx_stats *ncpu_rx_stats,
+			     struct ieee80211_sta_rx_stats __percpu *pcpu,
+			     struct ieee80211_sta_rx_stats *rx_stats);
 
 #endif /* STA_INFO_H */
