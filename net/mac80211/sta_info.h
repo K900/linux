@@ -1229,4 +1229,10 @@ void link_sta_accum_rx_stats(struct ieee80211_sta_rx_stats *ncpu_rx_stats,
 			     struct ieee80211_sta_rx_stats __percpu *pcpu,
 			     struct ieee80211_sta_rx_stats *rx_stats);
 
+struct ieee80211_sta_rx_stats *
+link_sta_get_last_rx_stats(struct link_sta_info *link_sta);
+
+int link_sta_set_rate_info_rx(struct link_sta_info *link_sta, struct rate_info *rinfo,
+			      struct ieee80211_sta_rx_stats* lastrx);
+
 #endif /* STA_INFO_H */
