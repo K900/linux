@@ -3258,6 +3258,19 @@ cfg80211_inform_bss_data(struct wiphy *wiphy,
 
 	cfg80211_parse_ml_sta_data(wiphy, &inform_data, res, gfp);
 
+	/* This one is hard to debug, symptom looks like STA just cannot scan
+	 * at all, so add some warnings.
+	 */
+	if (inform_data.cannot_use_reasons) {
+		static unsigned long last_jiffies;
+
+		/* Print no more than once per 5 seconds */
+		if (time_after(jiffies, last_jiffies + 5 * HZ)) {
+			pr_info("cfg80211-inform-bss-data, bssid: %pM cannot-use-reasons: 0x%llx\n",
+				bssid, inform_data.cannot_use_reasons);
+			last_jiffies = jiffies;
+		}
+	}
 	return res;
 }
 EXPORT_SYMBOL(cfg80211_inform_bss_data);
