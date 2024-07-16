@@ -1,0 +1,146 @@
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index c2751fe8f1be..80c21d7b197a 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -1948,6 +1948,25 @@ static int sta_link_apply_parameters(struct ieee80211_local *local,
+
+	ieee80211_sta_init_nss(link_sta);
+
++	{
++		int z;
++
++		for (z = 0; z<IEEE80211_MLD_MAX_NUM_LINKS; z++) {
++			struct link_sta_info *ls =
++				rcu_dereference_protected(sta->link[z],
++							  lockdep_is_held(&local->hw.wiphy->mtx));
++			if (!ls)
++				continue;
++			if (ls == link_sta)
++				continue;
++
++			pr_info("rate: link-apply-parameters, setting other link rx_nss from: %d to %d  link-id: %d\n",
++				ls->pub->rx_nss, link_sta->pub->rx_nss, z);
++			ls->pub->rx_nss = link_sta->pub->rx_nss;
++		}
++	}
++	pr_info("rate:  Done with link-apply-parameters\n");
++
+	return 0;
+ }
+
+diff --git a/net/mac80211/chan.c b/net/mac80211/chan.c
+index a57e99249beb..5543b5f78ef1 100644
+--- a/net/mac80211/chan.c
++++ b/net/mac80211/chan.c
+@@ -460,6 +460,8 @@ static void ieee80211_chan_bw_change(struct ieee80211_local *local,
+			if ((new_sta_bw < link_sta->pub->bandwidth) == !narrowed)
+				continue;
+
++			pr_info("rate: chan-bw-change, change BW from %d to %d, link-id: %d\n",
++				link_sta->pub->bandwidth, new_sta_bw, link_sta->link_id);
+			link_sta->pub->bandwidth = new_sta_bw;
+			rate_control_rate_update(local, sband, sta, link_id,
+						 IEEE80211_RC_BW_CHANGED);
+diff --git a/net/mac80211/eht.c b/net/mac80211/eht.c
+index ddc7acc68335..7d839a521ddb 100644
+--- a/net/mac80211/eht.c
++++ b/net/mac80211/eht.c
+@@ -75,4 +75,7 @@ ieee80211_eht_cap_ie_to_sta_eht_cap(struct ieee80211_sub_if_data *sdata,
+
+	link_sta->cur_max_bandwidth = ieee80211_sta_cap_rx_bw(link_sta);
+	link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta);
++
++	pr_info("rate: eht-cap-ie-to-sta-eht-cap: bw set to: %d, link-id: %d\n",
++		link_sta->pub->bandwidth, link_sta->link_id);
+ }
+diff --git a/net/mac80211/he.c b/net/mac80211/he.c
+index ecbb042dd043..414815fc0f4e 100644
+--- a/net/mac80211/he.c
++++ b/net/mac80211/he.c
+@@ -163,6 +163,9 @@ ieee80211_he_cap_ie_to_sta_he_cap(struct ieee80211_sub_if_data *sdata,
+	link_sta->cur_max_bandwidth = ieee80211_sta_cap_rx_bw(link_sta);
+	link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta);
+
++	pr_info("rate: he-cap-ie-to-sta-eht-cap: bw set to: %d, link-id: %d\n",
++		link_sta->pub->bandwidth, link_sta->link_id);
++
+	if (sband->band == NL80211_BAND_6GHZ && he_6ghz_capa)
+		ieee80211_update_from_he_6ghz_capa(he_6ghz_capa, link_sta);
+
+diff --git a/net/mac80211/mlme.c b/net/mac80211/mlme.c
+index 58a1f4950b61..4a5f02d4ada0 100644
+--- a/net/mac80211/mlme.c
++++ b/net/mac80211/mlme.c
+@@ -5002,8 +5002,14 @@ static bool ieee80211_assoc_config_link(struct ieee80211_link_data *link,
+		nss = *elems->opmode_notif & IEEE80211_OPMODE_NOTIF_RX_NSS_MASK;
+		nss >>= IEEE80211_OPMODE_NOTIF_RX_NSS_SHIFT;
+		nss += 1;
++		pr_info("rate: assoc-config-link, setting rx_nss from: %d to %d  link-id: %d\n",
++			link_sta->pub->rx_nss, nss, link_id);
+		link_sta->pub->rx_nss = nss;
+	}
++	else {
++		pr_info("rate: assoc-config-link, NOT setting rx_nss: %d  link-id: %d\n",
++			link_sta->pub->rx_nss, link_id);
++	}
+
+	/*
+	 * Always handle WMM once after association regardless
+diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+index 16a83da2f938..1f6d1710cf6d 100644
+--- a/net/mac80211/rx.c
++++ b/net/mac80211/rx.c
+@@ -3706,6 +3706,8 @@ ieee80211_rx_h_action(struct ieee80211_rx_data *rx)
+			if (rx->link_sta->pub->bandwidth == new_bw)
+				goto handled;
+
++			pr_info("rate: rx-h-action: bw set from %d to: %d, link-id: %d\n",
++				rx->link_sta->pub->bandwidth, new_bw, rx->link_sta->link_id);
+			rx->link_sta->pub->bandwidth = new_bw;
+			sband = rx->local->hw.wiphy->bands[status->band];
+			sta_opmode.bw =
+diff --git a/net/mac80211/vht.c b/net/mac80211/vht.c
+index 57e77755f742..58b233dcc86c 100644
+--- a/net/mac80211/vht.c
++++ b/net/mac80211/vht.c
+@@ -327,6 +327,9 @@ ieee80211_vht_cap_ie_to_sta_vht_cap(struct ieee80211_sub_if_data *sdata,
+
+	link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta);
+
++	pr_info("rate: vht-cap-ie-to-sta-vht-cap: bw set to: %d, link-id: %d\n",
++		link_sta->pub->bandwidth, link_sta->link_id);
++
+	/*
+	 * Work around the Cisco 9115 FW 17.3 bug by taking the min of
+	 * both reported MPDU lengths.
+@@ -642,11 +645,17 @@ void ieee80211_sta_init_nss(struct link_sta_info *link_sta)
+	link_sta->capa_nss = rx_nss;
+
+	/* that shouldn't be set yet, but we can handle it anyway */
+-	if (link_sta->op_mode_nss)
+-		link_sta->pub->rx_nss =
+-			min_t(u8, rx_nss, link_sta->op_mode_nss);
+-	else
++	if (link_sta->op_mode_nss) {
++		u8 new_nss = min_t(u8, rx_nss, link_sta->op_mode_nss);
++
++		pr_info("rate: sta-init-nss (op-mode-nss: %d rx_nss: %d), link-id: %d  setting rx_nss from: %d to %d\n",
++			link_sta->op_mode_nss, rx_nss, link_sta->link_id, link_sta->pub->rx_nss, new_nss);
++		link_sta->pub->rx_nss = new_nss;
++	} else {
++		pr_info("rate: sta-init-nss, link-id: %d  setting rx_nss: from: %d to %d\n",
++			link_sta->link_id, link_sta->pub->rx_nss, rx_nss);
+		link_sta->pub->rx_nss = rx_nss;
++	}
+ }
+
+ u32 __ieee80211_vht_handle_opmode(struct ieee80211_sub_if_data *sdata,
+@@ -705,6 +714,8 @@ u32 __ieee80211_vht_handle_opmode(struct ieee80211_sub_if_data *sdata,
+
+	new_bw = ieee80211_sta_cur_vht_bw(link_sta);
+	if (new_bw != link_sta->pub->bandwidth) {
++		pr_info("rate: vht-handle-opmode, change BW from %d to %d, link-id: %d\n",
++			link_sta->pub->bandwidth, new_bw, link_sta->link_id);
+		link_sta->pub->bandwidth = new_bw;
+		sta_opmode.bw = ieee80211_sta_rx_bw_to_chan_width(link_sta);
+		changed |= IEEE80211_RC_BW_CHANGED;
