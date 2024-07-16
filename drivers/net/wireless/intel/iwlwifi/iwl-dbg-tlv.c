@@ -71,7 +71,7 @@ static struct iwl_ucode_tlv *iwl_dbg_tlv_add(const struct iwl_ucode_tlv *tlv,
 	u32 len = le32_to_cpu(tlv->length);
 	struct iwl_dbg_tlv_node *node;
 
-	return NULL; /* disable this feature, seems to cause mem corruption somehow. */
+	//return NULL; /* disable this feature, seems to cause mem corruption somehow. */
 
 	node = kzalloc_flex(*node, tlv.data, len);
 	if (!node)
