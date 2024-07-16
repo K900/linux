@@ -295,7 +295,8 @@ rs_fw_rs_mcs2eht_mcs(enum IWL_TLC_MCS_PER_BW bw,
 }
 
 static void
-rs_fw_eht_set_enabled_rates(struct ieee80211_vif *vif,
+rs_fw_eht_set_enabled_rates(struct iwl_mvm *mvm,
+			    struct ieee80211_vif *vif,
 			    const struct ieee80211_link_sta *link_sta,
 			    const struct ieee80211_sta_he_cap *sband_he_cap,
 			    const struct ieee80211_sta_eht_cap *sband_eht_cap,
@@ -369,6 +370,10 @@ rs_fw_eht_set_enabled_rates(struct ieee80211_vif *vif,
 				      MAX_NSS_MCS(13, mcs_rx, mcs_tx), GENMASK(13, 12));
 	}
 
+	IWL_DEBUG_RATE(mvm, "eht-set-enabled-rates: ht_rate[0][0]=0x%X, ht_rate[1][0]=0x%X  link_sta->rx_nss: %d eht_rx_mcs9 max nss: 0x%x\n",
+		       cmd->ht_rates[0][0], cmd->ht_rates[1][0], link_sta->rx_nss,
+		       eht_rx_mcs->bw._80.rx_tx_mcs9_max_nss);
+
 	/* the station support only a single receive chain */
 	if (link_sta->smps_mode == IEEE80211_SMPS_STATIC ||
 	    link_sta->rx_nss < 2)
@@ -376,7 +381,8 @@ rs_fw_eht_set_enabled_rates(struct ieee80211_vif *vif,
 		       sizeof(cmd->ht_rates[IWL_TLC_NSS_2]));
 }
 
-static void rs_fw_set_supp_rates(struct ieee80211_vif *vif,
+static void rs_fw_set_supp_rates(struct iwl_mvm *mvm,
+				 struct ieee80211_vif *vif,
 				 struct ieee80211_link_sta *link_sta,
 				 struct ieee80211_supported_band *sband,
 				 const struct ieee80211_sta_he_cap *sband_he_cap,
@@ -401,7 +407,7 @@ static void rs_fw_set_supp_rates(struct ieee80211_vif *vif,
 	/* HT/VHT rates */
 	if (link_sta->eht_cap.has_eht && sband_he_cap && sband_eht_cap) {
 		cmd->mode = IWL_TLC_MNG_MODE_EHT;
-		rs_fw_eht_set_enabled_rates(vif, link_sta, sband_he_cap,
+		rs_fw_eht_set_enabled_rates(mvm, vif, link_sta, sband_he_cap,
 					    sband_eht_cap, cmd);
 	} else if (he_cap->has_he && sband_he_cap) {
 		cmd->mode = IWL_TLC_MNG_MODE_HE;
@@ -640,6 +646,9 @@ void iwl_mvm_rs_fw_rate_init(struct iwl_mvm *mvm,
 	int cmd_ver;
 	int ret;
 
+	IWL_DEBUG_RATE(mvm, "mvmsta->authorized: %d  bw-from-sta-bw: %d\n",
+		       !!mvmsta->authorized, rs_fw_bw_from_sta_bw(link_sta));
+
 	/* Enable extra EHT LTF if there's mutual support by AP and client */
 	if (sband_eht_cap &&
 	    sband_eht_cap->eht_cap_elem.phy_cap_info[5] &
@@ -669,7 +678,7 @@ void iwl_mvm_rs_fw_rate_init(struct iwl_mvm *mvm,
 #ifdef CONFIG_IWLWIFI_DEBUGFS
 	iwl_mvm_reset_frame_stats(mvm);
 #endif
-	rs_fw_set_supp_rates(vif, link_sta, sband,
+	rs_fw_set_supp_rates(mvm, vif, link_sta, sband,
 			     sband_he_cap, sband_eht_cap,
 			     &cfg_cmd);
 
@@ -685,7 +694,7 @@ void iwl_mvm_rs_fw_rate_init(struct iwl_mvm *mvm,
 	cmd_ver = iwl_fw_lookup_cmd_ver(mvm->fw, cmd_id, 0);
 	IWL_DEBUG_RATE(mvm, "TLC CONFIG CMD, sta_id=%d, max_ch_width=%d, mode=%d\n",
 		       cfg_cmd.sta_id, cfg_cmd.max_ch_width, cfg_cmd.mode);
-	IWL_DEBUG_RATE(mvm, "TLC CONFIG CMD, chains=0x%X, ch_wid_supp=%d, flags=0x%X\n",
+	IWL_DEBUG_RATE(mvm, "TLC CONFIG CMD, chains=0x%X, sgi_ch_width_supp=%d, flags=0x%X\n",
 		       cfg_cmd.chains, cfg_cmd.sgi_ch_width_supp, cfg_cmd.flags);
 	IWL_DEBUG_RATE(mvm, "TLC CONFIG CMD, mpdu_len=%d, no_ht_rate=0x%X, tx_op=%d\n",
 		       cfg_cmd.max_mpdu_len, cfg_cmd.non_ht_rates, cfg_cmd.max_tx_op);
