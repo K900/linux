@@ -503,6 +503,14 @@ struct mt76_rx_tid {
 	struct sk_buff *reorder_buf[] __counted_by(size);
 };
 
+/**
+ * Flags for the SKB CB.
+ *
+ * MT_TX_CB_DMA_DONE: Indicates that tx DMA has been completed.
+ * MT_TX_CB_TXS_DONE: Indicates that tx status has been handled.
+ * MT_TX_CB_TXS_FAILED: Indicates failure for tx status.
+ * MT_TX_CB_TXO_USED: Indicates that tx overrides have been used for this tx.
+ */
 #define MT_TX_CB_DMA_DONE		BIT(0)
 #define MT_TX_CB_TXS_DONE		BIT(1)
 #define MT_TX_CB_TXS_FAILED		BIT(2)
