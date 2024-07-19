@@ -1124,6 +1124,7 @@ mt7915_mac_tx_free_v0(struct mt7915_dev *dev, void *data, int len)
 	LIST_HEAD(free_list);
 	bool wake = false;
 	u8 i, count;
+	u32 tx_status;
 
 	mt7915_mac_tx_free_prepare(dev);
 
@@ -1139,9 +1140,26 @@ mt7915_mac_tx_free_v0(struct mt7915_dev *dev, void *data, int len)
 		if (!txwi)
 			continue;
 
+		/* We don't get tx_status in this path so without more information we need to fib */
+		tx_status = 0; /* tx_status=ok */
+
+		if (txwi->skb) {
+			struct mt76_tx_cb *cb = mt76_tx_skb_cb(txwi->skb);
+			struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(txwi->skb);
+
+			/* More informed case, we have already done txs work previously */
+			if ((cb->flags & MT_TX_CB_TXS_DONE)) {
+				tx_status = (tx_info->flags & IEEE80211_TX_STAT_ACK)
+					    ? 0  /* Previously ack'd, probably ok */
+					    : 1; /* No ack, probably fail */
+			}
+		}
+
+		mtk_dbg(mdev, TXV, "%s: skb=%p, tx_status=%d", __func__, txwi->skb, tx_status);
+
 		/* TODO: Can we report tx_cnt, status, ampdu in this path? */
 		mt76_connac2_txwi_free(mdev, txwi, NULL, &free_list,
-				       1 /* tx_cnt */, 0 /* tx-status-ok */,
+				       1 /* tx_cnt */, tx_status,
 				       1/* ampdu */, &dev->phy.mib);
 	}
 
