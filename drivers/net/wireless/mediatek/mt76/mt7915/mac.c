@@ -1019,6 +1019,7 @@ mt7915_mac_tx_free_done(struct mt7915_dev *dev,
 	}
 }
 
+/* Verbose free path - contains tx_status information */
 static void
 mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 {
@@ -1096,8 +1097,9 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 			count++;
 			txwi = mt76_token_release(mdev, msdu, &wake);
 
-			mtk_dbg(mdev, TXV, "mt7915-mac-tx-free, msdu: %d, tx-cnt: %d  t_status: %d count: %d/%d\n",
-				msdu, tx_cnt, tx_status, count, total);
+			mtk_dbg(mdev, TX,
+				"%s: skb=%p, msdu=%d, tx-cnt=%d, tx-status=%d, count=%d/%d",
+				__func__, txwi->skb, msdu, tx_cnt, tx_status, count, total);
 
 			if (!txwi) {
 				WARN_ON_ONCE(1);
@@ -1114,6 +1116,7 @@ mt7915_mac_tx_free(struct mt7915_dev *dev, void *data, int len)
 	mt7915_mac_tx_free_done(dev, &free_list, wake);
 }
 
+/* Free path for non-verbose tx. Does *not* have tx_status information. */
 static void
 mt7915_mac_tx_free_v0(struct mt7915_dev *dev, void *data, int len)
 {
@@ -1166,6 +1169,7 @@ mt7915_mac_tx_free_v0(struct mt7915_dev *dev, void *data, int len)
 	mt7915_mac_tx_free_done(dev, &free_list, wake);
 }
 
+/* Beginning of verbose TXS path. */
 static void mt7915_mac_add_txs(struct mt7915_dev *dev, void *data)
 {
 	struct mt7915_sta *msta = NULL;
