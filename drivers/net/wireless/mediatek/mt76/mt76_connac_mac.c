@@ -581,6 +581,7 @@ void mt76_connac2_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
 	val = FIELD_PREP(MT_TXD5_PID, pid);
 	if (pid >= MT_PACKET_ID_FIRST ||
 	    (pid == MT_PACKET_ID_NO_SKB && dev->txs_for_no_skb_enabled)) {
+		/* Tx descriptor telling fw to send tx status */
 		val |= MT_TXD5_TX_STATUS_HOST;
 		amsdu_en = 0;
 		mtk_dbg(dev, TX, "wcid: %d connac2_mac_write_txwi, enabling TXD5_TX_STATUS_HOST",
@@ -781,6 +782,7 @@ bool mt76_connac2_mac_fill_txs(struct mt76_dev *dev, struct mt76_wcid *wcid,
 }
 EXPORT_SYMBOL_GPL(mt76_connac2_mac_fill_txs);
 
+/* Verbose TXS path, ACK can be set here. */
 bool mt76_connac2_mac_add_txs_skb(struct mt76_dev *dev, struct mt76_wcid *wcid,
 				  int pid, __le32 *txs_data)
 {
@@ -792,10 +794,17 @@ bool mt76_connac2_mac_add_txs_skb(struct mt76_dev *dev, struct mt76_wcid *wcid,
 	if (skb) {
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 
-		if (!(le32_to_cpu(txs_data[0]) & MT_TXS0_ACK_ERROR_MASK))
+		const char *ack_stat_s;
+
+		if (!(le32_to_cpu(txs_data[0]) & MT_TXS0_ACK_ERROR_MASK)) {
+			ack_stat_s = "setting ACK";
 			info->flags |= IEEE80211_TX_STAT_ACK;
-		else
+		} else {
 			info->flags &= ~IEEE80211_TX_STAT_ACK;
+			ack_stat_s = "unsetting ACK";
+		}
+
+		mtk_dbg(dev, TXV, "%s: skb=%p, %s", __func__, skb, ack_stat_s);
 
 		info->status.ampdu_len = 1;
 		info->status.ampdu_ack_len =
@@ -1265,6 +1274,7 @@ void mt76_connac2_tx_check_aggr(struct ieee80211_sta *sta, __le32 *txwi)
 }
 EXPORT_SYMBOL_GPL(mt76_connac2_tx_check_aggr);
 
+// Generally the last step in the txs path in the driver, collects a number of stats
 void mt76_connac2_txwi_free(struct mt76_dev *dev, struct mt76_txwi_cache *t,
 			    struct ieee80211_sta *sta,
 			    struct list_head *free_list,
