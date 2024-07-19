@@ -100,6 +100,7 @@ enum {
 #define MT_TXD5_PN_HIGH			GENMASK(31, 16)
 #define MT_TXD5_MD			BIT(15)
 #define MT_TXD5_ADD_BA			BIT(14)
+// Request txs for this skb
 #define MT_TXD5_TX_STATUS_HOST		BIT(10)
 #define MT_TXD5_TX_STATUS_MCU		BIT(9)
 #define MT_TXD5_TX_STATUS_FMT		BIT(8)

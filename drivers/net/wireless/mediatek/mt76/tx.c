@@ -98,6 +98,8 @@ __mt76_tx_status_skb_done(struct mt76_dev *dev, struct sk_buff *skb, u8 flags,
 	struct mt76_tx_cb *cb = mt76_tx_skb_cb(skb);
 	u8 done = MT_TX_CB_DMA_DONE | MT_TX_CB_TXS_DONE;
 
+	mtk_dbg(dev, TX, "%s: flags=0x%x, cb->flags=0x%x", __func__, flags, cb->flags);
+
 	flags |= cb->flags;
 	cb->flags = flags;
 
@@ -149,6 +151,8 @@ mt76_tx_status_skb_add(struct mt76_dev *dev, struct mt76_wcid *wcid,
 
 		return MT_PACKET_ID_NO_SKB;
 	}
+
+	/* REQ_TX_STATUS is true logic */
 
 	spin_lock_bh(&dev->status_lock);
 
