@@ -75,6 +75,10 @@ static void iwl_pcie_dump_host_monitor(struct iwl_trans *trans)
 #define IWL_FW_MEM_EXTENDED_START	0x40000
 #define IWL_FW_MEM_EXTENDED_END		0x57FFF
 
+static uint fw_dbg_buffer_order = 19; /* 512KB of logs in crash dump */
+module_param_named(fw_dbg_buffer_order, fw_dbg_buffer_order, uint, 0644);
+MODULE_PARM_DESC(fw_dbg_buffer_order, "2^[power] for firmware crash dump logs buffer size, default is 19");
+
 int iwl_trans_pcie_sw_reset(struct iwl_trans *trans, bool retake_ownership)
 {
 	/* Reset entire device - do controller reset (results in SHRD_HW_RST) */
@@ -168,17 +172,10 @@ void iwl_pcie_alloc_fw_monitor(struct iwl_trans *trans, u8 max_power)
 		return;
 
 	/* Try to use less memory, there are other things in the system as well! */
-	if (max_power > 19) {
-		pr_err("iwl_pcie_alloc_fw_monitor, decreasing max-power from %d to 19 to save memory.\n",
-		       max_power);
-		max_power = 19;
-	}
-
-	/* Try to use less memory, there are other things in the system as well! */
-	if (max_power > 19) {
-		pr_err("iwl_pcie_alloc_fw_monitor, decreasing max-power from %d to 19 to save memory.\n",
-		       max_power);
-		max_power = 19;
+	if (max_power > fw_dbg_buffer_order) {
+		pr_err("iwl_pcie_alloc_fw_monitor, decreasing max-power from %d to %d to save memory.\n",
+		       max_power, fw_dbg_buffer_order);
+		max_power = fw_dbg_buffer_order;
 	}
 
 	iwl_pcie_alloc_fw_monitor_block(trans, max_power);
