@@ -173,104 +173,107 @@ static int ieee80211_get_sset_count(struct net_device *dev, int sset)
 	return rv;
 }
 
+/* The following macros are for the *_get_stats2 functions */
+#define ADD_SURVEY_STATS(sdata, data, local)				\
+	do {								\
+		struct ieee80211_chanctx_conf *_chanctx_conf;		\
+		struct ieee80211_channel *_channel;			\
+		struct survey_info _survey;				\
+		int __q;						\
+									\
+		/* Get survey stats for current channel */		\
+		_survey.filled = 0;					\
+									\
+		rcu_read_lock();					\
+		_chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf); \
+		if ((link))						\
+			_channel = link->conf->chanreq.oper.chan;	\
+		else if (_chanctx_conf)					\
+			_channel = _chanctx_conf->def.chan;		\
+		else if (local->open_count > 0 &&			\
+			 local->open_count == local->monitors &&	\
+			 sdata->vif.type == NL80211_IFTYPE_MONITOR)	\
+			_channel = local->monitor_chanreq.oper.chan;	\
+		else							\
+			_channel = NULL;				\
+		rcu_read_unlock();					\
+									\
+		if (_channel) {						\
+			__q = 0;					\
+			do {						\
+				_survey.filled = 0;			\
+				if (drv_get_survey((local), __q, &_survey) != 0) { \
+					_survey.filled = 0;		\
+					break;				\
+				}					\
+				__q++;					\
+			} while (_channel != _survey.channel);		\
+		}							\
+									\
+		if (_channel) {						\
+			(data)[i++] = _channel->center_freq;		\
+		} else {						\
+			if ((local)->dflt_chandef.chan)			\
+				(data)[i++] = (local)->dflt_chandef.chan->center_freq; \
+			else						\
+				(data)[i++] = 0;			\
+		}							\
+		if (_survey.filled & SURVEY_INFO_NOISE_DBM)		\
+			(data)[i++] = (u8)_survey.noise;		\
+		else							\
+			(data)[i++] = -1LL;				\
+		if (_survey.filled & SURVEY_INFO_TIME)			\
+			(data)[i++] = _survey.time;			\
+		else							\
+			(data)[i++] = -1LL;				\
+		if (_survey.filled & SURVEY_INFO_TIME_BUSY)		\
+			(data)[i++] = _survey.time_busy;		\
+		else							\
+			(data)[i++] = -1LL;				\
+		if (_survey.filled & SURVEY_INFO_TIME_EXT_BUSY)	\
+			(data)[i++] = _survey.time_ext_busy;		\
+		else							\
+			(data)[i++] = -1LL;				\
+		if (_survey.filled & SURVEY_INFO_TIME_RX)		\
+			(data)[i++] = _survey.time_rx;			\
+		else							\
+			(data)[i++] = -1LL;				\
+		if (_survey.filled & SURVEY_INFO_TIME_TX)		\
+			(data)[i++] = _survey.time_tx;			\
+		else							\
+			(data)[i++] = -1LL;				\
+	} while (0)
+#define STA_STATS_SURVEY_LEN 7
+
+#define ADD_STA_STATS(data, sinfo, sta)				\
+	do {							\
+		(data)[i++] += (sinfo).rx_packets;		\
+		(data)[i++] += (sinfo).rx_bytes;		\
+		(data)[i++] += (sta)->rx_stats.num_duplicates;	\
+		(data)[i++] += (sta)->rx_stats.fragments;	\
+		(data)[i++] += (sinfo).rx_dropped_misc;		\
+								\
+		(data)[i++] += (sinfo).tx_packets;		\
+		(data)[i++] += (sinfo).tx_bytes;		\
+		(data)[i++] += (sta)->status_stats.filtered;	\
+		(data)[i++] += (sinfo).tx_failed;		\
+		(data)[i++] += (sinfo).tx_retries;		\
+	} while (0)
+#define STA_STATS_COUNT 10
+
 static void ieee80211_get_stats2(struct net_device *dev,
 				 struct ethtool_stats *stats,
 				 u64 *data, u32 level)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
-	struct ieee80211_chanctx_conf *chanctx_conf;
-	struct ieee80211_channel *channel;
 	struct sta_info *sta;
 	struct ieee80211_local *local = sdata->local;
 	struct station_info sinfo;
-	struct survey_info survey;
 	struct ieee80211_link_data *link = NULL;
-	int i = 0, q, start_link_i;
+	int i = 0, start_link_i;
 	int z;
-#define STA_STATS_SURVEY_LEN 7
 
 	memset(data, 0, sizeof(u64) * STA_STATS_LEN);
-
-#define ADD_SURVEY_STATS						\
-	do {								\
-		/* Get survey stats for current channel */		\
-		survey.filled = 0;					\
-									\
-		rcu_read_lock();					\
-		chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf); \
-		if (link)						\
-			channel = link->conf->chanreq.oper.chan;	\
-		else if (chanctx_conf)					\
-			channel = chanctx_conf->def.chan;		\
-		else if (local->open_count > 0 &&			\
-			 local->open_count == local->monitors &&	\
-			 sdata->vif.type == NL80211_IFTYPE_MONITOR)	\
-			channel = local->monitor_chanreq.oper.chan;	\
-		else							\
-			channel = NULL;					\
-		rcu_read_unlock();					\
-									\
-		if (channel) {						\
-			q = 0;						\
-			do {						\
-				survey.filled = 0;			\
-				if (drv_get_survey(local, q, &survey) != 0) { \
-					survey.filled = 0;		\
-					break;				\
-				}					\
-				q++;					\
-			} while (channel != survey.channel);		\
-		}							\
-									\
-		if (channel) {						\
-			data[i++] = channel->center_freq;		\
-		} else {						\
-			if (local->dflt_chandef.chan)			\
-				data[i++] = local->dflt_chandef.chan->center_freq; \
-			else						\
-				data[i++] = 0;				\
-		}							\
-		if (survey.filled & SURVEY_INFO_NOISE_DBM)		\
-			data[i++] = (u8)survey.noise;			\
-		else							\
-			data[i++] = -1LL;				\
-		if (survey.filled & SURVEY_INFO_TIME)			\
-			data[i++] = survey.time;			\
-		else							\
-			data[i++] = -1LL;				\
-		if (survey.filled & SURVEY_INFO_TIME_BUSY)		\
-			data[i++] = survey.time_busy;			\
-		else							\
-			data[i++] = -1LL;				\
-		if (survey.filled & SURVEY_INFO_TIME_EXT_BUSY)		\
-			data[i++] = survey.time_ext_busy;		\
-		else							\
-			data[i++] = -1LL;				\
-		if (survey.filled & SURVEY_INFO_TIME_RX)		\
-			data[i++] = survey.time_rx;			\
-		else							\
-			data[i++] = -1LL;				\
-		if (survey.filled & SURVEY_INFO_TIME_TX)		\
-			data[i++] = survey.time_tx;			\
-		else							\
-			data[i++] = -1LL;				\
-	} while (0)
-
-#define ADD_STA_STATS(sta)					\
-	do {							\
-		data[i++] += sinfo.rx_packets;			\
-		data[i++] += sinfo.rx_bytes;			\
-		data[i++] += (sta)->rx_stats.num_duplicates;	\
-		data[i++] += (sta)->rx_stats.fragments;		\
-		data[i++] += sinfo.rx_dropped_misc;		\
-								\
-		data[i++] += sinfo.tx_packets;			\
-		data[i++] += sinfo.tx_bytes;			\
-		data[i++] += (sta)->status_stats.filtered;	\
-		data[i++] += sinfo.tx_failed;			\
-		data[i++] += sinfo.tx_retries;			\
-	} while (0)
-#define STA_STATS_COUNT 10
 
 	/* NOTE/HACK:  TX stats are not updated for anything except
 	 * deflink currently.  Use those stats on the active link.
@@ -372,7 +375,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				ADD_LINK_STA_STATS(link_sta, link_rx_stats,
 						   sdata->vif.active_links & (1<<li));
 			} else {
-				ADD_STA_STATS(link_sta);
+				ADD_STA_STATS(data, sinfo, link_sta);
 			}
 
 			data[i++] = sdata->tx_handlers_drop;
@@ -467,7 +470,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				i++;
 			}
 
-			ADD_SURVEY_STATS;
+			ADD_SURVEY_STATS(sdata, data, local);
 		} /* for first 3 links */
 	} else {
 		int amt_tx = 0;
@@ -491,7 +494,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			memset(&sinfo, 0, sizeof(sinfo));
 			sta_set_sinfo(sta, &sinfo, false);
 			i = start_link_i;
-			ADD_STA_STATS(&sta->deflink);
+			ADD_STA_STATS(data, sinfo, &sta->deflink);
 			data[i++] = sdata->tx_handlers_drop;
 
 			i++; /* skip sta state */
@@ -568,7 +571,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		}
 		i += 2;
 
-		ADD_SURVEY_STATS;
+		ADD_SURVEY_STATS(sdata, data, local);
 
 		/* TODO: AP doesn't support per-link stats yet */
 		i += (2 * PER_LINK_STATS_LEN);
