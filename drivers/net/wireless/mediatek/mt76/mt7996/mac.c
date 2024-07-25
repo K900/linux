@@ -1804,20 +1804,33 @@ next:
 				continue;
 
 			/* TODO:  How to get tx_cnt, tx_status, ampdu*/
-			tx_status = 0;
+			tx_status = 0; /* For now, set txstatus=ok */
 			tx_cnt = 1;
 			ampdu = 1;
 
 			count++;
 			txwi = mt76_token_release(mdev, msdu, &wake);
 
-			mtk_dbg(mdev, TXV, "mt7996-mac-tx-free, msdu: %d, tx-cnt: %d  t_status: %d count: %d/%d\n",
-				msdu, tx_cnt, tx_status, count, total);
-
 			if (!txwi) {
 				WARN_ON_ONCE(1);
 				continue;
 			}
+
+			/* More educated tx_status guess, if possible */
+			if (txwi->skb) {
+				struct mt76_tx_cb *cb = mt76_tx_skb_cb(txwi->skb);
+				struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(txwi->skb);
+
+				/* More informed case, we have already done txs work previously */
+				if ((cb->flags & MT_TX_CB_TXS_DONE)) {
+					tx_status = (tx_info->flags & IEEE80211_TX_STAT_ACK)
+						    ? 0  /* Previously ack'd, probably ok */
+						    : 1; /* No ack, probably fail */
+				}
+			}
+
+			mtk_dbg(mdev, TXV, "mt7996-mac-tx-free, msdu: %d, tx-cnt: %d  t_status: %d count: %d/%d\n",
+				msdu, tx_cnt, tx_status, count, total);
 
 			mt7996_txwi_free(dev, txwi, link_sta, wcid,
 					 &free_list, tx_cnt, tx_status, ampdu);
