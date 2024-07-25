@@ -158,13 +158,89 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 #define ETHTOOL_LINK_COUNT 3 /* we will show stats for first 3 links */
 #define PER_LINK_STATS_LEN ((STA_STATS_LEN - SDATA_STATS_LEN) / ETHTOOL_LINK_COUNT)
 
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+/* Stations can use this by setting the NL80211_EXT_FEATURE_ETHTOOL_VDEV_STATS
+ * flag. Intended for use with IEEE802.11ac and older radios.
+ */
+static const char ieee80211_gstrings_sta_vdev_stats[][ETH_GSTRING_LEN] = {
+	"rx_packets",
+	"rx_bytes",
+	"rx_duplicates",
+	"rx_fragments",
+	"rx_dropped",
+	"tx_packets",
+	"tx_bytes",
+	"tx_filtered",
+	"tx_retry_failed",
+	"tx_retries",
+	"tx_handlers_drop",
+	"sta_state",
+	"txrate",
+	"rxrate",
+	"signal",
+	"signal_beacon",
+	"signal_chains",
+	"signal_chains_avg",
+
+	/* Histogram stats */
+	"v_tx_bw_20",
+	"v_tx_bw_40",
+	"v_tx_bw_80",
+	"v_tx_bw_160",
+	"v_tx_mcs_0",
+	"v_tx_mcs_1",
+	"v_tx_mcs_2",
+	"v_tx_mcs_3",
+	"v_tx_mcs_4",
+	"v_tx_mcs_5",
+	"v_tx_mcs_6",
+	"v_tx_mcs_7",
+	"v_tx_mcs_8",
+	"v_tx_mcs_9",
+
+	"v_rx_bw_20",
+	"v_rx_bw_40",
+	"v_rx_bw_80",
+	"v_rx_bw_160",
+	"v_rx_mcs_0",
+	"v_rx_mcs_1",
+	"v_rx_mcs_2",
+	"v_rx_mcs_3",
+	"v_rx_mcs_4",
+	"v_rx_mcs_5",
+	"v_rx_mcs_6",
+	"v_rx_mcs_7",
+	"v_rx_mcs_8",
+	"v_rx_mcs_9",
+
+	/* Add new stats here, channel and others go below */
+	"channel",
+	"noise",
+	"ch_time",
+	"ch_time_busy",
+	"ch_time_ext_busy",
+	"ch_time_rx",
+	"ch_time_tx",
+};
+#define STA_VDEV_STATS_LEN ARRAY_SIZE(ieee80211_gstrings_sta_vdev_stats)
+#endif
+
 static int ieee80211_get_sset_count(struct net_device *dev, int sset)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	int rv = 0;
 
-	if (sset == ETH_SS_STATS)
+	if (sset == ETH_SS_STATS) {
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+		if (wiphy_ext_feature_isset(sdata->local->hw.wiphy,
+					    NL80211_EXT_FEATURE_ETHTOOL_VDEV_STATS))
+			rv += STA_VDEV_STATS_LEN;
+		else
+			rv += STA_STATS_LEN;
+#else
 		rv += STA_STATS_LEN;
+#endif
+	}
 
 	rv += drv_get_et_sset_count(sdata, sset);
 
@@ -261,6 +337,228 @@ static int ieee80211_get_sset_count(struct net_device *dev, int sset)
 	} while (0)
 #define STA_STATS_COUNT 10
 
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+static void ieee80211_get_stats2_vdev(struct net_device *dev,
+				      struct ethtool_stats *stats,
+				      u64 *data, u32 level)
+{
+	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+	struct sta_info *sta;
+	struct ieee80211_local *local = sdata->local;
+	struct station_info sinfo;
+	struct ieee80211_link_data *link = NULL;
+	int i = 0;
+	int z;
+
+	memset(data, 0, sizeof(u64) * STA_VDEV_STATS_LEN);
+
+#define ADD_VDEV_STATS							\
+	do {								\
+		data[i++] += sta->deflink.tx_stats.msdu_20;		\
+		data[i++] += sta->deflink.tx_stats.msdu_40;		\
+		data[i++] += sta->deflink.tx_stats.msdu_80;		\
+		data[i++] += sta->deflink.tx_stats.msdu_160;		\
+		for (z = 0; z < 10; z++)				\
+			data[i++] += sta->deflink.tx_stats.msdu_rate_idx[z]; \
+		data[i++] += sta->deflink.rx_stats.msdu_20;		\
+		data[i++] += sta->deflink.rx_stats.msdu_40;		\
+		data[i++] += sta->deflink.rx_stats.msdu_80;		\
+		data[i++] += sta->deflink.rx_stats.msdu_160;		\
+		for (z = 0; z < 10; z++)				\
+			data[i++] += sta->deflink.rx_stats.msdu_rate_idx[z]; \
+	} while (0)
+
+	/* For Managed stations, find the single station based on BSSID
+	 * and use that.  For interface types, iterate through all available
+	 * stations and add stats for any station that is assigned to this
+	 * network device.
+	 */
+
+	wiphy_lock(local->hw.wiphy);
+
+	if (sdata->vif.type == NL80211_IFTYPE_STATION) {
+		rcu_read_lock();
+		sta = ieee80211_find_best_sta_link(sdata, &link);
+		rcu_read_unlock();
+
+		if (!(sta && !WARN_ON(sta->sdata->dev != dev)))
+			goto do_survey;
+
+		memset(&sinfo, 0, sizeof(sinfo));
+		/* sta_set_sinfo cannot hold rcu read lock since it can block
+		 * calling into firmware for stats.
+		 */
+		sta_set_sinfo(sta, &sinfo, false);
+
+		i = 0;
+		ADD_STA_STATS(data, sinfo, &sta->deflink);
+
+		data[i++] = sdata->tx_handlers_drop;
+		data[i++] = sta->sta_state;
+
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
+			data[i] = 100000ULL *
+				cfg80211_calculate_bitrate(&sinfo.txrate);
+		i++;
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_RX_BITRATE))
+			data[i] = 100000ULL *
+				cfg80211_calculate_bitrate(&sinfo.rxrate);
+		i++;
+
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
+			data[i] = (u8)sinfo.signal_avg;
+		i++;
+
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
+			data[i] = (u8)sinfo.rx_beacon_signal_avg;
+		i++;
+
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
+			int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
+			u64 accum = (u8)sinfo.chain_signal[0];
+
+			mn = min_t(int, mn, sinfo.chains);
+			for (z = 1; z < mn; z++) {
+				u64 csz = sinfo.chain_signal[z] & 0xFF;
+				u64 cs = csz << (8 * z);
+
+				accum |= cs;
+			}
+			data[i] = accum;
+		}
+		i++;
+
+		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
+			int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
+			u64 accum = (u8)sinfo.chain_signal_avg[0];
+
+			for (z = 1; z < mn; z++) {
+				u64 csz = sinfo.chain_signal_avg[z] & 0xFF;
+				u64 cs = csz << (8 * z);
+
+				accum |= cs;
+			}
+			data[i] = accum;
+		}
+		i++;
+
+		ADD_VDEV_STATS;
+	} else {
+		int amt_tx = 0;
+		int amt_rx = 0;
+		int amt_sig = 0;
+		s16 amt_accum_chain[8] = {0};
+		s16 amt_accum_chain_avg[8] = {0};
+		s64 tx_accum = 0;
+		s64 rx_accum = 0;
+		s64 sig_accum = 0;
+		s64 sig_accum_beacon = 0;
+		s64 sig_accum_chain[8] = {0};
+		s64 sig_accum_chain_avg[8] = {0};
+		int start_accum_idx = 0;
+
+		list_for_each_entry(sta, &local->sta_list, list) {
+			/* Make sure this station belongs to the proper dev */
+			if (sta->sdata->dev != dev)
+				continue;
+
+			memset(&sinfo, 0, sizeof(sinfo));
+			sta_set_sinfo(sta, &sinfo, false);
+			i = 0;
+			ADD_STA_STATS(data, sinfo, &sta->deflink);
+
+			i++; /* skip sta state */
+			if (sinfo.filled & BIT(NL80211_STA_INFO_TX_BITRATE)) {
+				tx_accum += 100000ULL *
+					cfg80211_calculate_bitrate(&sinfo.txrate);
+				amt_tx++;
+			}
+
+			if (sinfo.filled & BIT(NL80211_STA_INFO_RX_BITRATE)) {
+				rx_accum += 100000ULL *
+					cfg80211_calculate_bitrate(&sinfo.rxrate);
+				amt_rx++;
+			}
+
+			if (sinfo.filled & BIT(NL80211_STA_INFO_SIGNAL_AVG)) {
+				sig_accum += sinfo.signal_avg;
+				sig_accum_beacon += sinfo.rx_beacon_signal_avg;
+				amt_sig++;
+			}
+
+			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
+				int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
+
+				mn = min_t(int, mn, sinfo.chains);
+				for (z = 0; z < mn; z++) {
+					sig_accum_chain[z] += sinfo.chain_signal[z];
+					amt_accum_chain[z]++;
+				}
+			}
+
+			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
+				int mn;
+
+				mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
+				mn = min_t(int, mn, sinfo.chains);
+				for (z = 0; z < mn; z++) {
+					sig_accum_chain_avg[z] += sinfo.chain_signal_avg[z];
+					amt_accum_chain_avg[z]++;
+				}
+			}
+		} /* for each stations associated to AP */
+
+		/* Do averaging */
+		i = start_accum_idx;
+
+		if (amt_tx)
+			data[i] = mac_div(tx_accum, amt_tx);
+		i++;
+
+		if (amt_rx)
+			data[i] = mac_div(rx_accum, amt_rx);
+		i++;
+
+		if (amt_sig) {
+			data[i] = (mac_div(sig_accum, amt_sig) & 0xFF);
+			data[i + 1] = (mac_div(sig_accum_beacon, amt_sig) & 0xFF);
+		}
+		i += 2;
+
+		for (z = 0; z < sizeof(u64); z++) {
+			if (amt_accum_chain[z]) {
+				u64 val = mac_div(sig_accum_chain[z], amt_accum_chain[z]);
+
+				val |= 0xFF;
+				data[i] |= (val << (z * 8));
+			}
+			if (amt_accum_chain_avg[z]) {
+				u64 val = mac_div(sig_accum_chain_avg[z], amt_accum_chain_avg[z]);
+
+				val |= 0xFF;
+				data[i + 1] |= (val << (z * 8));
+			}
+		}
+		i += 2;
+		ADD_VDEV_STATS;
+	} /* else if not STA */
+
+do_survey:
+	i = STA_VDEV_STATS_LEN - STA_STATS_SURVEY_LEN;
+	ADD_SURVEY_STATS(sdata, data, local);
+
+	if (WARN_ON(i != STA_VDEV_STATS_LEN)) {
+		pr_err("mac80211 ethtool stats, i: %d  != STA_STATS_LEN: %lu\n",
+		       i, STA_VDEV_STATS_LEN);
+		wiphy_unlock(local->hw.wiphy);
+		return;
+	}
+
+	drv_get_et_stats(sdata, stats, &data[STA_VDEV_STATS_LEN], level);
+	wiphy_unlock(local->hw.wiphy);
+}
+#endif
+
 static void ieee80211_get_stats2(struct net_device *dev,
 				 struct ethtool_stats *stats,
 				 u64 *data, u32 level)
@@ -273,6 +571,15 @@ static void ieee80211_get_stats2(struct net_device *dev,
 	int i = 0, start_link_i;
 	int z;
 
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+	/* If the driver needs to get vdev stats from here...*/
+	if (wiphy_ext_feature_isset(sdata->local->hw.wiphy,
+				    NL80211_EXT_FEATURE_ETHTOOL_VDEV_STATS)) {
+		ieee80211_get_stats2_vdev(dev, stats, data, level);
+		return;
+	}
+#endif
+
 	memset(data, 0, sizeof(u64) * STA_STATS_LEN);
 
 	/* NOTE/HACK:  TX stats are not updated for anything except
@@ -281,7 +588,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 #define ADD_LINK_STA_STATS(sta, link_rx_stats, active)		\
 	do {							\
 		data[i++] += link_rx_stats.packets;		\
-		data[i++] += link_rx_stats.bytes;		\
+		data[i++] += u64_stats_read(&link_rx_stats.bytes); \
 		data[i++] += link_rx_stats.num_duplicates;	\
 		data[i++] += link_rx_stats.fragments;		\
 		data[i++] += link_rx_stats.dropped;		\
@@ -599,8 +906,19 @@ static void ieee80211_get_strings(struct net_device *dev, u32 sset, u8 *data)
 	int sz_sta_stats = 0;
 
 	if (sset == ETH_SS_STATS) {
+#ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
+		if (wiphy_ext_feature_isset(sdata->local->hw.wiphy,
+					    NL80211_EXT_FEATURE_ETHTOOL_VDEV_STATS)) {
+			sz_sta_stats = sizeof(ieee80211_gstrings_sta_vdev_stats);
+			memcpy(data, ieee80211_gstrings_sta_vdev_stats, sz_sta_stats);
+		} else {
+			sz_sta_stats = sizeof(ieee80211_gstrings_sta_stats);
+			memcpy(data, ieee80211_gstrings_sta_stats, sz_sta_stats);
+		}
+#else
 		sz_sta_stats = sizeof(ieee80211_gstrings_sta_stats);
 		memcpy(data, ieee80211_gstrings_sta_stats, sz_sta_stats);
+#endif
 	}
 	drv_get_et_strings(sdata, sset, &(data[sz_sta_stats]));
 }
