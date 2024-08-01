@@ -152,42 +152,45 @@ exit:
 }
 EXPORT_SYMBOL_GPL(mt76_get_of_data_from_nvmem);
 
-int mt76_get_of_data_from_file(struct mt76_dev *dev, void *eep, u32 offset, int len)
+static int _mt76_get_of_data_from_file(struct mt76_dev *dev, void *eep, u32 offset, int len,
+				const char* fname)
 {
 #if defined(CONFIG_OF)
 	int ret = 0;
 	int retlen;
 
-	char path[64] = "";
+	char path[96];
 	struct file *fp;
 	loff_t pos = 0;
 	struct inode *inode = NULL;
 	loff_t f_size;
 
-	mtk_dbg(dev, CFG, "Attempting to load eeprom rf.bin\n");
-	retlen = snprintf(path,sizeof(path),"/lib/firmware/mediatek/rf.bin");
+	mtk_dbg(dev, CFG, "Attempting to load eeprom %s\n", fname);
+	retlen = snprintf(path, sizeof(path), fname);
 	if (retlen < 0) {
-		mtk_dbg(dev, CFG, "ERROR:  Could not find rf.bin\n");
+		mtk_dbg(dev, CFG, "ERROR:  Could not find eeprom file-name %s\n", fname);
 		return -EINVAL;
 	}
 
 	fp = filp_open(path, O_RDONLY, 0);
 	if (IS_ERR(fp)) {
-		dev_warn(dev->dev,"open eeprom file failed: %s\n",path);
+		dev_warn(dev->dev, "open eeprom file failed: %s\n", path);
 		return -ENOENT;
 	}
 
 	inode = file_inode(fp);
 	if ((!S_ISREG(inode->i_mode) && !S_ISBLK(inode->i_mode))) {
 		dev_warn(dev->dev, "invalid eeprom file type: %s\n", path);
-		return -ENOENT;
+		ret = -ENOENT;
+		goto out_put_node;
 	}
 
 	f_size = i_size_read(inode->i_mapping->host);
 	if (f_size < 0)
 	{
 		dev_warn(dev->dev, "failed getting eeprom size of %s size:%lld \n", path, f_size);
-		return -ENOENT;
+		ret = -ENOENT;
+		goto out_put_node;
 	}
 
 	pos = offset;
@@ -196,7 +199,7 @@ int mt76_get_of_data_from_file(struct mt76_dev *dev, void *eep, u32 offset, int 
 	retlen = kernel_read(fp, eep, len, &pos);
 	if (retlen != len) {
 		ret = -EINVAL;
-		dev_warn(dev->dev,"load eeprom ERROR, count %d byte (len:%d)\n", ret, len);
+		dev_warn(dev->dev, "load eeprom ERROR, count %d byte (len:%d)\n", ret, len);
 		goto out_put_node;
 	}
 
@@ -210,8 +213,8 @@ int mt76_get_of_data_from_file(struct mt76_dev *dev, void *eep, u32 offset, int 
 					   &data[i]);
 	}
 
-	mtk_dbg(dev, CFG, "load eeprom from rf.bin OK, count %d, pos %lld ret: %d\n",
-		retlen, pos, ret);
+	mtk_dbg(dev, CFG, "load eeprom from %s OK, count %d, pos %lld ret: %d\n",
+		path, retlen, pos, ret);
 
 out_put_node:
 	filp_close(fp, 0);
@@ -219,6 +222,22 @@ out_put_node:
 #else
 	return -ENOENT;
 #endif
+}
+
+int mt76_get_of_data_from_file(struct mt76_dev *dev, void *eep, u32 offset,
+			       int len)
+{
+	char buf[96];
+	int ret;
+
+	// Try with bus-specific FW file first
+	snprintf(buf, sizeof(buf), "/lib/firmware/mediatek/rf-%s.bin",
+		 dev_name(dev->dev));
+	ret = _mt76_get_of_data_from_file(dev, eep, offset, len, buf);
+	if (ret >= 0)
+		return ret;
+
+	return _mt76_get_of_data_from_file(dev, eep, offset, len, "/lib/firmware/mediatek/rf.bin");
 }
 EXPORT_SYMBOL_GPL(mt76_get_of_data_from_file);
 
