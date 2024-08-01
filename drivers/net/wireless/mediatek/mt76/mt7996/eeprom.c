@@ -141,6 +141,8 @@ mt7996_eeprom_check_or_use_default(struct mt7996_dev *dev, bool use_default)
 	int ret;
 
 	ret = request_firmware(&fw, mt7996_eeprom_name(dev), dev->mt76.dev);
+	dev_warn(dev->mt76.dev, "eeprom-load-default, request-fw ret: %d  eeprom-name: %s\n",
+		 ret, mt7996_eeprom_name(dev));
 	if (ret)
 		return ret;
 
@@ -172,10 +174,14 @@ static int mt7996_eeprom_load(struct mt7996_dev *dev)
 	mtk_dbg(&dev->mt76, CFG, "attemping eeprom-init.\n");
 
 	ret = mt76_eeprom_init(&dev->mt76, MT7996_EEPROM_SIZE);
+	dev_warn(dev->mt76.dev, "eeprom-check-fw-mode, eeprom-init ret: %d\n", ret);
 	if (ret < 0) {
 		mtk_dbg(&dev->mt76, CFG, "eeprom-init had error: %d\n", ret);
 		return ret;
 	}
+
+	dev_warn(dev->mt76.dev, "mt7996-eeprom-load, eeprom-mode: %d\n",
+		 dev->eeprom_mode);
 
 	if (ret && !mt7996_check_eeprom(dev)) {
 		dev->eeprom_mode = EEPROM_MODE_FLASH;
@@ -226,6 +232,7 @@ static int mt7996_eeprom_load(struct mt7996_dev *dev)
 			goto out;
 		}
 	}
+	dev_warn(dev->mt76.dev, "mt7996-eeprom-load, not flash mode, read from NIC's efuse\n");
 
 out:
 	return mt7996_eeprom_check_or_use_default(dev, use_default);
