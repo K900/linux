@@ -1526,6 +1526,10 @@ void ieee80211_sta_debugfs_add(struct sta_info *sta)
 
 void ieee80211_sta_debugfs_remove(struct sta_info *sta)
 {
+	if (WARN_ON_ONCE(!sta))
+		return;
+	if (WARN_ON_ONCE(!sta->debugfs_dir))
+		return;
 	debugfs_remove_recursive(sta->debugfs_dir);
 	sta->debugfs_dir = NULL;
 }
