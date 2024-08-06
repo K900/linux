@@ -689,25 +689,18 @@ static ssize_t link_sta_ht_capa_read(struct file *file, char __user *userbuf,
 }
 LINK_STA_OPS(ht_capa);
 
-static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
-				      size_t count, loff_t *ppos)
+static ssize_t link_sta_vht_capa_do_read(struct wiphy *wiphy, struct file *file,
+                                         char *buf, size_t bufsz, void *data)
 {
-	char *buf, *p;
-	struct link_sta_info *link_sta = file->private_data;
+	struct link_sta_info *link_sta = data;
 	struct ieee80211_sta_vht_cap *vhtc = &link_sta->pub->vht_cap;
 	struct cfg80211_chan_def *chandef = &link_sta->sta->sdata->vif.bss_conf.chanreq.oper;
 	struct ieee80211_sub_if_data *sdata = link_sta->sta->sdata;
 	struct ieee80211_link_data *link;
-	ssize_t ret;
-	ssize_t bufsz = 512;
-
-	buf = kzalloc(bufsz, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
+	char *p;
 	p = buf;
 
-	rcu_read_lock();
-	link = sdata_dereference(sdata->link[link_sta->link_id], sdata);
+	link = wiphy_dereference(wiphy, sdata->link[link_sta->link_id]);
 
 	if (link && link->conf)
 		chandef = &link->conf->chanreq.oper;
@@ -891,9 +884,27 @@ static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
 #undef PFLAG
 	}
 
-	rcu_read_unlock();
-	ret = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
+	return p - buf;
+}
+
+static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
+				      size_t count, loff_t *ppos)
+{
+	struct link_sta_info *link_sta = file->private_data;
+	struct wiphy *wiphy = link_sta->sta->local->hw.wiphy;
+	char *buf;
+	ssize_t ret;
+	ssize_t bufsz = 512;
+
+	buf = kzalloc(bufsz, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	ret = wiphy_locked_debugfs_read(wiphy, file, buf, bufsz, userbuf, count, ppos,
+	                                link_sta_vht_capa_do_read, link_sta);
+
 	kfree(buf);
+
 	return ret;
 }
 LINK_STA_OPS(vht_capa);
