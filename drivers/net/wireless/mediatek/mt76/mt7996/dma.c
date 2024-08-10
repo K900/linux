@@ -36,6 +36,8 @@ static int mt7996_poll_tx(struct napi_struct *napi, int budget)
 
 	dev = container_of(napi, struct mt7996_dev, mt76.tx_napi);
 
+	mtk_dbg(&dev->mt76, TXV, "mt7996-poll-tx called\n");
+
 	mt76_connac_tx_cleanup(&dev->mt76);
 	if (napi_complete_done(napi, 0))
 		mt7996_irq_enable(dev, MT_INT_TX_DONE_MCU);
@@ -309,6 +311,8 @@ void mt7996_dma_start(struct mt7996_dev *dev, bool reset, bool wed_reset)
 	u32 hif1_ofs = 0;
 	u32 irq_mask;
 
+	mtk_dbg(&dev->mt76, TXV, "mt7996-dma-start called\n");
+
 	if (dev->hif2)
 		hif1_ofs = MT_WFDMA0_PCIE1(0) - MT_WFDMA0(0);
 
@@ -374,6 +378,8 @@ void mt7996_dma_start(struct mt7996_dev *dev, bool reset, bool wed_reset)
 static void mt7996_dma_enable(struct mt7996_dev *dev, bool reset)
 {
 	u32 hif1_ofs = 0;
+
+	mtk_dbg(&dev->mt76, TXV, "mt7996-dma-enable called\n");
 
 	if (dev->hif2)
 		hif1_ofs = MT_WFDMA0_PCIE1(0) - MT_WFDMA0(0);

@@ -1609,8 +1609,8 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 			wcid = &msta_link->wcid;
 	}
 
-	mtk_dbg(&dev->mt76, TXV, "mt7996-tx, wcid: %d\n",
-		wcid->idx);
+	mtk_dbg(&dev->mt76, TXV, "mt7996-tx, wcid: %p wcid->idx: %d skb: %p, call mt76_tx\n",
+		wcid, wcid->idx, skb);
 
 	mt76_tx(mphy, control->sta, wcid, skb);
 unlock:
