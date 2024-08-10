@@ -1257,6 +1257,8 @@ enum MTK_DEUBG {
 	MTK_DEBUG_WRN		= 0x00000008,
 	MTK_DEBUG_MSG		= 0x00000010, /* messages to/from firmware */
 	MTK_DEBUG_CFG		= 0x00000020, /* Configuration related */
+	MTK_DEBUG_BA		= 0x00000040, /* block-ack and aggregation related */
+	MTK_DEBUG_RXV		= 0x00000080, /* verbose rx path */
 	MTK_DEBUG_ANY		= 0xffffffff
 };
 
