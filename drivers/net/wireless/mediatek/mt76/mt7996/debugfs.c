@@ -87,6 +87,9 @@ mt7996_sys_recovery_set(struct file *file, const char __user *user_buf,
 	 * <band>,7: trigger & enable system error L4 mdp recovery.
 	 * <band>,8: trigger & enable system error full recovery.
 	 * <band>,9: trigger firmware crash.
+	 * 10: trigger grab wa firmware coredump.
+	 * 11: trigger grab wm firmware coredump.
+	 * 12: hw bit detect only.
 	 */
 	case UNI_CMD_SER_QUERY:
 		ret = mt7996_mcu_set_ser(dev, UNI_CMD_SER_QUERY, 0, band);
@@ -118,6 +121,11 @@ mt7996_sys_recovery_set(struct file *file, const char __user *user_buf,
 		if (ret)
 			return ret;
 		break;
+	case UNI_CMD_SER_SET_HW_BIT_DETECT_ONLY:
+		ret = mt7996_mcu_set_ser(dev, UNI_CMD_SER_SET, BIT(0), band);
+		if (ret)
+			return ret;
+		break;
 	default:
 		break;
 	}
@@ -133,7 +141,7 @@ mt7996_sys_recovery_get(struct file *file, char __user *user_buf,
 	char *buff;
 	int desc = 0;
 	ssize_t ret;
-	static const size_t bufsz = 1024;
+	static const size_t bufsz = 1536;
 
 	buff = kmalloc(bufsz, GFP_KERNEL);
 	if (!buff)
@@ -162,7 +170,15 @@ mt7996_sys_recovery_get(struct file *file, char __user *user_buf,
 			  "<band>,8: trigger system error full recovery\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
 			  "<band>,9: trigger firmware crash\n");
-
+	desc += scnprintf(buff + desc, bufsz - desc,
+			  "%2d: trigger grab wa firmware coredump\n",
+			  UNI_CMD_SER_FW_COREDUMP_WA);
+	desc += scnprintf(buff + desc, bufsz - desc,
+			  "%2d: trigger grab wm firmware coredump\n",
+			  UNI_CMD_SER_FW_COREDUMP_WM);
+	desc += scnprintf(buff + desc, bufsz - desc,
+			  "%2d: hw bit detect only\n",
+			  UNI_CMD_SER_SET_HW_BIT_DETECT_ONLY);
 	/* SER statistics */
 	desc += scnprintf(buff + desc, bufsz - desc,
 			  "\nlet's dump firmware SER statistics...\n");
