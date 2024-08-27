@@ -370,7 +370,7 @@ rs_fw_eht_set_enabled_rates(struct iwl_mvm *mvm,
 				      MAX_NSS_MCS(13, mcs_rx, mcs_tx), GENMASK(13, 12));
 	}
 
-	IWL_DEBUG_RATE(mvm, "eht-set-enabled-rates: ht_rate[0][0]=0x%X, ht_rate[1][0]=0x%X  link_sta->rx_nss: %d eht_rx_mcs9 max nss: 0x%x\n",
+	IWL_DEBUG_RATE(mvm, "eht-set-enabled-rates: ht_rate[0][0]=0x%X, ht_rate[1][0]=0x%X  link_sta->rx_nss: %d eht_rx_mcs9_max_nss: 0x%x\n",
 		       cmd->ht_rates[0][0], cmd->ht_rates[1][0], link_sta->rx_nss,
 		       eht_rx_mcs->bw._80.rx_tx_mcs9_max_nss);
 
