@@ -454,6 +454,7 @@ struct mt7996_phy {
 	bool sku_path_en;
 
 	bool adjust_txp_by_loss; /* adjust txpower higher based on path-loss reported by radio */
+	bool mru_probe_enable;
 	u8 pp_mode;
 	u16 punct_bitmap;
 	struct mt7996_scs_ctrl scs_ctrl;
@@ -1040,6 +1041,9 @@ void mt7996_link_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *
 int mt7996_mmio_wed_init(struct mt7996_dev *dev, void *pdev_ptr,
 			 bool hif2, int *irq);
 u32 mt7996_wed_init_buf(void *ptr, dma_addr_t phys, int token_id);
+int mt7996_mcu_set_sr_pp_en(struct mt7996_dev *dev, u8 enable);
+int mt7996_mcu_set_uba_en(struct mt7996_dev *dev, u8 enable);
+int mt7996_mcu_set_mru_probe_en(struct mt7996_phy *phy);
 
 // TODO:  Control is in vendor.c, consider adding debugfs control.
 int mt7996_mcu_edcca_enable(struct mt7996_phy *phy, bool enable);
