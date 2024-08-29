@@ -956,6 +956,105 @@ static const struct file_operations fops_set_rate_override = {
 };
 
 static int
+mt7996_sr_pp_enable_get(void *data, u64 *val)
+{
+	struct mt7996_dev *dev = data;
+
+	*val = dev->sr_pp_enable;
+
+	return 0;
+}
+
+static int
+mt7996_sr_pp_enable_set(void *data, u64 val)
+{
+	struct mt7996_dev *dev = data;
+	int ret;
+	bool en = !!val;
+
+	if (en == dev->sr_pp_enable)
+		return 0;
+
+	ret = mt7996_mcu_set_sr_pp_en(dev, en);
+	if (ret)
+		return ret;
+
+	dev->sr_pp_enable = en;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(fops_sr_pp_enable, mt7996_sr_pp_enable_get,
+			 mt7996_sr_pp_enable_set, "%lld\n");
+
+static int
+mt7996_uba_enable_get(void *data, u64 *val)
+{
+	struct mt7996_dev *dev = data;
+
+	*val = dev->uba_enable;
+
+	return 0;
+}
+
+static int
+mt7996_uba_enable_set(void *data, u64 val)
+{
+	struct mt7996_dev *dev = data;
+	int ret;
+	bool en = !!val;
+
+	if (en == dev->uba_enable)
+		return 0;
+
+	ret = mt7996_mcu_set_uba_en(dev, en);
+	if (ret)
+		return ret;
+
+	dev->uba_enable = en;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(fops_uba_enable, mt7996_uba_enable_get,
+			 mt7996_uba_enable_set, "%lld\n");
+
+static int
+mt7996_mru_probe_enable_get(void *data, u64 *val)
+{
+	struct mt7996_phy *phy = data;
+
+	*val = phy->mru_probe_enable;
+
+	return 0;
+}
+
+static int
+mt7996_mru_probe_enable_set(void *data, u64 val)
+{
+#define MRU_PROBE_ENABLE 1
+	struct mt7996_phy *phy = data;
+	int ret;
+	bool en = !!val;
+
+	if (en == phy->mru_probe_enable)
+		return 0;
+
+	if (en != MRU_PROBE_ENABLE)
+		return 0;
+
+	ret = mt7996_mcu_set_mru_probe_en(phy);
+	if (ret)
+		return ret;
+
+	phy->mru_probe_enable = en;
+	/* When enabling MRU probe, PP would also enter FW mode */
+	phy->pp_mode = PP_FW_MODE;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(fops_mru_probe_enable, mt7996_mru_probe_enable_get,
+			 mt7996_mru_probe_enable_set, "%lld\n");
+
+static int
 mt7996_rx_group_5_enable_set(void *data, u64 val)
 {
 	struct mt7996_dev *dev = data;
@@ -970,7 +1069,6 @@ mt7996_rx_group_5_enable_set(void *data, u64 val)
 	mt76_testmode_reset(dev->phy.mt76, true);
 
 	mutex_unlock(&dev->mt76.mutex);
-
 	return 0;
 }
 
@@ -1798,6 +1896,14 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 	debugfs_create_file("fw_debug_wm", 0600, dir, dev, &fops_fw_debug_wm);
 	debugfs_create_file("fw_debug_wa", 0600, dir, dev, &fops_fw_debug_wa);
 	debugfs_create_file("fw_debug_bin", 0600, dir, dev, &fops_fw_debug_bin);
+
+	if (is_mt7992(&dev->mt76)) {
+		debugfs_create_file("sr_pp_enable", 0600, dir, dev,
+				    &fops_sr_pp_enable);
+		debugfs_create_file("uba_enable", 0600, dir, dev, &fops_uba_enable);
+		debugfs_create_file("mru_probe_enable", 0600, dir, phy,
+				    &fops_mru_probe_enable);
+	}
 	/* TODO: wm fw cpu utilization */
 	debugfs_create_file("fw_util_wa", 0400, dir, dev,
 			    &mt7996_fw_util_wa_fops);
