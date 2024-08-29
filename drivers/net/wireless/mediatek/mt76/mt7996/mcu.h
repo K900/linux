@@ -1245,6 +1245,7 @@ enum {
 	UNI_CMD_PP_EN_CTRL,
 	UNI_CMD_PP_ALG_CTRL,
 	UNI_CMD_PP_DSCB_CTRL,
+	UNI_CMD_PP_CHANGE_CAP_CTRL = 4,
 };
 
 enum pp_mode {
