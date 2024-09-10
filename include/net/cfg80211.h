@@ -2881,6 +2881,27 @@ struct cfg80211_ssid {
 };
 
 /**
+ * enum cfg80211_probe_req_flags - Part of Candela hack around for faking
+ *				   station lower hardware capabilities
+ */
+enum cfg80211_probe_req_mode_disable {
+	IEEE80211_PROBE_REQ_DISABLE_HT  = BIT(0),
+	IEEE80211_PROBE_REQ_DISABLE_VHT = BIT(1),
+	IEEE80211_PROBE_REQ_DISABLE_HE  = BIT(2),
+	IEEE80211_PROBE_REQ_DISABLE_EHT = BIT(3),
+};
+
+/**
+ * struct cfg80211_probe_request_config - For Candela probe request formation
+ *					  hacks
+ *
+ * @mode_disable - follows the structure of cfg80211_probve_req_mode_disable
+ */
+struct cfg80211_probe_req_config {
+	u8 mode_disable;
+};
+
+/**
  * struct cfg80211_scan_info - information about completed scan
  * @scan_start_tsf: scan start time in terms of the TSF of the BSS that the
  *	wireless device that requested the scan is connected to. If this
@@ -5430,7 +5451,8 @@ struct cfg80211_ops {
 				    unsigned int link_id,
 				    const u8 *peer,
 				    const struct cfg80211_bitrate_mask *mask,
-				    bool is_advert_bitmask);
+				    bool is_advert_bitmask,
+				    const struct cfg80211_probe_req_config *pr_conf);
 
 	int	(*dump_survey)(struct wiphy *wiphy, struct net_device *netdev,
 			int idx, struct survey_info *info);
