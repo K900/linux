@@ -727,6 +727,15 @@ static void ieee80211_scan_state_send_probe(struct ieee80211_local *local,
 
 	sdata = rcu_dereference_protected(local->scan_sdata,
 					  lockdep_is_held(&local->hw.wiphy->mtx));
+	if ((sdata->pr_conf.mode_disable & IEEE80211_PROBE_REQ_DISABLE_HT))
+		flags |= IEEE80211_PROBE_FLAG_DISABLE_HT;
+	if ((sdata->pr_conf.mode_disable & IEEE80211_PROBE_REQ_DISABLE_VHT))
+		flags |= IEEE80211_PROBE_FLAG_DISABLE_VHT;
+	if ((sdata->pr_conf.mode_disable & IEEE80211_PROBE_REQ_DISABLE_HE))
+		flags |= IEEE80211_PROBE_FLAG_DISABLE_HE;
+	if ((sdata->pr_conf.mode_disable & IEEE80211_PROBE_REQ_DISABLE_EHT))
+		flags |= IEEE80211_PROBE_FLAG_DISABLE_EHT;
+
 
 	for (i = 0; i < scan_req->n_ssids; i++)
 		ieee80211_send_scan_probe_req(
