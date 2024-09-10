@@ -4168,11 +4168,16 @@ static int ieee80211_set_bitrate_mask(struct wiphy *wiphy,
 				      unsigned int link_id,
 				      const u8 *addr,
 				      const struct cfg80211_bitrate_mask *mask,
-				      bool is_advert_bitmask)
+				      bool is_advert_bitmask,
+				      const struct cfg80211_probe_req_config *pr_conf)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
 	int i, ret;
+
+	if (pr_conf) {
+		sdata->pr_conf.mode_disable = pr_conf->mode_disable;
+	}
 
 	if (is_advert_bitmask) {
 		memcpy(&sdata->cfg_advert_bitrate_mask, mask, sizeof(*mask));

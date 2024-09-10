@@ -677,12 +677,13 @@ rdev_set_bitrate_mask(struct cfg80211_registered_device *rdev,
 		      struct net_device *dev, unsigned int link_id,
 		      const u8 *peer,
 		      const struct cfg80211_bitrate_mask *mask,
-		      bool is_advert_mask)
+		      bool is_advert_mask,
+		      struct cfg80211_probe_req_config *pr_conf)
 {
 	int ret;
 	trace_rdev_set_bitrate_mask(&rdev->wiphy, dev, link_id, peer, mask);
 	ret = rdev->ops->set_bitrate_mask(&rdev->wiphy, dev, link_id,
-					  peer, mask, is_advert_mask);
+					  peer, mask, is_advert_mask, pr_conf);
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
 }

@@ -1503,7 +1503,8 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 	}
 
 	if (cfg80211_any_usable_channels(local->hw.wiphy, BIT(sband->band),
-					 IEEE80211_CHAN_NO_HE)) {
+					 IEEE80211_CHAN_NO_HE) &&
+	    !(flags & IEEE80211_PROBE_FLAG_DISABLE_HE)) {
 		err = ieee80211_put_he_cap(skb, sdata, sband, NULL);
 		if (err)
 			return err;
@@ -1511,15 +1512,18 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 
 	if (cfg80211_any_usable_channels(local->hw.wiphy, BIT(sband->band),
 					 IEEE80211_CHAN_NO_HE |
-					 IEEE80211_CHAN_NO_EHT)) {
+					 IEEE80211_CHAN_NO_EHT) &&
+	    !(flags & IEEE80211_PROBE_FLAG_DISABLE_EHT)) {
 		err = ieee80211_put_eht_cap(skb, sdata, sband, NULL);
 		if (err)
 			return err;
 	}
 
-	err = ieee80211_put_he_6ghz_cap(skb, sdata, IEEE80211_SMPS_OFF);
-	if (err)
-		return err;
+	if (!(flags & IEEE80211_PROBE_FLAG_DISABLE_HE)) {
+		err = ieee80211_put_he_6ghz_cap(skb, sdata, IEEE80211_SMPS_OFF);
+		if (err)
+			return err;
+	}
 
 	if (cfg80211_any_usable_channels(local->hw.wiphy, BIT(sband->band),
 					 IEEE80211_CHAN_NO_UHR)) {
