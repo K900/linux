@@ -4168,7 +4168,6 @@ static int ieee80211_set_bitrate_mask(struct wiphy *wiphy,
 				      unsigned int link_id,
 				      const u8 *addr,
 				      const struct cfg80211_bitrate_mask *mask,
-				      bool is_advert_bitmask,
 				      const struct cfg80211_probe_req_config *pr_conf)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
@@ -4177,14 +4176,14 @@ static int ieee80211_set_bitrate_mask(struct wiphy *wiphy,
 
 	if (pr_conf) {
 		sdata->pr_conf.mode_disable = pr_conf->mode_disable;
-	}
 
-	if (is_advert_bitmask) {
-		memcpy(&sdata->cfg_advert_bitrate_mask, mask, sizeof(*mask));
-		sdata->cfg_advert_bitrate_mask_set = true;
-		/*sdata_info(sdata, "set-bitrate-mask advert, legacy[0]: 0x%x  legacy[1]: 0x%x\n",
-		  mask->control[0].legacy, mask->control[1].legacy);*/
-		return 0;
+		if (pr_conf->is_advert_bitmask) {
+			memcpy(&sdata->cfg_advert_bitrate_mask, mask, sizeof(*mask));
+			sdata->cfg_advert_bitrate_mask_set = true;
+			/*sdata_info(sdata, "set-bitrate-mask advert, legacy[0]: 0x%x  legacy[1]: 0x%x\n",
+			  mask->control[0].legacy, mask->control[1].legacy);*/
+			return 0;
+		}
 	}
 
 	if (!ieee80211_sdata_running(sdata))

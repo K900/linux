@@ -2898,6 +2898,7 @@ enum cfg80211_probe_req_mode_disable {
  * @mode_disable - follows the structure of cfg80211_probve_req_mode_disable
  */
 struct cfg80211_probe_req_config {
+	bool is_advert_bitmask;
 	u8 mode_disable;
 };
 
@@ -5451,7 +5452,6 @@ struct cfg80211_ops {
 				    unsigned int link_id,
 				    const u8 *peer,
 				    const struct cfg80211_bitrate_mask *mask,
-				    bool is_advert_bitmask,
 				    const struct cfg80211_probe_req_config *pr_conf);
 
 	int	(*dump_survey)(struct wiphy *wiphy, struct net_device *netdev,
