@@ -14829,7 +14829,6 @@ static int nl80211_set_tx_bitrate_mask(struct sk_buff *skb,
 	unsigned int link_id = nl80211_link_id(info->attrs);
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
 	struct net_device *dev = info->user_ptr[1];
-	bool is_advert_mask = false;
 	struct cfg80211_probe_req_config pr_conf = { 0 };
 	int err;
 
@@ -14845,7 +14844,7 @@ static int nl80211_set_tx_bitrate_mask(struct sk_buff *skb,
 	/* Cannot easily carry out-of-tree attributes, so add hack to re-use existing
 	 * flag (that is not otherwise used when setting bitrate masks.
 	 */
-	is_advert_mask = nla_get_flag(info->attrs[NL80211_ATTR_WIPHY_SELF_MANAGED_REG]);
+	pr_conf.is_advert_bitmask = nla_get_flag(info->attrs[NL80211_ATTR_WIPHY_SELF_MANAGED_REG]);
 
 	if (nla_get_flag(info->attrs[NL80211_ATTR_DISABLE_HT]))
 		pr_conf.mode_disable |= IEEE80211_PROBE_REQ_DISABLE_HT;
@@ -14856,8 +14855,7 @@ static int nl80211_set_tx_bitrate_mask(struct sk_buff *skb,
 	if (nla_get_flag(info->attrs[NL80211_ATTR_DISABLE_EHT]))
 		pr_conf.mode_disable |= IEEE80211_PROBE_REQ_DISABLE_EHT;
 
-	return rdev_set_bitrate_mask(rdev, dev, link_id, NULL, &mask,
-				     is_advert_mask, &pr_conf);
+	return rdev_set_bitrate_mask(rdev, dev, link_id, NULL, &mask, &pr_conf);
 }
 
 static int nl80211_register_mgmt(struct sk_buff *skb, struct genl_info *info)

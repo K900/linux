@@ -1235,7 +1235,7 @@ static int cfg80211_wext_siwrate(struct net_device *dev,
 	if (dev->ieee80211_ptr->valid_links)
 		return -EOPNOTSUPP;
 	
-	return rdev_set_bitrate_mask(rdev, dev, 0, NULL, &mask, false, NULL);
+	return rdev_set_bitrate_mask(rdev, dev, 0, NULL, &mask, NULL);
 }
 
 static int cfg80211_wext_giwrate(struct net_device *dev,
