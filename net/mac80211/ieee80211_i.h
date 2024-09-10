@@ -1206,6 +1206,8 @@ struct ieee80211_sub_if_data {
 	struct cfg80211_bitrate_mask cfg_advert_bitrate_mask;
 	bool cfg_advert_bitrate_mask_set; /* Has user set the mask? */
 
+	struct cfg80211_probe_req_config pr_conf;
+
 	union {
 		struct ieee80211_if_ap ap;
 		struct ieee80211_if_vlan vlan;
@@ -2738,6 +2740,8 @@ enum {
 	IEEE80211_PROBE_FLAG_RANDOM_SN		= BIT(2),
 	IEEE80211_PROBE_FLAG_DISABLE_HT		= BIT(3),
 	IEEE80211_PROBE_FLAG_DISABLE_VHT	= BIT(4),
+	IEEE80211_PROBE_FLAG_DISABLE_HE		= BIT(5),
+	IEEE80211_PROBE_FLAG_DISABLE_EHT	= BIT(6),
 };
 
 int ieee80211_build_preq_ies(struct ieee80211_sub_if_data *sdata, u8 *buffer,
