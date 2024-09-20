@@ -2578,10 +2578,17 @@ static int iwl_trans_pcie_send_hcmd_sync(struct iwl_trans *trans,
 		return ret;
 	}
 
-	ret = wait_event_timeout(trans_pcie->wait_command_queue,
-				 !test_bit(STATUS_SYNC_HCMD_ACTIVE,
-					   &trans->status),
-				 HOST_COMPLETE_TIMEOUT);
+	if (unlikely(trans->dbg.fake_double_fault)) {
+		ret = 0;
+		iwl_force_nmi(trans);
+		IWL_ERR(trans, "Triggering false firmware timeout from debugfs flag\n");
+	} else {
+		ret = wait_event_timeout(trans_pcie->wait_command_queue,
+					 !test_bit(STATUS_SYNC_HCMD_ACTIVE,
+						   &trans->status),
+					 HOST_COMPLETE_TIMEOUT);
+	}
+
 	if (!ret) {
 		IWL_ERR(trans, "Error sending %s: time out after %dms.\n",
 			cmd_str, jiffies_to_msecs(HOST_COMPLETE_TIMEOUT));

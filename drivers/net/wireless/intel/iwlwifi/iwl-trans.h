@@ -687,6 +687,7 @@ struct iwl_trans_debug {
 	u32 num_pc;
 	struct iwl_pc_data *pc_data;
 	bool yoyo_bin_loaded;
+	bool fake_double_fault;
 };
 
 struct iwl_dma_ptr {
