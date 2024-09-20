@@ -3312,6 +3312,12 @@ void iwl_trans_pcie_dbgfs_register(struct iwl_trans *trans)
 	DEBUGFS_ADD_FILE(monitor_data, dir, 0400);
 	DEBUGFS_ADD_FILE(rf, dir, 0400);
 	DEBUGFS_ADD_FILE(reset, dir, 0200);
+
+	/* Triggers a false fw timeout, then sabotages the recovery effort.
+	 * Requires a reboot to recover the driver.
+	 */
+	debugfs_create_bool("fw_trigger_timeout", 0600, dir,
+			    &trans->dbg.fake_double_fault);
 }
 
 void iwl_trans_pcie_debugfs_cleanup(struct iwl_trans *trans)

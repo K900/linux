@@ -1263,6 +1263,9 @@ int iwl_mvm_mac_start(struct ieee80211_hw *hw)
 	int ret;
 	int retry, max_retry = 0;
 
+	if (mvm->trans->dbg.fake_double_fault)
+		return -EIO;
+
 	mutex_lock(&mvm->mutex);
 
 	/* we are starting the mac not in error flow, and restart is enabled */
