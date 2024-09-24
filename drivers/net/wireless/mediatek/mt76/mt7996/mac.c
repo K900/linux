@@ -1273,6 +1273,12 @@ void mt7996_mac_write_txwi(struct mt7996_dev *dev, __le32 *txwi,
 		val = FIELD_PREP(MT_TXD6_TX_RATE, idx) | MT_TXD6_FIXED_BW;
 		if (mcast)
 			val |= MT_TXD6_DIS_MAT;
+
+		if (dev->mt76.phys[band_idx]->cap.has_6ghz &&
+		    dev->mt76.lpi_bcn_enhance &&
+		    ieee80211_is_mgmt(hdr->frame_control))
+			val |= FIELD_PREP(MT_TXD6_BW, FW_CDBW_80MHZ);
+
 		txwi[6] |= cpu_to_le32(val);
 		txwi[3] |= cpu_to_le32(MT_TXD3_BA_DISABLE);
 	}

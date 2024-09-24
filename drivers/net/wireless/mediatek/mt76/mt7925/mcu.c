@@ -3854,7 +3854,7 @@ mt7925_mcu_rate_txpower_band(struct mt76_phy *phy,
 							     tx_power);
 			sar_power = mt76_get_sar_power(phy, &chan, reg_power);
 
-			mt76_get_rate_power_limits(phy, &chan, limits,
+			mt76_get_rate_power_limits(phy, &chan, limits, NULL,
 						   sar_power);
 
 			tx_power_tlv->last_msg = ch_list[idx] == last_ch;
