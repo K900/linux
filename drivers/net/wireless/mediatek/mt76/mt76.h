@@ -942,6 +942,7 @@ struct mt76_phy {
 	u8 macaddr[ETH_ALEN];
 
 	int txpower_cur;
+	u8 sku_idx;
 	u8 antenna_mask;
 	u16 chainmask;
 
@@ -1085,6 +1086,9 @@ struct mt76_dev {
 	  * Very likely this reduces performance.
 	  */
 	bool txs_for_all_enabled;
+	bool lpi_psd;
+	bool lpi_bcn_enhance;
+	bool mgmt_pwr_enhance;
 
 	u32 rxfilter;
 	u32 stale_skb_status_check;
@@ -1287,6 +1291,14 @@ struct mt76_power_limits {
 		s8 ru[7][10];
 		s8 ru_bf[7][10];
 	} path;
+};
+
+struct mt76_power_path_limits {
+       s8 cck[5];
+       s8 ofdm[5];
+       s8 ofdm_bf[4];
+       s8 ru[16][15];
+       s8 ru_bf[16][15];
 };
 
 static inline const char *mt76_bus_str(enum mt76_bus_type bus)
@@ -2164,6 +2176,7 @@ mt76_find_channel_node(struct device_node *np, struct ieee80211_channel *chan);
 s8 mt76_get_rate_power_limits(struct mt76_phy *phy,
 			      struct ieee80211_channel *chan,
 			      struct mt76_power_limits *dest,
+			      struct mt76_power_path_limits *dest_path,
 			      s8 target_power);
 
 static inline bool mt76_queue_is_rx(struct mt76_dev *dev, struct mt76_queue *q)
