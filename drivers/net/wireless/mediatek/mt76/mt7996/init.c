@@ -364,6 +364,12 @@ static void __mt7996_init_txpower(struct mt7996_phy *phy,
 	int path_delta = mt76_tx_power_path_delta(n_chains);
 	int pwr_delta = mt7996_eeprom_get_power_delta(dev, sband->band);
 	struct mt76_power_limits limits;
+	struct mt76_power_path_limits limits_path;
+	struct device_node *np;
+
+	phy->sku_limit_en = true;
+	phy->sku_path_en = false;
+	np = mt76_find_power_limits_node(&dev->mt76);
 
 	for (i = 0; i < sband->n_channels; i++) {
 		struct ieee80211_channel *chan = &sband->channels[i];
@@ -372,12 +378,18 @@ static void __mt7996_init_txpower(struct mt7996_phy *phy,
 		target_power += pwr_delta;
 		target_power = mt76_get_rate_power_limits(phy->mt76, chan,
 							  &limits,
+							  &limits_path,
 							  target_power);
+		if (limits_path.ofdm[0])
+			phy->sku_path_en = true;
+
 		target_power += path_delta;
 		target_power = DIV_ROUND_UP(target_power, 2);
-		chan->max_power = min_t(int, chan->max_reg_power,
-					target_power);
-		chan->orig_mpwr = target_power;
+		if (!np)
+			chan->max_power = min_t(int, chan->max_reg_power,
+						target_power);
+		else
+			chan->orig_mpwr = target_power;
 	}
 }
 
@@ -1821,6 +1833,9 @@ error:
 
 void mt7996_unregister_device(struct mt7996_dev *dev)
 {
+	kfree(dev->phy.default_txpower);
+	dev->phy.default_txpower = NULL;
+
 	cancel_work_sync(&dev->dump_work);
 	cancel_work_sync(&dev->wed_rro.work);
 	cancel_work_sync(&dev->reset_work);
