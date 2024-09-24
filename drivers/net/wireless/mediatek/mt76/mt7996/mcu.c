@@ -5560,8 +5560,35 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 		return 0;
 	}
 
-	dev_info(dev->mt76.dev, "mt7996-mcu-set-txpower-sku, req power level: %d txpower_limit: %d\n",
-		 phy->txpower, txpower_limit);
+	//dev_info(dev->mt76.dev, "mt7996-mcu-set-txpower-sku, req power level: %d txpower_limit: %d\n",
+	//	 phy->txpower, txpower_limit);
+
+	if (!phy->default_txpower) {
+		struct mt7996_mcu_txpower_event *event;
+		u8 band_idx = phy->mt76->band_idx;
+		int ret;
+
+		event = kzalloc(sizeof(*event), GFP_KERNEL);
+		if (!event)
+			return 0;
+
+		ret = mt7996_mcu_get_tx_power_info(phy, PHY_RATE_INFO, event);
+		if (ret ||
+		    le32_to_cpu(event->phy_rate_info.category) != UNI_TXPOWER_PHY_RATE_INFO) {
+			kfree(event);
+		}
+		else {
+			if (event->phy_rate_info.frame_power[4][band_idx] == 0) {
+				/* sku is not initialized yet, I guess. */
+				//dev_info(dev->mt76.dev, "mt7996-mcu-set-txpower-sku, sku returned 0 ofdm txpower.\n");
+				kfree(event);
+			} else {
+				phy->default_txpower = event;
+			}
+		}
+		if (!phy->default_txpower)
+			return 0; /* try again in a bit */
+	}
 
 	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL,
 				 sizeof(req) + MT7996_SKU_PATH_NUM);
