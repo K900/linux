@@ -204,6 +204,18 @@ enum tx_frag_idx {
 	MT_TX_FRAG_LAST
 };
 
+/* BW defined in FW hal_cal_flow_rom.h */
+enum {
+       FW_CDBW_20MHZ,
+       FW_CDBW_40MHZ,
+       FW_CDBW_80MHZ,
+       FW_CDBW_160MHZ,
+       FW_CDBW_320MHZ,
+       FW_CDBW_5MHZ,
+       FW_CDBW_10MHZ,
+       FW_CDBW_8080MHZ,
+};
+
 #define MT_CT_INFO_APPLY_TXD		BIT(0)
 #define MT_CT_INFO_COPY_HOST_TXD_ALL	BIT(1)
 #define MT_CT_INFO_MGMT_FRAME		BIT(2)
