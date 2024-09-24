@@ -5549,7 +5549,9 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 
 	if (phy->txpower == INT_MIN || phy->txpower > 127)
 		phy->txpower = 127;
-	txpower_limit = mt76_get_power_bound(mphy, phy->txpower);
+
+	txpower_limit = phy->txpower + phy->tx_front_end_loss;
+	txpower_limit = mt76_get_power_bound(mphy, txpower_limit);
 
 	if (phy->sku_limit_en) {
 		txpower_limit = mt76_get_rate_power_limits(mphy, mphy->chandef.chan,
@@ -5583,8 +5585,32 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 				//dev_info(dev->mt76.dev, "mt7996-mcu-set-txpower-sku, sku returned 0 ofdm txpower.\n");
 				kfree(event);
 			} else {
+				struct mt7996_mcu_txpower_event *e2;
+
 				phy->default_txpower = event;
+
+				if (phy->tx_front_end_loss_acquired)
+					goto done_probe_mcu;
+
+				/* Attempt to probe the front end loss. */
+				e2 = kzalloc(sizeof(*e2), GFP_KERNEL);
+				if (!e2)
+					goto done_probe_mcu;
+
+				ret = mt7996_mcu_get_tx_power_info(phy, BASIC_INFO, e2);
+
+				if (!(ret ||
+				      le32_to_cpu(e2->basic_info.category) != UNI_TXPOWER_BASIC_INFO)) {
+					phy->tx_front_end_loss = e2->basic_info.front_end_loss_tx[0];
+					for (i = 1; i<4; i++)
+						phy->tx_front_end_loss = min(e2->basic_info.front_end_loss_tx[i],
+									     phy->tx_front_end_loss);
+					phy->tx_front_end_loss_acquired = 1;
+				}
+				kfree(e2);
 			}
+		done_probe_mcu:
+			/* NOP */;
 		}
 		if (!phy->default_txpower)
 			return 0; /* try again in a bit */
