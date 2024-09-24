@@ -3409,6 +3409,7 @@ struct cfg80211_ml_reconf_req {
  * @ASSOC_REQ_DISABLE_160:  Disable 160Mhz
  * @ASSOC_REQ_DISABLE_OFDMA:  Disable OFDMA
  * @ASSOC_REQ_DISABLE_320:  Disable 320Mhz
+ * @ASSOC_REQ_IGNORE_EDCA:  Ignore EDCA info
  */
 enum cfg80211_assoc_req_flags {
 	ASSOC_REQ_DISABLE_HT			= BIT(0),
@@ -3424,6 +3425,7 @@ enum cfg80211_assoc_req_flags {
 	ASSOC_REQ_DISABLE_160			= BIT(10),
 	ASSOC_REQ_DISABLE_OFDMA			= BIT(11),
 	ASSOC_REQ_DISABLE_320			= BIT(12),
+	ASSOC_REQ_IGNORE_EDCA			= BIT(13),
 };
 
 /**
