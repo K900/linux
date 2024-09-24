@@ -386,6 +386,8 @@ struct mt7996_phy {
 	u64 omac_mask;
 
 	u16 noise;
+	s8 tx_front_end_loss;
+	s8 tx_front_end_loss_acquired;
 
 	s16 coverage_class;
 	u8 slottime;
