@@ -763,6 +763,10 @@ enum offs_rev {
 						 ((_wf) << 16) + (ofs))
 #define MT_WF_PHYRX_CSD_IRPI(_band, _wf)	MT_WF_PHYRX_CSD(_band, _wf, 0x1000)
 
+/* PHYDFE CTRL */
+#define MT_WF_PHYDFE_TSSI_TXCTRL01(_band)	MT_WF_PHYRX_CSD(_band, 0, 0xc718)
+#define MT_WF_PHYDFE_TSSI_TXCTRL_POWER_TMAC	GENMASK(31, 24)
+
 /* PHY CTRL */
 #define MT_WF_PHY_BAND_BASE			0x83080000
 #define MT_WF_PHY_BAND(_band, ofs)		(MT_WF_PHY_BAND_BASE + \

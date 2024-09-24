@@ -28,6 +28,11 @@ int mt7996_run(struct mt7996_phy *phy)
 	phy->sr_enable = true;
 	phy->enhanced_sr_enable = true;
 
+	/* needed to re-apply power tables after SER */
+	ret = mt7996_mcu_set_txpower_sku(phy);
+	if (ret)
+		return ret;
+
 	mt7996_mac_enable_nf(dev, phy->mt76->band_idx);
 
 	ret = mt7996_mcu_set_rts_thresh(phy, 0x92b);
@@ -49,6 +54,19 @@ int mt7996_run(struct mt7996_phy *phy)
 	ret = mt7996_mcu_set_thermal_protect(phy, true);
 	if (ret)
 		return ret;
+
+#ifdef CONFIG_MTK_DEBUG
+	ret = mt7996_mcu_set_tx_power_ctrl(phy, UNI_TXPOWER_SKU_POWER_LIMIT_CTRL,
+						dev->dbg.sku_disable ? 0 : phy->sku_limit_en);
+
+	ret = mt7996_mcu_set_tx_power_ctrl(phy, UNI_TXPOWER_BACKOFF_POWER_LIMIT_CTRL,
+						dev->dbg.sku_disable ? 0 : phy->sku_path_en);
+#else
+	ret = mt7996_mcu_set_tx_power_ctrl(phy, UNI_TXPOWER_SKU_POWER_LIMIT_CTRL,
+						phy->sku_limit_en);
+	ret = mt7996_mcu_set_tx_power_ctrl(phy, UNI_TXPOWER_BACKOFF_POWER_LIMIT_CTRL,
+						phy->sku_path_en);
+#endif
 
 	set_bit(MT76_STATE_RUNNING, &phy->mt76->state);
 
@@ -865,14 +883,20 @@ static u8
 mt7996_get_rates_table(struct mt7996_phy *phy, struct ieee80211_bss_conf *conf,
 		       bool beacon, bool mcast)
 {
+	#define FR_RATE_IDX_OFDM_6M 0x004b
 	struct mt7996_dev *dev = phy->dev;
 	struct mt76_vif_link *mvif = mt76_vif_conf_link(&dev->mt76, conf->vif, conf);
+	struct mt76_phy *mphy = mt76_vif_link_phy(mvif);
 	u16 rate;
 	u8 i, idx;
 
 	rate = mt76_connac2_mac_tx_rate_val(phy->mt76, conf, beacon, mcast);
 
 	if (beacon) {
+
+		if (mphy->dev->lpi_bcn_enhance)
+			rate = FR_RATE_IDX_OFDM_6M;
+
 		/* odd index for driver, even index for firmware */
 		idx = MT7996_BEACON_RATES_TBL + 2 * phy->mt76->band_idx;
 		if (phy->beacon_rate != rate)

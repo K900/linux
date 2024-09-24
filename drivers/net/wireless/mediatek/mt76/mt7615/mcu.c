@@ -2071,7 +2071,7 @@ static void mt7615_mcu_set_txpower_sku(struct mt7615_phy *phy, u8 *sku)
 	tx_power = mt76_get_sar_power(mphy, mphy->chandef.chan, tx_power);
 	tx_power -= mt76_tx_power_path_delta(n_chains);
 	tx_power = mt76_get_rate_power_limits(mphy, mphy->chandef.chan,
-					      &limits, tx_power);
+					      &limits, NULL, tx_power);
 	mphy->txpower_cur = tx_power;
 
 	if (is_mt7663(mphy->dev)) {

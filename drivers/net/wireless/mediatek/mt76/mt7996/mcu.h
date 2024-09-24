@@ -22,7 +22,6 @@ struct txpower_basic_info {
 
 	/* power percentage info */
 	bool percentage_ctrl_enable;
-	u8 show_info_category;
 	s8 power_drop_level;
 
 	/* frond-end loss TX info */
@@ -1075,8 +1074,12 @@ enum {
 
 enum {
 	UNI_BAND_CONFIG_RADIO_ENABLE,
+	UNI_BAND_CONFIG_EDCCA_ENABLE = 0x05,
+        UNI_BAND_CONFIG_EDCCA_THRESHOLD = 0x06,
 	UNI_BAND_CONFIG_RTS_THRESHOLD = 0x08,
 	UNI_BAND_CONFIG_MAC_ENABLE_CTRL = 0x0c,
+	UNI_BAND_CONFIG_LPI_CTRL = 0x0d,
+	UNI_BAND_CONFIG_BSSID_MAPPING_ADDR = 0x12,
 };
 
 enum {

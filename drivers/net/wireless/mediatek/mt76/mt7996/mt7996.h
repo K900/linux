@@ -374,6 +374,9 @@ struct mt7996_phy {
 
 	struct ieee80211_sband_iftype_data iftype[NUM_NL80211_BANDS][NUM_NL80211_IFTYPES];
 
+	/* Initial txpower, from EEPROM I suppose. */
+	struct mt7996_mcu_txpower_event *default_txpower;
+
 	struct thermal_cooling_device *cdev;
 	u8 cdev_state;
 	u8 throttle_state;
@@ -405,6 +408,8 @@ struct mt7996_phy {
 
 	bool sr_enable;
 	bool enhanced_sr_enable;
+	bool sku_limit_en;
+	bool sku_path_en;
 	u8 pp_mode;
 	u16 punct_bitmap;
 };
@@ -926,6 +931,8 @@ void mt7996_set_stream_he_eht_caps(struct mt7996_phy *phy);
 void mt7996_set_stream_vht_txbf_caps(struct mt7996_phy *phy);
 void mt7996_update_channel(struct mt76_phy *mphy);
 int mt7996_init_debugfs(struct mt7996_dev *dev);
+int mt7996_mcu_set_tx_power_ctrl(struct mt7996_phy *phy, u8 power_ctrl_id, u8 data);
+int mt7996_mcu_get_tx_power_info(struct mt7996_phy *phy, u8 category, void *event);
 void mt7996_debugfs_rx_fw_monitor(struct mt7996_dev *dev, const void *data, int len);
 bool mt7996_debugfs_rx_log(struct mt7996_dev *dev, const void *data, int len);
 int mt7996_mcu_add_key(struct mt76_dev *dev, struct mt7996_vif_link *link,
@@ -960,6 +967,7 @@ int mt7996_mcu_set_sr_enable(struct mt7996_phy *phy, u8 action, u64 val, bool se
 void mt7996_mcu_rx_sr_event(struct mt7996_dev *dev, struct sk_buff *skb);
 
 int mt7996_mcu_get_tx_power_info(struct mt7996_phy *phy, u8 category, void *event);
+int mt7996_mcu_set_lpi_psd(struct mt7996_phy *phy, u8 enable);
 
 int mt7996_dma_rro_init(struct mt7996_dev *dev);
 void mt7996_dma_rro_start(struct mt7996_dev *dev);

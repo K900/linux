@@ -2991,7 +2991,7 @@ s8 mt76_connac_get_rate_power_limit(struct mt76_phy *phy,
 
 	reg_power = mt76_connac_get_ch_power(phy, chan, tx_power);
 	sar_power = mt76_get_sar_power(phy, chan, reg_power);
-	return mt76_get_rate_power_limits(phy, chan, limits, sar_power);
+	return mt76_get_rate_power_limits(phy, chan, limits, NULL, sar_power);
 }
 EXPORT_SYMBOL_GPL(mt76_connac_get_rate_power_limit);
 
