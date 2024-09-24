@@ -13362,6 +13362,8 @@ static int nl80211_associate(struct sk_buff *skb, struct genl_info *info)
 				req.flags |= ASSOC_REQ_DISABLE_320;
 			if (cai->flags & CT_DISABLE_OFDMA)
 				req.flags |= ASSOC_REQ_DISABLE_OFDMA;
+			if (cai->flags & CT_IGNORE_EDCA)
+				req.flags |= ASSOC_REQ_IGNORE_EDCA;
 		}
 	}
 skip_ct_priv:
@@ -14272,6 +14274,8 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 				connect.flags |= ASSOC_REQ_DISABLE_320;
 			if (cai->flags & CT_DISABLE_OFDMA)
 				connect.flags |= ASSOC_REQ_DISABLE_OFDMA;
+			if (cai->flags & CT_IGNORE_EDCA)
+				connect.flags |= ASSOC_REQ_IGNORE_EDCA;
 		}
 	}
 	skip_ct_priv:
