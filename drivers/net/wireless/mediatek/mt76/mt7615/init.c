@@ -306,6 +306,7 @@ void mt7615_init_txpower(struct mt7615_dev *dev,
 
 		target_power = mt76_get_rate_power_limits(&dev->mphy, chan,
 							  &limits,
+							  NULL,
 							  target_power);
 		target_power += delta;
 		target_power = DIV_ROUND_UP(target_power, 2);
