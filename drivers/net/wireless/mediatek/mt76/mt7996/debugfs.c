@@ -1214,6 +1214,8 @@ mt7996_get_txpower_info(struct file *file, char __user *user_buf,
 	struct mt7996_phy *phy = &dev->phy;
 	struct mt7996_mcu_txpower_event *event;
 	struct txpower_basic_info *basic_info;
+	struct mt76_phy *mphy = phy->mt76;
+	struct ieee80211_hw *hw = mphy->hw;
 	static const size_t size = 2048;
 	int len = 0;
 	ssize_t ret;
@@ -1270,6 +1272,16 @@ mt7996_get_txpower_info(struct file *file, char __user *user_buf,
 	len += scnprintf(buf + len, size - len,
 			 "    Thermal Compensation Value: %d\n",
 			 basic_info->thermal_compensate_value);
+
+	len += scnprintf(buf + len, size - len,
+			 "    PHY Power Bound: %d\n",
+			 mt76_get_power_bound(mphy, hw->conf.power_level));
+	len += scnprintf(buf + len, size - len,
+			 "    HW Conf Power Level: %d\n",
+			 hw->conf.power_level);
+	len += scnprintf(buf + len, size - len,
+			 "    Per-Chain TX-Power Cur: %d\n",
+			 mphy->txpower_cur);
 
 	ret = simple_read_from_buffer(user_buf, count, ppos, buf, len);
 
