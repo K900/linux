@@ -1280,8 +1280,14 @@ mt7996_get_txpower_info(struct file *file, char __user *user_buf,
 			 "    HW Conf Power Level: %d\n",
 			 hw->conf.power_level);
 	len += scnprintf(buf + len, size - len,
-			 "    Per-Chain TX-Power Cur: %d\n",
+			 "    Per-Chain TX-Power Cur: %d 1/2dB\n",
 			 mphy->txpower_cur);
+	len += scnprintf(buf + len, size - len,
+			 "    PHY tx-front-end-loss: %d\n",
+			 phy->tx_front_end_loss);
+	len += scnprintf(buf + len, size - len,
+			 "    PHY tx-front-end-loss-acquired: %d\n",
+			 phy->tx_front_end_loss_acquired);
 
 	ret = simple_read_from_buffer(user_buf, count, ppos, buf, len);
 
