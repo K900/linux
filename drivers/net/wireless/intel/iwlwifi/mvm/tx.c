@@ -385,11 +385,11 @@ static u32 iwl_mvm_get_txo_rate_n_flags(struct iwl_mvm *mvm, struct iwl_txo_data
 		if (td->ldpc || td->txbw > 0 || mcs >= 9)
 			result |= RATE_MCS_LDPC_MSK;
 		if (td->stbc)
-			result |= LQ_SS_STBC_1SS_ALLOWED;
+			result |= RATE_MCS_STBC_MSK;
+		if (td->beamforming)
+			result |= RATE_MCS_BF_MSK; /* beamforming on */
 
 		result |= ((u32)(td->tx_rate_sgi)) << RATE_MCS_HE_GI_LTF_POS;
-		if (td->beamforming)
-			result |= (1<<19); /* beamforming on */
 		/* pr_info("TXO he-su, v2 rate-n-flags: 0x%x\n", result); */
 	} else if (td->tx_rate_mode == 5) { /* EHT */
 		/* V2 format */
@@ -413,9 +413,9 @@ static u32 iwl_mvm_get_txo_rate_n_flags(struct iwl_mvm *mvm, struct iwl_txo_data
 		if (td->ldpc || td->txbw > 0 || mcs >= 9)
 			result |= RATE_MCS_LDPC_MSK;
 		if (td->stbc)
-			result |= LQ_SS_STBC_1SS_ALLOWED;
+			result |= RATE_MCS_STBC_MSK;
 		if (td->beamforming)
-			result |= (1<<19); /* beamforming on */
+			result |= RATE_MCS_BF_MSK; /* beamforming on */
 
 		result |= ((u32)(td->tx_rate_sgi)) << RATE_MCS_HE_GI_LTF_POS;
 	}
