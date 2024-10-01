@@ -1454,7 +1454,8 @@ static ssize_t
 mt7996_get_txpower_default(struct file *file, char __user *user_buf,
 			   size_t count, loff_t *ppos)
 {
-	struct mt7996_phy *phy = file->private_data;
+	struct mt7996_dev *dev = file->private_data;
+	struct mt7996_phy *phy = &dev->phy;
 	static const size_t size = 5120;
 	char *buf;
 	int ret;
@@ -1611,6 +1612,32 @@ DEFINE_DEBUGFS_ATTRIBUTE(fops_sr_enable, mt7996_sr_enable_get,
 			 mt7996_sr_enable_set, "%lld\n");
 
 static int
+mt7996_adjust_txp_by_loss_get(void *data, u64 *val)
+{
+	struct mt7996_dev *dev = data;
+	struct mt7996_phy *phy = &dev->phy;
+
+	*val = phy->adjust_txp_by_loss;
+
+	return 0;
+}
+
+static int
+mt7996_adjust_txp_by_loss_set(void *data, u64 val)
+{
+	struct mt7996_dev *dev = data;
+	struct mt7996_phy *phy = &dev->phy;
+
+	if (!!val == phy->adjust_txp_by_loss)
+		return 0;
+
+	phy->adjust_txp_by_loss = val;
+	return mt7996_mcu_set_txpower_sku(phy);
+}
+DEFINE_DEBUGFS_ATTRIBUTE(fops_adjust_txp_by_loss, mt7996_adjust_txp_by_loss_get,
+			 mt7996_adjust_txp_by_loss_set, "%lld\n");
+
+static int
 mt7996_sr_enhanced_enable_get(void *data, u64 *val)
 {
 	struct mt7996_dev *dev = data;
@@ -1698,7 +1725,9 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 	debugfs_create_file("txpower_level", 0600, dir, dev, &fops_txpower_level);
 	debugfs_create_file("txpower_info", 0600, dir, dev, &mt7996_txpower_info_fops);
 	debugfs_create_file("txpower_sku", 0600, dir, dev, &mt7996_txpower_sku_fops);
+	debugfs_create_file("txpower_default", 0600, dir, dev, &mt7996_txpower_default_fops);
 	debugfs_create_file("txpower_path", 0600, dir, dev, &mt7996_txpower_path_fops);
+	debugfs_create_file("adjust_txp_by_loss", 0600, dir, dev, &fops_adjust_txp_by_loss);
 
 	debugfs_create_file("sr_enable", 0600, dir, dev, &fops_sr_enable);
 	debugfs_create_file("sr_enhanced_enable", 0600, dir, dev, &fops_sr_enhanced_enable);
