@@ -2151,14 +2151,17 @@ static int sta_apply_auth_flags(struct ieee80211_local *local,
 				struct sta_info *sta,
 				u32 mask, u32 set)
 {
+	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	int ret;
 
 	if (mask & BIT(NL80211_STA_FLAG_AUTHENTICATED) &&
 	    set & BIT(NL80211_STA_FLAG_AUTHENTICATED) &&
 	    !test_sta_flag(sta, WLAN_STA_AUTH)) {
 		ret = sta_info_move_state(sta, IEEE80211_STA_AUTH);
-		if (ret)
+		if (ret) {
+			sdata_info(sdata, "sta-apply-auth-flags, sta-info-move-state AUTH failed: %d\n", ret);
 			return ret;
+		}
 	}
 
 	if (mask & BIT(NL80211_STA_FLAG_ASSOCIATED) &&
@@ -2173,8 +2176,10 @@ static int sta_apply_auth_flags(struct ieee80211_local *local,
 			rate_control_rate_init_all_links(sta);
 
 		ret = sta_info_move_state(sta, IEEE80211_STA_ASSOC);
-		if (ret)
+		if (ret) {
+			sdata_info(sdata, "sta-apply-auth-flags, sta-info-move-state ASSOC failed: %d\n", ret);
 			return ret;
+		}
 	}
 
 	if (mask & BIT(NL80211_STA_FLAG_AUTHORIZED)) {
@@ -2184,24 +2189,31 @@ static int sta_apply_auth_flags(struct ieee80211_local *local,
 			ret = sta_info_move_state(sta, IEEE80211_STA_ASSOC);
 		else
 			ret = 0;
-		if (ret)
+		if (ret) {
+			sdata_info(sdata, "sta-apply-auth-flags, sta-info-move-state AUTH/ASSOC failed: %d, set: 0x%x\n",
+				   ret, set);
 			return ret;
+		}
 	}
 
 	if (mask & BIT(NL80211_STA_FLAG_ASSOCIATED) &&
 	    !(set & BIT(NL80211_STA_FLAG_ASSOCIATED)) &&
 	    test_sta_flag(sta, WLAN_STA_ASSOC)) {
 		ret = sta_info_move_state(sta, IEEE80211_STA_AUTH);
-		if (ret)
+		if (ret) {
+			sdata_info(sdata, "sta-apply-auth-flags, sta-info-move-state AUTH failed: %d\n", ret);
 			return ret;
+		}
 	}
 
 	if (mask & BIT(NL80211_STA_FLAG_AUTHENTICATED) &&
 	    !(set & BIT(NL80211_STA_FLAG_AUTHENTICATED)) &&
 	    test_sta_flag(sta, WLAN_STA_AUTH)) {
 		ret = sta_info_move_state(sta, IEEE80211_STA_NONE);
-		if (ret)
+		if (ret) {
+			sdata_info(sdata, "sta-apply-auth-flags, sta-info-move-state NONE failed: %d\n", ret);
 			return ret;
+		}
 	}
 
 	return 0;
