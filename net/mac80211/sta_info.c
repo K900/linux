@@ -1466,6 +1466,7 @@ static int _sta_info_move_state(struct sta_info *sta,
 				enum ieee80211_sta_state new_state,
 				bool recalc)
 {
+	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct ieee80211_local *local = sta->local;
 
 	might_sleep();
@@ -1477,22 +1478,34 @@ static int _sta_info_move_state(struct sta_info *sta,
 
 	switch (new_state) {
 	case IEEE80211_STA_NONE:
-		if (sta->sta_state != IEEE80211_STA_AUTH)
+		if (sta->sta_state != IEEE80211_STA_AUTH) {
+			sdata_info(sdata, "sta-info-move-state to NONE: current state: %d (NOT AUTH) is invalid\n",
+				   sta->sta_state);
 			return -EINVAL;
+		}
 		break;
 	case IEEE80211_STA_AUTH:
 		if (sta->sta_state != IEEE80211_STA_NONE &&
-		    sta->sta_state != IEEE80211_STA_ASSOC)
+		    sta->sta_state != IEEE80211_STA_ASSOC) {
+			sdata_info(sdata, "sta-info-move-state to AUTH: current state %d (NOT NONE/ASSOC) is invalid\n",
+				   sta->sta_state);
 			return -EINVAL;
+		}
 		break;
 	case IEEE80211_STA_ASSOC:
 		if (sta->sta_state != IEEE80211_STA_AUTH &&
-		    sta->sta_state != IEEE80211_STA_AUTHORIZED)
+		    sta->sta_state != IEEE80211_STA_AUTHORIZED) {
+			sdata_info(sdata, "sta-info-move-state to ASSOC: current state %d (NOT AUTH/AUTHORIZED) is invalid\n",
+				   sta->sta_state);
 			return -EINVAL;
+		}
 		break;
 	case IEEE80211_STA_AUTHORIZED:
-		if (sta->sta_state != IEEE80211_STA_ASSOC)
+		if (sta->sta_state != IEEE80211_STA_ASSOC) {
+			sdata_info(sdata, "sta-info-move-state to AUTHORIZED: current state %d (NOT ASSOC) is invalid\n",
+				   sta->sta_state);
 			return -EINVAL;
+		}
 		break;
 	default:
 		WARN(1, "invalid state %d", new_state);
@@ -1522,8 +1535,11 @@ static int _sta_info_move_state(struct sta_info *sta,
 			WARN_ON_ONCE(1);
 		}
 		else {
-			if (err)
+			if (err) {
+				sdata_info(sdata, "sta-info-move-state drv_sta_state returned error, current state: %d  new_state: %d, err: %d\n",
+					   sta->sta_state, new_state, err);
 				return err;
+			}
 		}
 	}
 
