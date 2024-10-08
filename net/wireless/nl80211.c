@@ -11417,7 +11417,7 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 			chan = ieee80211_get_channel_khz(wiphy, freq);
 			if (!chan) {
 				err = -EINVAL;
-				pr_err("scan: get-channel failed, freq: %d\n",
+				pr_info("scan: get-channel failed, freq: %d\n",
 				       freq);
 				goto out_free;
 			}
