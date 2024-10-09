@@ -5546,6 +5546,7 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 	struct mt76_power_path_limits la_path = {};
 	struct sk_buff *skb;
 	int i, ret, txpower_limit;
+	s8 single_nss_txpower;
 
 	if (phy->txpower == INT_MIN || phy->txpower > 127)
 		phy->txpower = 127;
@@ -5555,7 +5556,7 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 	else
 		txpower_limit = phy->txpower;
 
-	txpower_limit = mt76_get_power_bound(mphy, txpower_limit);
+	txpower_limit = mt7996_get_power_bound(mphy, txpower_limit, &single_nss_txpower);
 
 	if (phy->sku_limit_en) {
 		txpower_limit = mt76_get_rate_power_limits(mphy, mphy->chandef.chan,
@@ -5619,6 +5620,10 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 		if (!phy->default_txpower)
 			return 0; /* try again in a bit */
 	}
+
+	// CCK and OFDM should use single NSS power
+	memset(&la.cck, single_nss_txpower, sizeof(la.cck));
+	memset(&la.ofdm, single_nss_txpower, sizeof(la.ofdm));
 
 	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL,
 				 sizeof(req) + MT7996_SKU_PATH_NUM);
