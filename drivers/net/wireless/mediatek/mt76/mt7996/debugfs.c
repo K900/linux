@@ -1220,6 +1220,7 @@ mt7996_get_txpower_info(struct file *file, char __user *user_buf,
 	int len = 0;
 	ssize_t ret;
 	char *buf;
+	s8 single_nss_txpower;
 
 	buf = kzalloc(size, GFP_KERNEL);
 	event = kzalloc(sizeof(*event), GFP_KERNEL);
@@ -1275,7 +1276,7 @@ mt7996_get_txpower_info(struct file *file, char __user *user_buf,
 
 	len += scnprintf(buf + len, size - len,
 			 "    PHY Power Bound: %d\n",
-			 mt76_get_power_bound(mphy, hw->conf.power_level));
+			 mt7996_get_power_bound(mphy, hw->conf.power_level, &single_nss_txpower));
 	len += scnprintf(buf + len, size - len,
 			 "    HW Conf Power Level: %d\n",
 			 hw->conf.power_level);
