@@ -1072,6 +1072,18 @@ enum {
 #define MT7996_MAX_BEACON_SIZE		(MT7996_MAX_BSS_OFFLOAD_SIZE - \
 					 MT7996_BEACON_UPDATE_SIZE)
 
+static inline s8
+mt7996_get_power_bound(struct mt76_phy *mphy, s8 txpower, s8 *single_nss_txpower_half_db_ret)
+{
+	int n_chains = hweight16(mphy->chainmask);
+
+	txpower = mt76_get_sar_power(mphy, mphy->chandef.chan, txpower * 2);
+	*single_nss_txpower_half_db_ret = txpower;
+	txpower -= mt76_tx_power_path_delta(n_chains);
+
+	return txpower;
+}
+
 enum {
 	UNI_BAND_CONFIG_RADIO_ENABLE,
 	UNI_BAND_CONFIG_EDCCA_ENABLE = 0x05,
