@@ -1395,7 +1395,10 @@ void tcp_wfree(struct sk_buff *skb)
 	/* Keep one reference on sk_wmem_alloc.
 	 * Will be released by sk_free() from here or tcp_tsq_workfn()
 	 */
-	WARN_ON(refcount_sub_and_test(skb->truesize - 1, &sk->sk_wmem_alloc));
+	if (WARN_ON(refcount_sub_and_test(skb->truesize - 1, &sk->sk_wmem_alloc))) {
+		pr_err("skb->truesize: %d  sk_wmem_alloc: %d\n",
+		       skb->truesize, refcount_read(&sk->sk_wmem_alloc));
+	}
 
 	/* If this softirq is serviced by ksoftirqd, we are likely under stress.
 	 * Wait until our queues (qdisc + devices) are drained.
