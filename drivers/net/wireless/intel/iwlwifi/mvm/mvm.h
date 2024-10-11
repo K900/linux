@@ -955,27 +955,6 @@ struct iwl_mvm_acs_survey {
 	struct iwl_mvm_acs_survey_channel channels[] __counted_by(n_channels);
 };
 
-/* skb->cb usage for mvm
- * driver_data[0]: Holds iwl_tx_cb struct.
- * driver_data[1]: holds pointer to struct iwl_device_tx_cmd (maybe unused?)
- * driver_data[2]: cb + cb_data_offs, points to mac header page.
- * driver_data[3]: dev_cmd_offs: cb + cb_data_offs + sizeof(void*),
- *                 holds pointer to struct iwl_device_tx_cmd.
- * driver_data[4]: unused
- */
-
-#define IWL_TX_CB_TXO_USED		BIT(0)
-struct iwl_tx_cb {
-	u8 flags;
-};
-
-static inline struct iwl_tx_cb *iwl_tx_skb_cb(struct sk_buff *skb)
-{
-	BUILD_BUG_ON(sizeof(struct iwl_tx_cb) >
-		     sizeof(IEEE80211_SKB_CB(skb)->driver_data[0]));
-	return ((void *)&(IEEE80211_SKB_CB(skb)->driver_data[0]));
-}
-
 struct iwl_txo_data {
 	struct rcu_head rcu_head;
 	u8 txo_active; /* tx overrides are active */

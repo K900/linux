@@ -11,6 +11,7 @@
 #include <linux/mm.h> /* for page_address */
 #include <linux/lockdep.h>
 #include <linux/kernel.h>
+#include <net/mac80211.h>
 
 #include "iwl-debug.h"
 #include "iwl-config.h"
@@ -704,6 +705,18 @@ struct iwl_cmd_meta {
 	u32 sg_offset: PAGE_SHIFT;
 	u32 tbs;
 };
+
+#define IWL_TX_CB_TXO_USED		BIT(0)
+struct iwl_tx_cb {
+	u8 flags;
+};
+
+static inline struct iwl_tx_cb *iwl_tx_skb_cb(struct sk_buff *skb)
+{
+	BUILD_BUG_ON(sizeof(struct iwl_tx_cb) >
+		     sizeof(IEEE80211_SKB_CB(skb)->driver_data[0]));
+	return ((void *)&(IEEE80211_SKB_CB(skb)->driver_data[0]));
+}
 
 /**
  * struct iwl_trans_info - transport info for outside use
