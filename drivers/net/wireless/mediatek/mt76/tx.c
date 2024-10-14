@@ -223,6 +223,8 @@ mt76_tx_status_skb_get(struct mt76_dev *dev, struct mt76_wcid *wcid, int pktid,
 		/* It has been too long since DMA_DONE, time out this packet
 		 * and stop waiting for TXS callback.
 		 */
+		mtk_dbg(dev, TX, "%s: DMA-DONE, but no TXS: pktid: %d cb->jiffies: %ld  timeout: %d",
+			__func__, cb->pktid, cb->jiffies, dev->stale_skb_status_timeout);
 		idr_remove(&wcid->pktid, cb->pktid);
 		__mt76_tx_status_skb_done(dev, skb2, MT_TX_CB_TXS_FAILED |
 					  MT_TX_CB_TXS_DONE, list);
