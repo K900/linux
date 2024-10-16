@@ -1363,6 +1363,7 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_supported_band *sband;
+	struct ieee80211_conn_settings conn = { 0 };
 	int err;
 	size_t noffset;
 
@@ -1472,14 +1473,22 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 
 	if (sband->vht_cap.vht_supported &&
 	    !(flags & IEEE80211_PROBE_FLAG_DISABLE_VHT)) {
-		u8 *pos;
+		u8 *pos, *capa;
 
 		if (skb_tailroom(skb) < 2 + sizeof(struct ieee80211_vht_cap))
 			return -ENOBUFS;
 
 		pos = skb_put(skb, 2 + sizeof(struct ieee80211_vht_cap));
+
+		/* skip eid and length */
+		capa = pos + 2;
+
 		ieee80211_ie_build_vht_cap(pos, &sband->vht_cap,
 					   sband->vht_cap.cap);
+
+		/* If we don't support 160Mhz, don't advertise it! */
+		if (flags & IEEE80211_PROBE_FLAG_DISABLE_160)
+			*capa &= ~IEEE80211_VHT_CAP_SHORT_GI_160;
 	}
 
 	/* insert custom IEs that go before HE */
@@ -1502,10 +1511,19 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 		*offset = noffset;
 	}
 
+	memcpy(&conn,
+	       &ieee80211_conn_settings_unlimited,
+	       sizeof(struct ieee80211_conn_settings));
+
+	if (flags & IEEE80211_PROBE_FLAG_DISABLE_320)
+		conn.bw_limit = IEEE80211_CONN_BW_LIMIT_160;
+	if (flags & IEEE80211_PROBE_FLAG_DISABLE_160)
+		conn.bw_limit = IEEE80211_CONN_BW_LIMIT_80;
+
 	if (cfg80211_any_usable_channels(local->hw.wiphy, BIT(sband->band),
 					 IEEE80211_CHAN_NO_HE) &&
 	    !(flags & IEEE80211_PROBE_FLAG_DISABLE_HE)) {
-		err = ieee80211_put_he_cap(skb, sdata, sband, NULL);
+		err = ieee80211_put_he_cap(skb, sdata, sband, &conn);
 		if (err)
 			return err;
 	}
@@ -1514,7 +1532,7 @@ static int ieee80211_put_preq_ies_band(struct sk_buff *skb,
 					 IEEE80211_CHAN_NO_HE |
 					 IEEE80211_CHAN_NO_EHT) &&
 	    !(flags & IEEE80211_PROBE_FLAG_DISABLE_EHT)) {
-		err = ieee80211_put_eht_cap(skb, sdata, sband, NULL);
+		err = ieee80211_put_eht_cap(skb, sdata, sband, &conn);
 		if (err)
 			return err;
 	}
