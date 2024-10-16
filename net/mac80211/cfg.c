@@ -4187,7 +4187,7 @@ static int ieee80211_set_bitrate_mask(struct wiphy *wiphy,
 	int i, ret;
 
 	if (pr_conf) {
-		sdata->pr_conf.mode_disable = pr_conf->mode_disable;
+		sdata->pr_conf.flags = pr_conf->flags;
 
 		if (pr_conf->is_advert_bitmask) {
 			memcpy(&sdata->cfg_advert_bitrate_mask, mask, sizeof(*mask));

@@ -54,6 +54,14 @@ struct ct_assoc_info {
 	__u32 pad32[7]; /* room to grow */
 } __attribute__((packed));
 
+#define CT_PREQ_DISABLE_HT (1<<0)
+#define CT_PREQ_DISABLE_VHT (1<<1)
+#define CT_PREQ_DISABLE_HE (1<<2)
+#define CT_PREQ_DISABLE_EHT (1<<3)
+struct ct_preq_info {
+	__u32 flags;
+	__u32 pad32[7]; /* room to grow */
+} __attribute__((packed));
 
 #define NL80211_GENL_NAME "nl80211"
 

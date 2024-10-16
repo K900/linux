@@ -2881,25 +2881,14 @@ struct cfg80211_ssid {
 };
 
 /**
- * enum cfg80211_probe_req_flags - Part of Candela hack around for faking
- *				   station lower hardware capabilities
- */
-enum cfg80211_probe_req_mode_disable {
-	IEEE80211_PROBE_REQ_DISABLE_HT  = BIT(0),
-	IEEE80211_PROBE_REQ_DISABLE_VHT = BIT(1),
-	IEEE80211_PROBE_REQ_DISABLE_HE  = BIT(2),
-	IEEE80211_PROBE_REQ_DISABLE_EHT = BIT(3),
-};
-
-/**
  * struct cfg80211_probe_request_config - For Candela probe request formation
  *					  hacks
  *
- * @mode_disable - follows the structure of cfg80211_probve_req_mode_disable
+ * @flags - flags match those used for ct_preq_info in netlink
  */
 struct cfg80211_probe_req_config {
 	bool is_advert_bitmask;
-	u8 mode_disable;
+	u32 flags;
 };
 
 /**

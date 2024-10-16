@@ -14850,14 +14850,22 @@ static int nl80211_set_tx_bitrate_mask(struct sk_buff *skb,
 	 */
 	pr_conf.is_advert_bitmask = nla_get_flag(info->attrs[NL80211_ATTR_WIPHY_SELF_MANAGED_REG]);
 
-	if (nla_get_flag(info->attrs[NL80211_ATTR_DISABLE_HT]))
-		pr_conf.mode_disable |= IEEE80211_PROBE_REQ_DISABLE_HT;
-	if (nla_get_flag(info->attrs[NL80211_ATTR_DISABLE_VHT]))
-		pr_conf.mode_disable |= IEEE80211_PROBE_REQ_DISABLE_VHT;
-	if (nla_get_flag(info->attrs[NL80211_ATTR_DISABLE_HE]))
-		pr_conf.mode_disable |= IEEE80211_PROBE_REQ_DISABLE_HE;
-	if (nla_get_flag(info->attrs[NL80211_ATTR_DISABLE_EHT]))
-		pr_conf.mode_disable |= IEEE80211_PROBE_REQ_DISABLE_EHT;
+	if (info->attrs[NL80211_ATTR_VENDOR_ID] &&
+	    info->attrs[NL80211_ATTR_VENDOR_DATA]) {
+		u32 vid = nla_get_u32(info->attrs[NL80211_ATTR_VENDOR_ID]);
+		void *data = nla_data(info->attrs[NL80211_ATTR_VENDOR_DATA]);
+		int data_len = nla_len(info->attrs[NL80211_ATTR_VENDOR_DATA]);
+		struct ct_preq_info *cpi = (struct ct_preq_info *)(data);
+
+		if (vid == CANDELA_VENDOR_ID) {
+			if (data_len < 4) {
+				pr_err("nl80211-set-tx-bitrate-mask, data-len %d too small\n",
+				       data_len);
+			} else {
+				pr_conf.flags = cpi->flags;
+			}
+		}
+	}
 
 	return rdev_set_bitrate_mask(rdev, dev, link_id, NULL, &mask, &pr_conf);
 }
