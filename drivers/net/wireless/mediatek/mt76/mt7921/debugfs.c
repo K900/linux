@@ -426,6 +426,11 @@ static ssize_t mt7921_write_set_rate_override(struct file *file,
 			link_sta = container_of(wcid, struct mt792x_link_sta, wcid);
 			msta = link_sta->sta;
 
+			if (!msta) {
+				rcu_read_unlock();
+				continue;
+			}
+
 			// TOOD:  Support setting specific link, not just first one we fine.
 			if (!msta->vif) {
 				rcu_read_unlock();
