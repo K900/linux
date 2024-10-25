@@ -267,6 +267,7 @@ static int mt7915_add_interface(struct ieee80211_hw *hw,
 
 	idx = mt76_wcid_alloc(dev->mt76.wcid_mask, mt7915_wtbl_size(dev));
 	if (idx < 0) {
+		mtk_dbg(&dev->mt76, WRN, "%s: failed to allocate WCID\n", __func__);
 		ret = -ENOSPC;
 		goto out;
 	}
