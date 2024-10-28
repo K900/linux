@@ -878,6 +878,7 @@ void iwl_mvm_mac_itxq_xmit(struct ieee80211_hw *hw, struct ieee80211_txq *txq)
 	struct iwl_mvm *mvm = IWL_MAC80211_GET_MVM(hw);
 	struct iwl_mvm_txq *mvmtxq = iwl_mvm_txq_from_mac80211(txq);
 	struct sk_buff *skb = NULL;
+	u32 sofar = 0;
 
 	/*
 	 * No need for threads to be pending here, they can leave the first
@@ -909,6 +910,7 @@ void iwl_mvm_mac_itxq_xmit(struct ieee80211_hw *hw, struct ieee80211_txq *txq)
 					&mvmtxq->state) &&
 			      !test_bit(IWL_MVM_TXQ_STATE_STOP_AP_CSA,
 					&mvmtxq->state) &&
+			      (sofar <= 1000) &&
 			      !test_bit(IWL_MVM_STATUS_IN_D3, &mvm->status))) {
 			skb = ieee80211_tx_dequeue(hw, txq);
 
@@ -922,6 +924,9 @@ void iwl_mvm_mac_itxq_xmit(struct ieee80211_hw *hw, struct ieee80211_txq *txq)
 			}
 
 			iwl_mvm_tx_skb(mvm, skb, txq->sta);
+			if (++sofar > 1000)
+				pr_info("WARNING: Wrote %d packets in iwl_mvm_mac_itxq_xmit, tx_request: %d returning.\n",
+					sofar, atomic_read(&mvmtxq->tx_request));
 		}
 	} while (atomic_dec_return(&mvmtxq->tx_request));
 	rcu_read_unlock();

@@ -4794,6 +4794,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
 	int err = -ENOMEM;
 	int i = 0;
 	int nfrags, pos;
+	u32 sofar = 0;
 
 	if ((skb_shinfo(head_skb)->gso_type & SKB_GSO_DODGY) &&
 	    mss != GSO_BY_FRAGS && mss != skb_headlen(head_skb)) {
@@ -5078,6 +5079,12 @@ perform_csum_check:
 					     nskb->len - doffset, 0);
 			SKB_GSO_CB(nskb)->csum_start =
 				skb_headroom(nskb) + doffset;
+		}
+
+		if (++sofar > 32000) {
+			pr_err("ERROR: Found more than %d packets in skbuff::skb_segment, bailing out.\n",
+			       (sofar - 1));
+			break;
 		}
 	} while ((offset += len) < head_skb->len);
 

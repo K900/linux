@@ -76,6 +76,12 @@ int iwl_tx_tso_segment(struct sk_buff *skb, unsigned int num_subframes,
 		skb_mark_not_on_list(tmp);
 		__skb_queue_tail(mpdus_skbs, tmp);
 		i++;
+
+		if (i > 32000) {
+			pr_err("ERROR: iwl-mvm-tx-tso-segment, list gso-segment list is huge: %d, bailing out.\n",
+			       i);
+			break;
+		}
 	}
 
 	return 0;
