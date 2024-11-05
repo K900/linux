@@ -2223,7 +2223,13 @@ static int ath10k_mac_vif_setup_ps(struct ath10k_vif *arvif)
 
 	enable_ps = arvif->ps;
 
-	if (enable_ps && ath10k_mac_num_vifs_started(ar) > 1 &&
+	/* CT firmware doesn't report MULTI_VIF_PS_SUPPORT, so we check
+	 * TXRATE_CT
+	 */
+	if (enable_ps &&
+	    ath10k_mac_num_vifs_started(ar) > 1 &&
+	    !test_bit(ATH10K_FW_FEATURE_TXRATE_CT,
+		    ar->running_fw->fw_file.fw_features) &&
 	    !test_bit(ATH10K_FW_FEATURE_MULTI_VIF_PS_SUPPORT,
 		      ar->running_fw->fw_file.fw_features)) {
 		ath10k_warn(ar, "refusing to enable ps on vdev %i: not supported by fw\n",
