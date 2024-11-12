@@ -1082,7 +1082,10 @@ int cfg80211_scan(struct cfg80211_registered_device *rdev)
 
 	if (!(rdev->wiphy.flags & WIPHY_FLAG_SPLIT_SCAN_6GHZ)) {
 		rdev_req->req.first_part = true;
-		return rdev_scan(rdev, rdev_req);
+		err = rdev_scan(rdev, rdev_req);
+		if (err)
+			pr_err("cfg80211-scan: rdev-scan, no SPLIT_SCAN_6GHZ: %d\n", err);
+		return err;
 	}
 
 	for (i = 0; i < rdev_req->req.n_channels; i++) {
@@ -1091,10 +1094,10 @@ int cfg80211_scan(struct cfg80211_registered_device *rdev)
 	}
 
 	if (!n_channels) {
-		int rv = cfg80211_scan_6ghz(rdev, true);
-		if (rv)
-			pr_err("cfg80211-scan: cfg80211_scan_6ghz failed: %d\n", rv);
-		return rv;
+		err = cfg80211_scan_6ghz(rdev, true);
+		if (err)
+			pr_err("cfg80211-scan: cfg80211_scan_6ghz failed: %d\n", err);
+		return err;
 	}
 
 	request = kzalloc_flex(*request, req.channels, n_channels);
