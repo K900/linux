@@ -1328,6 +1328,7 @@ int ieee80211_add_virtual_monitor(struct ieee80211_local *local,
 
 	ret = ieee80211_check_queues(sdata, NL80211_IFTYPE_MONITOR);
 	if (ret) {
+		sdata_info(sdata, "check-queues failed in add-virtual-monitor: %d\n", ret);
 		kfree(sdata);
 		return ret;
 	}
@@ -1341,6 +1342,7 @@ int ieee80211_add_virtual_monitor(struct ieee80211_local *local,
 	ret = ieee80211_link_use_channel(&sdata->deflink, &local->monitor_chanreq,
 					 IEEE80211_CHANCTX_EXCLUSIVE);
 	if (ret) {
+		sdata_info(sdata, "link-use-channel failed in add-virtual-monitor: %d\n", ret);
 		mutex_lock(&local->iflist_mtx);
 		RCU_INIT_POINTER(local->monitor_sdata, NULL);
 		mutex_unlock(&local->iflist_mtx);

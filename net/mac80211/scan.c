@@ -776,8 +776,11 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
 	 * is indeed active.
 	 */
 	if (ieee80211_vif_is_mld(&sdata->vif) && req->tsf_report_link_id >= 0 &&
-	    !(sdata->vif.active_links & BIT(req->tsf_report_link_id)))
+	    !(sdata->vif.active_links & BIT(req->tsf_report_link_id))) {
+		sdata_info(sdata, "start-scan failed, inactive MLO link: %d\n",
+			   req->tsf_report_link_id);
 		return -EINVAL;
+	}
 
 	if (!__ieee80211_can_leave_ch(sdata, req))
 		return -EBUSY;
@@ -935,14 +938,17 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
 		 * as it must update NoA etc.
 		 */
 		if (ieee80211_vif_type_p2p(&sdata->vif) ==
-				NL80211_IFTYPE_P2P_GO)
+		    NL80211_IFTYPE_P2P_GO) {
+			sdata_info(sdata, "P2P_GO scan failed, cannot fallback to software scan.\n");
 			return -EOPNOTSUPP;
+		}
 		hw_scan = false;
 		goto again;
 	}
 
 	if (rc)
-		sdata_info(sdata, "_ieee80211_start_scan had failure code: %d\n", rc);
+		sdata_info(sdata, "_ieee80211_start_scan had failure code: %d  hw-scan: %d\n",
+			   rc, hw_scan);
 
 	return rc;
 }
