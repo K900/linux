@@ -1659,12 +1659,18 @@ bool _cfg80211_chandef_usable(struct wiphy *wiphy,
 
 	for_each_subchan(chandef, freq, cf) {
 		c = ieee80211_get_channel_khz(wiphy, freq);
-		if (!c)
+		if (!c) {
+			pr_info("secondary-chans-ok, could not get channel for freq: %d\n",
+				freq);
 			return false;
+		}
 		if (c->flags & permitting_flags)
 			continue;
-		if (c->flags & prohibited_flags)
+		if (c->flags & prohibited_flags) {
+			pr_info("secondary-chans-ok, channel freq: %d is prohibited: 0x%x\n",
+				freq, c->flags);
 			return false;
+		}
 	}
 
 	return true;

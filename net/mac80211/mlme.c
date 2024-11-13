@@ -1381,7 +1381,8 @@ again:
 
 	if (chanreq->oper.width != ap_chandef->width || ap_mode != conn->mode)
 		link_id_info(sdata, link_id,
-			     "regulatory prevented using AP config, downgraded\n");
+			     "regulatory prevented using AP config, downgraded. chanreq width: %d  ap-width: %d  ap-mode: %d conn-mode: %d\n",
+		chanreq->oper.width, ap_chandef->width, ap_mode, conn->mode);
 
 	if (conn->mode >= IEEE80211_CONN_MODE_HT &&
 	    !ieee80211_verify_sta_ht_mcs_support(sdata, sband,
