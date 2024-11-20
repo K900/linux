@@ -41,7 +41,7 @@ static const struct nla_policy wireguard_get_device_nl_policy[WGDEVICE_A_IFNAME 
 };
 
 /* WG_CMD_SET_DEVICE - do */
-static const struct nla_policy wireguard_set_device_nl_policy[WGDEVICE_A_PEERS + 1] = {
+static const struct nla_policy wireguard_set_device_nl_policy[WGDEVICE_A_LOWERDEV + 1] = {
 	[WGDEVICE_A_IFINDEX] = { .type = NLA_U32, },
 	[WGDEVICE_A_IFNAME] = { .type = NLA_NUL_STRING, .len = 15, },
 	[WGDEVICE_A_PRIVATE_KEY] = NLA_POLICY_EXACT_LEN(WG_KEY_LEN),
@@ -50,6 +50,7 @@ static const struct nla_policy wireguard_set_device_nl_policy[WGDEVICE_A_PEERS +
 	[WGDEVICE_A_LISTEN_PORT] = { .type = NLA_U16, },
 	[WGDEVICE_A_FWMARK] = { .type = NLA_U32, },
 	[WGDEVICE_A_PEERS] = NLA_POLICY_NESTED_ARRAY(wireguard_wgpeer_nl_policy),
+	[WGDEVICE_A_LOWERDEV] = { .type = NLA_U32, },
 };
 
 /* Ops table for wireguard */
@@ -67,7 +68,7 @@ const struct genl_split_ops wireguard_nl_ops[2] = {
 		.cmd		= WG_CMD_SET_DEVICE,
 		.doit		= wg_set_device_doit,
 		.policy		= wireguard_set_device_nl_policy,
-		.maxattr	= WGDEVICE_A_PEERS,
+		.maxattr	= WGDEVICE_A_LOWERDEV,
 		.flags		= GENL_UNS_ADMIN_PERM | GENL_CMD_CAP_DO,
 	},
 };
