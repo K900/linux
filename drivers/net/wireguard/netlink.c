@@ -203,6 +203,7 @@ int wg_get_device_dumpit(struct sk_buff *skb, struct netlink_callback *cb)
 		if (nla_put_u16(skb, WGDEVICE_A_LISTEN_PORT,
 				wg->incoming_port) ||
 		    nla_put_u32(skb, WGDEVICE_A_FWMARK, wg->fwmark) ||
+		    nla_put_u32(skb, WGDEVICE_A_LOWERDEV, wg->lowerdev) ||
 		    nla_put_u32(skb, WGDEVICE_A_IFINDEX, wg->dev->ifindex) ||
 		    nla_put_string(skb, WGDEVICE_A_IFNAME, wg->dev->name))
 			goto out;
@@ -503,6 +504,14 @@ int wg_set_device_doit(struct sk_buff *skb, struct genl_info *info)
 		struct wg_peer *peer;
 
 		wg->fwmark = nla_get_u32(info->attrs[WGDEVICE_A_FWMARK]);
+		list_for_each_entry(peer, &wg->peer_list, peer_list)
+			wg_socket_clear_peer_endpoint_src(peer);
+	}
+
+	if (info->attrs[WGDEVICE_A_LOWERDEV]) {
+		struct wg_peer *peer;
+
+		wg->lowerdev = nla_get_u32(info->attrs[WGDEVICE_A_LOWERDEV]);
 		list_for_each_entry(peer, &wg->peer_list, peer_list)
 			wg_socket_clear_peer_endpoint_src(peer);
 	}

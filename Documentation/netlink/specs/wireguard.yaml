@@ -114,6 +114,10 @@ attribute-sets:
         doc: |
           The index/type parameter is unused on ``SET_DEVICE`` operations and is
           zero on ``GET_DEVICE`` operations.
+      -
+        name: lowerdev
+        type: u32
+        doc: ifindex to bind lower transport, 0 to disable
   -
     name: wgpeer
     enum-name: wgpeer-attribute
@@ -269,6 +273,7 @@ operations:
             - listen-port
             - fwmark
             - peers
+            - lowerdev
     -
       name: set-device
       value: 1
