@@ -440,8 +440,10 @@ static struct ath_buf* ath_clone_txbuf(struct ath_softc *sc, struct ath_buf *bf)
 	struct ath_buf *tbf;
 
 	tbf = ath_tx_get_buffer(sc);
-	if (WARN_ON(!tbf))
+	if (WARN_ON_ONCE(!tbf)) {
+		pr_err("ath9k: Could not allocate tx buffer in ath_clone_txbuf\n");
 		return NULL;
+	}
 
 	ATH_TXBUF_RESET(tbf);
 
