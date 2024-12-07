@@ -4261,6 +4261,11 @@ int mt7996_mcu_set_chan_info(struct mt7996_phy *phy, u16 tag)
 		req.center_ch2 = ieee80211_frequency_to_channel(freq2);
 	}
 
+	mtk_dbg(&phy->dev->mt76, CFG,
+		"mcu-set-chan-info, ctrl: %d center: %d  bw: %d rx-path: 0x%x switch-reason: %d band-idx: %d center2: %d  channel-band: %d ap-bw: %d  ap-center: %d\n",
+		req.control_ch, req.center_ch, req.bw, req.rx_path, req.switch_reason,
+		req.band_idx, req.center_ch2, req.channel_band, req.ap_bw, req.ap_center_ch);
+
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WMWA_UNI_CMD(CHANNEL_SWITCH),
 				 &req, sizeof(req), true);
 }
@@ -5478,6 +5483,10 @@ int mt7996_mcu_set_sniffer_mode(struct mt7996_phy *phy, bool enabled)
 		.len = cpu_to_le16(sizeof(req) - 4),
 		.enable = enabled,
 	};
+
+	mtk_dbg(&phy->dev->mt76, CFG,
+		"mcu-set-sniffer-mode, band-idx: %d enable: %d\n",
+		req.band_idx, req.enable);
 
 	return mt76_mcu_send_msg(&dev->mt76, MCU_WM_UNI_CMD(SNIFFER), &req,
 				 sizeof(req), true);
