@@ -1249,7 +1249,7 @@ static const struct dev_pm_ops rkvdec2_pm_ops = {
 
 static struct platform_driver rkvdec2_driver = {
 	.probe = rkvdec2_probe,
-	.remove_new = rkvdec2_remove,
+	.remove = rkvdec2_remove,
 	.driver = {
 		   .name = "rkvdec2",
 		   .of_match_table = of_rkvdec2_match,
