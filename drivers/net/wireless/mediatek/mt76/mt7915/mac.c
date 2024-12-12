@@ -597,7 +597,12 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 	mib->rx_pkts_nic++;
 	mib->rx_bytes_nic += skb->len;
 
-	if (!status->wcid || !ieee80211_is_data_qos(fc))
+	status->wcid_idx = status->wcid ? status->wcid->idx : 0;
+
+	/* WCID 0 = mt76.global_wcid, used for beacons and management frames.
+	 * See mt7915_init_hardware()
+	 */
+	if (!status->wcid_idx || !ieee80211_is_data_qos(fc))
 		return 0;
 
 	status->aggr = unicast &&
