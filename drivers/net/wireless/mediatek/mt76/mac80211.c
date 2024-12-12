@@ -1770,6 +1770,8 @@ void mt76_wcid_cleanup(struct mt76_dev *dev, struct mt76_wcid *wcid)
 		hw = mt76_tx_status_get_hw(dev, skb);
 		ieee80211_free_txskb(hw, skb);
 	}
+
+	rcu_assign_pointer(wcid->def_wcid, NULL);
 }
 EXPORT_SYMBOL_GPL(mt76_wcid_cleanup);
 
