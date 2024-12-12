@@ -1253,6 +1253,7 @@ mt76_rx_convert(struct mt76_dev *dev, struct sk_buff *skb,
 	struct ieee80211_rx_status *status = IEEE80211_SKB_RXCB(skb);
 	struct ieee80211_hdr *hdr = mt76_skb_get_hdr(skb);
 	struct mt76_rx_status mstat;
+	struct mt76_wcid *wcid;
 
 	mstat = *((struct mt76_rx_status *)skb->cb);
 	memset(status, 0, sizeof(*status));
@@ -1294,20 +1295,21 @@ mt76_rx_convert(struct mt76_dev *dev, struct sk_buff *skb,
 	memcpy(status->chain_signal, mstat.chain_signal,
 	       sizeof(mstat.chain_signal));
 
-	if (mstat.wcid) {
-		status->link_valid = mstat.wcid->link_valid;
-		status->link_id = mstat.wcid->link_id;
+	wcid = rcu_dereference(dev->wcid[mstat.wcid_idx]);
+	if (wcid && !wcid->sta_disabled) {
+		status->link_valid = wcid->link_valid;
+		status->link_id = wcid->link_id;
 	}
 
-	*sta = wcid_to_sta(mstat.wcid);
+	*sta = wcid_to_sta(wcid);
 	*hw = mt76_phy_hw(dev, mstat.phy_idx);
 }
 
 static void
-mt76_check_ccmp_pn(struct sk_buff *skb)
+mt76_check_ccmp_pn(struct mt76_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
-	struct mt76_wcid *wcid = status->wcid;
+	struct mt76_wcid *wcid;
 	struct ieee80211_hdr *hdr;
 	int security_idx;
 	int ret;
@@ -1318,6 +1320,7 @@ mt76_check_ccmp_pn(struct sk_buff *skb)
 	if (status->flag & RX_FLAG_ONLY_MONITOR)
 		return;
 
+	wcid = rcu_dereference(dev->wcid[status->wcid_idx]);
 	if (!wcid || !wcid->rx_check_pn)
 		return;
 
@@ -1365,7 +1368,7 @@ static void
 mt76_airtime_report(struct mt76_dev *dev, struct mt76_rx_status *status,
 		    int len)
 {
-	struct mt76_wcid *wcid = status->wcid;
+	struct mt76_wcid *wcid;
 	struct ieee80211_rx_status info = {
 		.enc_flags = status->enc_flags,
 		.rate_idx = status->rate_idx,
@@ -1383,6 +1386,7 @@ mt76_airtime_report(struct mt76_dev *dev, struct mt76_rx_status *status,
 	dev->cur_cc_bss_rx += airtime;
 	spin_unlock(&dev->cc_lock);
 
+	wcid = rcu_dereference(dev->wcid[status->wcid_idx]);
 	if (!wcid || !wcid->sta)
 		return;
 
@@ -1416,11 +1420,12 @@ static void
 mt76_airtime_check(struct mt76_dev *dev, struct sk_buff *skb)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
-	struct mt76_wcid *wcid = status->wcid;
+	struct mt76_wcid *wcid;
 
 	if (!(dev->drv->drv_flags & MT_DRV_SW_RX_AIRTIME))
 		return;
 
+	wcid = rcu_dereference(dev->wcid[status->wcid_idx]);
 	if (!wcid || !wcid->sta) {
 		struct ieee80211_hdr *hdr = mt76_skb_get_hdr(skb);
 
@@ -1459,16 +1464,21 @@ mt76_check_sta(struct mt76_dev *dev, struct sk_buff *skb)
 	struct ieee80211_hdr *hdr = mt76_skb_get_hdr(skb);
 	struct ieee80211_sta *sta;
 	struct ieee80211_hw *hw;
-	struct mt76_wcid *wcid = status->wcid;
+	struct mt76_wcid *wcid = rcu_dereference(dev->wcid[status->wcid_idx]);
 	u8 tidno = status->qos_ctl & IEEE80211_QOS_CTL_TID_MASK;
 	bool ps;
 
 	hw = mt76_phy_hw(dev, status->phy_idx);
 	if (ieee80211_is_pspoll(hdr->frame_control) && !wcid &&
 	    !(status->flag & RX_FLAG_8023)) {
+		if (hw->wiphy->flags & WIPHY_FLAG_SUPPORTS_MLO)
+			return;
+
 		sta = ieee80211_find_sta_by_ifaddr(hw, hdr->addr2, NULL);
-		if (sta)
-			wcid = status->wcid = (struct mt76_wcid *)sta->drv_priv;
+		if (sta) {
+			wcid = (struct mt76_wcid *)sta->drv_priv;
+			status->wcid_idx = wcid->idx;
+		}
 	}
 
 	mt76_airtime_check(dev, skb);
@@ -1532,7 +1542,7 @@ void mt76_rx_complete(struct mt76_dev *dev, struct sk_buff_head *frames,
 	while ((skb = __skb_dequeue(frames)) != NULL) {
 		struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
 
-		mt76_check_ccmp_pn(skb);
+		mt76_check_ccmp_pn(dev, skb);
 		skb_shinfo(skb)->frag_list = NULL;
 		mt76_rx_convert(dev, skb, &hw, &sta);
 		ieee80211_rx_list(hw, sta, skb, &list);
@@ -1574,7 +1584,7 @@ void mt76_rx_poll_complete(struct mt76_dev *dev, enum mt76_rxq_id q,
 		    mt76_npu_device_active(dev))
 			__skb_queue_tail(&frames, skb);
 		else
-			mt76_rx_aggr_reorder(skb, &frames);
+			mt76_rx_aggr_reorder(dev, skb, &frames);
 	}
 
 	mt76_rx_complete(dev, &frames, napi);
