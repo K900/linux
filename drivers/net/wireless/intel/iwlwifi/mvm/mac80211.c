@@ -5852,6 +5852,25 @@ int iwl_mvm_mac_get_survey(struct ieee80211_hw *hw, int idx,
 
 	memset(survey, 0, sizeof(*survey));
 
+	if (mvm->trans->mac_cfg->device_family == IWL_DEVICE_FAMILY_BZ) {
+		/* None of the code below this if clause appears to work
+		 * on be200 radios, primarily because 'channel' is not assigned.
+		 * So special case this to do something useful on be200
+		 * radio:  Return channel and busy-time for the first 3
+		 * phy contexts.
+		 */
+
+		survey->filled = SURVEY_INFO_TIME | SURVEY_INFO_TIME_BUSY;
+		if (idx > 2)
+			return -ENOENT;
+
+		survey->channel = mvm->phy_ctxts[idx].channel;
+
+		survey->time = jiffies64_to_msecs(mvm->phy_ctxts[idx].channel_time_accum);
+		survey->time_busy = jiffies64_to_msecs(mvm->phy_ctxts[idx].channel_busy_accum);
+		return 0;
+	}
+
 	if (!fw_has_capa(&mvm->fw->ucode_capa,
 			 IWL_UCODE_TLV_CAPA_RADIO_BEACON_STATS))
 		return -ENOENT;
