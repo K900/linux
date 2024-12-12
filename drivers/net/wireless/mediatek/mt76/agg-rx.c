@@ -116,11 +116,11 @@ mt76_rx_aggr_reorder_work(struct work_struct *work)
 }
 
 static void
-mt76_rx_aggr_check_ctl(struct sk_buff *skb, struct sk_buff_head *frames)
+mt76_rx_aggr_check_ctl(struct sk_buff *skb, struct sk_buff_head *frames,
+		       struct mt76_wcid *wcid)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
 	struct ieee80211_bar *bar = mt76_skb_get_hdr(skb);
-	struct mt76_wcid *wcid = status->wcid;
 	struct mt76_rx_tid *tid;
 	u8 tidno;
 	u16 seqno;
@@ -145,10 +145,11 @@ mt76_rx_aggr_check_ctl(struct sk_buff *skb, struct sk_buff_head *frames)
 	spin_unlock_bh(&tid->lock);
 }
 
-void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames)
+void mt76_rx_aggr_reorder(struct mt76_dev *dev, struct sk_buff *skb,
+			  struct sk_buff_head *frames)
 {
 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
-	struct mt76_wcid *wcid = status->wcid;
+	struct mt76_wcid *wcid = rcu_dereference(dev->wcid[status->wcid_idx]);
 	struct ieee80211_sta *sta;
 	struct mt76_rx_tid *tid;
 	bool sn_less;
@@ -164,7 +165,7 @@ void mt76_rx_aggr_reorder(struct sk_buff *skb, struct sk_buff_head *frames)
 
 	if (!status->aggr) {
 		if (!(status->flag & RX_FLAG_8023))
-			mt76_rx_aggr_check_ctl(skb, frames);
+			mt76_rx_aggr_check_ctl(skb, frames, wcid);
 		return;
 	}
 
