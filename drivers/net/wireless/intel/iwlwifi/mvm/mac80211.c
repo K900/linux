@@ -5860,10 +5860,13 @@ int iwl_mvm_mac_get_survey(struct ieee80211_hw *hw, int idx,
 		 * phy contexts.
 		 */
 
-		survey->filled = SURVEY_INFO_TIME | SURVEY_INFO_TIME_BUSY;
 		if (idx > 2)
 			return -ENOENT;
 
+		if (!mvm->phy_ctxts[idx].ref)
+			return 0;
+
+		survey->filled = SURVEY_INFO_TIME | SURVEY_INFO_TIME_BUSY;
 		survey->channel = mvm->phy_ctxts[idx].channel;
 
 		survey->time = jiffies64_to_msecs(mvm->phy_ctxts[idx].channel_time_accum);
