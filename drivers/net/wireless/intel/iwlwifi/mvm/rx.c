@@ -845,6 +845,8 @@ iwl_mvm_handle_per_phy_stats(struct iwl_mvm *mvm,
 			     struct iwl_stats_ntfy_per_phy_v1 *per_phy)
 {
 	int i;
+	unsigned long jdiff;
+	u64 j = jiffies_64;
 
 	for (i = 0; i < NUM_PHY_CTX; i++) {
 		if (!mvm->phy_ctxts[i].ref)
@@ -853,6 +855,22 @@ iwl_mvm_handle_per_phy_stats(struct iwl_mvm *mvm,
 			le32_to_cpu(per_phy[i].channel_load_by_us);
 		mvm->phy_ctxts[i].channel_load_not_by_us =
 			le32_to_cpu(per_phy[i].channel_load_not_by_us);
+
+		if (mvm->phy_ctxts[i].last_jiffies) {
+			if (j > mvm->phy_ctxts[i].last_jiffies)
+				jdiff = j - mvm->phy_ctxts[i].last_jiffies;
+			else
+				/* jiffies wrapped, just count from zero, close enough. */
+				jdiff = j;
+
+			/* We know busy percentage, back convert this to total
+			 * time and total busy time.
+			 */
+			mvm->phy_ctxts[i].channel_time_accum += jdiff;
+			// TODO: Fix this to use an actual value
+			mvm->phy_ctxts[i].channel_busy_accum += 0;
+		}
+		mvm->phy_ctxts[i].last_jiffies = j;
 	}
 }
 

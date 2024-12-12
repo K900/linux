@@ -105,6 +105,10 @@ struct iwl_mvm_phy_ctxt {
 	bool rlc_disabled;
 	u32 channel_load_by_us;
 	u32 channel_load_not_by_us;
+
+	u64 channel_time_accum; /* in jiffies */
+	u64 channel_busy_accum; /* in jiffies */
+	u64 last_jiffies; /* last time we accumulated the above */
 };
 
 struct iwl_mvm_time_event_data {
