@@ -582,9 +582,6 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 	memset(data, 0, sizeof(u64) * STA_STATS_LEN);
 
-	/* NOTE/HACK:  TX stats are not updated for anything except
-	 * deflink currently.  Use those stats on the active link.
-	 */
 #define ADD_LINK_STA_STATS(sta, link_rx_stats, active)		\
 	do {							\
 		data[i++] += link_rx_stats.packets;		\
@@ -594,18 +591,11 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		data[i++] += link_rx_stats.dropped;		\
 								\
 		if (active) {						\
-			data[i++] += sinfo.tx_packets;			\
-			data[i++] += sinfo.tx_bytes;			\
-			data[i++] += (sta)->status_stats.filtered;	\
-			data[i++] += sinfo.tx_failed;			\
-			data[i++] += sinfo.tx_retries;			\
-			/*
-			data[i++] += _sum_acs((sta)->tx_stats.packets);	\
-			data[i++] += _sum_acs((sta)->tx_stats.bytes);	\
+			data[i++] += (sta)->tx_stats.rep_packets;	\
+			data[i++] += (sta)->tx_stats.rep_bytes;	\
 			data[i++] += (sta)->status_stats.filtered;	\
 			data[i++] += (sta)->status_stats.retry_failed;	\
 			data[i++] += (sta)->status_stats.retry_count;	\
-			*/						\
 		} else {						\
 			i += 5;	/* skip non active links */		\
 		}							\
@@ -688,18 +678,26 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			data[i++] = sdata->tx_handlers_drop;
 			data[i++] = sta->sta_state;
 
-			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
-				data[i] = 100000ULL *
-					cfg80211_calculate_bitrate(&sinfo.txrate);
-			i++;
 			if (mld) {
-				struct rate_info rxrate;
+				struct rate_info txrxrate = {};
 				int mn;
 				u64 accum;
 
-				link_sta_set_rate_info_rx(link_sta, &rxrate, last_rxstats);
+				if (sinfo.links[li]->filled &
+				    BIT_ULL(NL80211_STA_INFO_TX_BITRATE)) {
+					data[i] = 100000ULL *
+						cfg80211_calculate_bitrate(&sinfo.links[li]->txrate);
+				} else {
+					/* Get it from sinfo then, better than nothing I guess */
+					if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
+						data[i] = 100000ULL *
+							cfg80211_calculate_bitrate(&sinfo.txrate);
+				}
+				i++;
+
+				link_sta_set_rate_info_rx(link_sta, &txrxrate, last_rxstats);
 				data[i++] = 100000ULL *
-					cfg80211_calculate_bitrate(&rxrate);
+					cfg80211_calculate_bitrate(&txrxrate);
 
 				data[i++] = (u8)last_rxstats->last_signal;
 
@@ -738,6 +736,11 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				}
 				i++;
 			} else {
+				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
+					data[i] = 100000ULL *
+						cfg80211_calculate_bitrate(&sinfo.txrate);
+				i++;
+
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_RX_BITRATE))
 					data[i] = 100000ULL *
 						cfg80211_calculate_bitrate(&sinfo.rxrate);
