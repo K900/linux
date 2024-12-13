@@ -1026,8 +1026,14 @@ static ssize_t iwl_dbgfs_fw_system_stats_read(struct file *file,
 				 " accu_num_beacons %d",
 				 link_info->beacon_stats.accu_num_beacons);
 		pos += scnprintf(pos, endpos - pos,
-				 " avg_signal %d\n",
+				 " beacon_stats.avg_signal %d",
 				 link_info->beacon_stats.avg_signal);
+		pos += scnprintf(pos, endpos - pos,
+				 " rx_avg_signal %ld",
+				 -ewma_signal_read(&link_info->rx_avg_signal));
+		pos += scnprintf(pos, endpos - pos,
+				 " rx_avg_beacon_signal %ld\n",
+				 -ewma_signal_read(&link_info->rx_avg_beacon_signal));
 	}
 
 	pos += scnprintf(pos, endpos - pos,

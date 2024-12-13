@@ -649,6 +649,17 @@ static void iwl_mvm_update_link_sig(struct ieee80211_vif *vif, int sig,
 	int hyst = bss_conf->cqm_rssi_hyst;
 	int last_event;
 
+	/* For reasons unknown, but possibly related to disabling beacon filtering,
+	 * the beacon average is reported incorrectly on the second link in at least
+	 * some cases.  So, if we have disabled beacon filtering, use
+	 * what the link is actually reporting for received frames.
+	 */
+	if (!mvmvif->bf_enabled) {
+		int esig = -ewma_signal_read(&link_info->rx_avg_signal);
+		if (esig)
+			sig = esig;
+	}
+
 	if (sig == 0) {
 		IWL_DEBUG_RX(mvm, "RSSI is 0 - skip signal based decision\n");
 		return;
