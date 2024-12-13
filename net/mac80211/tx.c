@@ -894,7 +894,7 @@ ieee80211_tx_h_sequence(struct ieee80211_tx_data *tx)
 		hdr->seq_ctrl = cpu_to_le16(tx->sdata->sequence_number);
 		tx->sdata->sequence_number += 0x10;
 		if (tx->sta)
-			tx->sta->deflink.tx_stats.msdu[IEEE80211_NUM_TIDS]++;
+			tx->sta->deflink.tx_stats.req_msdu[IEEE80211_NUM_TIDS]++;
 		return TX_CONTINUE;
 	}
 
@@ -908,7 +908,7 @@ ieee80211_tx_h_sequence(struct ieee80211_tx_data *tx)
 
 	/* include per-STA, per-TID sequence counter */
 	tid = ieee80211_get_tid(hdr);
-	tx->sta->deflink.tx_stats.msdu[tid]++;
+	tx->sta->deflink.tx_stats.req_msdu[tid]++;
 
 	hdr->seq_ctrl = ieee80211_tx_next_seq(tx->sta, tid);
 
@@ -1061,10 +1061,10 @@ ieee80211_tx_h_stats(struct ieee80211_tx_data *tx)
 
 	skb_queue_walk(&tx->skbs, skb) {
 		ac = skb_get_queue_mapping(skb);
-		tx->sta->deflink.tx_stats.bytes[ac] += skb->len;
+		tx->sta->deflink.tx_stats.req_bytes[ac] += skb->len;
 	}
 	if (ac >= 0)
-		tx->sta->deflink.tx_stats.packets[ac]++;
+		tx->sta->deflink.tx_stats.req_packets[ac]++;
 
 	return TX_CONTINUE;
 }
@@ -3731,18 +3731,18 @@ ieee80211_xmit_fast_finish(struct ieee80211_sub_if_data *sdata,
 	}
 
 	if (skb_shinfo(skb)->gso_size)
-		sta->deflink.tx_stats.msdu[tid] +=
+		sta->deflink.tx_stats.req_msdu[tid] +=
 			DIV_ROUND_UP(skb->len, skb_shinfo(skb)->gso_size);
 	else
-		sta->deflink.tx_stats.msdu[tid]++;
+		sta->deflink.tx_stats.req_msdu[tid]++;
 
 	info->hw_queue = sdata->vif.hw_queue[skb_get_queue_mapping(skb)];
 
 	/* statistics normally done by ieee80211_tx_h_stats (but that
 	 * has to consider fragmentation, so is more complex)
 	 */
-	sta->deflink.tx_stats.bytes[skb_get_queue_mapping(skb)] += skb->len;
-	sta->deflink.tx_stats.packets[skb_get_queue_mapping(skb)]++;
+	sta->deflink.tx_stats.req_bytes[skb_get_queue_mapping(skb)] += skb->len;
+	sta->deflink.tx_stats.req_packets[skb_get_queue_mapping(skb)]++;
 
 	if (pn_offs) {
 		u64 pn;
@@ -4838,8 +4838,8 @@ static void ieee80211_8023_xmit(struct ieee80211_sub_if_data *sdata,
 	dev_sw_netstats_tx_add(dev, skbs, len);
 
 	if (sta) {
-		sta->deflink.tx_stats.packets[queue] += skbs;
-		sta->deflink.tx_stats.bytes[queue] += len;
+		sta->deflink.tx_stats.req_packets[queue] += skbs;
+		sta->deflink.tx_stats.req_bytes[queue] += len;
 	}
 
 	ieee80211_tpt_led_trig_tx(local, len);
