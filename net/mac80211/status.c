@@ -1107,6 +1107,11 @@ static void __ieee80211_tx_status(struct ieee80211_hw *hw,
 				retry_count;
 		}
 
+		if (acked || noack_success) {
+			link_sta->tx_stats.rep_packets++;
+			link_sta->tx_stats.rep_bytes += skb->len;
+		}
+
 		if (!(info->flags & IEEE80211_TX_CTL_INJECTED) && acked)
 			ieee80211_frame_acked(sta, skb);
 
