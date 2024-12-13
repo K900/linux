@@ -149,29 +149,29 @@ static ssize_t sta_stats_read(struct file *file, char __user *userbuf,
 
 	len += scnprintf(buf + len, buf_len - len, "\n");
 
-	sum = sta->deflink.tx_stats.packets[0] + sta->deflink.tx_stats.packets[1]
-		+ sta->deflink.tx_stats.packets[2] + sta->deflink.tx_stats.packets[3];
+	sum = sta->deflink.tx_stats.req_packets[0] + sta->deflink.tx_stats.req_packets[1]
+		+ sta->deflink.tx_stats.req_packets[2] + sta->deflink.tx_stats.req_packets[3];
 	PRINT_MY_STATS("tx-packets", sum);
 
-		sum = sta->deflink.tx_stats.bytes[0] + sta->deflink.tx_stats.bytes[1]
-		+ sta->deflink.tx_stats.bytes[2] + sta->deflink.tx_stats.bytes[3];
+	sum = sta->deflink.tx_stats.req_bytes[0] + sta->deflink.tx_stats.req_bytes[1]
+		+ sta->deflink.tx_stats.req_bytes[2] + sta->deflink.tx_stats.req_bytes[3];
 	PRINT_MY_STATS("tx-bytes", sum);
 
 	/* per txq stats */
-	PRINT_MY_STATS("tx-packets-acs[VO]", sta->deflink.tx_stats.packets[IEEE80211_AC_VO]);
-	PRINT_MY_STATS("tx-packets-acs[VI]", sta->deflink.tx_stats.packets[IEEE80211_AC_VI]);
-	PRINT_MY_STATS("tx-packets-acs[BE]", sta->deflink.tx_stats.packets[IEEE80211_AC_BE]);
-	PRINT_MY_STATS("tx-packets-acs[BK]", sta->deflink.tx_stats.packets[IEEE80211_AC_BK]);
+	PRINT_MY_STATS("tx-packets-acs[VO]", sta->deflink.tx_stats.req_packets[IEEE80211_AC_VO]);
+	PRINT_MY_STATS("tx-packets-acs[VI]", sta->deflink.tx_stats.req_packets[IEEE80211_AC_VI]);
+	PRINT_MY_STATS("tx-packets-acs[BE]", sta->deflink.tx_stats.req_packets[IEEE80211_AC_BE]);
+	PRINT_MY_STATS("tx-packets-acs[BK]", sta->deflink.tx_stats.req_packets[IEEE80211_AC_BK]);
 
-	PRINT_MY_STATS("tx-bytes-acs[VO]", sta->deflink.tx_stats.bytes[IEEE80211_AC_VO]);
-	PRINT_MY_STATS("tx-bytes-acs[VI]", sta->deflink.tx_stats.bytes[IEEE80211_AC_VI]);
-	PRINT_MY_STATS("tx-bytes-acs[BE]", sta->deflink.tx_stats.bytes[IEEE80211_AC_BE]);
-	PRINT_MY_STATS("tx-bytes-acs[BK]", sta->deflink.tx_stats.bytes[IEEE80211_AC_BK]);
+	PRINT_MY_STATS("tx-bytes-acs[VO]", sta->deflink.tx_stats.req_bytes[IEEE80211_AC_VO]);
+	PRINT_MY_STATS("tx-bytes-acs[VI]", sta->deflink.tx_stats.req_bytes[IEEE80211_AC_VI]);
+	PRINT_MY_STATS("tx-bytes-acs[BE]", sta->deflink.tx_stats.req_bytes[IEEE80211_AC_BE]);
+	PRINT_MY_STATS("tx-bytes-acs[BK]", sta->deflink.tx_stats.req_bytes[IEEE80211_AC_BK]);
 
 	len += scnprintf(buf + len, buf_len - len, "\n");
 	for (i = 0; i<=IEEE80211_NUM_TIDS; i++) {
 		sprintf(tmp, "tx-msdu-tid[%2i]", i);
-		PRINT_MY_STATS(tmp, sta->deflink.tx_stats.msdu[i]);
+		PRINT_MY_STATS(tmp, sta->deflink.tx_stats.req_msdu[i]);
 	}
 
 	len += scnprintf(buf + len, buf_len - len, "\n");
