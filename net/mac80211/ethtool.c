@@ -703,8 +703,12 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 				data[i++] = (u8)last_rxstats->last_signal;
 
-				/* No beacon signal in sta_rx_stats, get something from sinfo */
-				data[i++] = (u8)sinfo.rx_beacon_signal_avg;
+				if (sinfo.links[li]->filled &
+				    BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG))
+					data[i++] = (u8)(sinfo.links[li]->rx_beacon_signal_avg);
+				else
+					/* No beacon signal in sta_rx_stats, get something from sinfo */
+					data[i++] = (u8)sinfo.rx_beacon_signal_avg;
 
 				/* signal chains */
 				mn = min_t(int, sizeof(u64), ARRAY_SIZE(last_rxstats->chain_signal_last));
