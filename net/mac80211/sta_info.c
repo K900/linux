@@ -430,15 +430,15 @@ static void sta_accumulate_removed_link_stats(struct sta_info *sta, int link_id)
 							   sta->link[link_id]);
 	struct ieee80211_link_data *link;
 	unsigned int start;
-	int ac, tid;
+	int tid;
 	u64 value;
 	u32 thr;
 
-	for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
-		sta->rem_link_stats.tx_packets +=
-			link_sta->tx_stats.packets[ac];
-		sta->rem_link_stats.tx_bytes += link_sta->tx_stats.bytes[ac];
-	}
+	/* TODO:  For those drivers that only report per-link stats properly
+	 * in the driver, grab those and accumulate those instead.
+	 */
+	sta->rem_link_stats.tx_packets += link_sta->tx_stats.rep_packets;
+	sta->rem_link_stats.tx_bytes += link_sta->tx_stats.rep_bytes;
 
 	do {
 		start = u64_stats_fetch_begin(&link_sta->rx_stats.syncp);
@@ -464,7 +464,7 @@ static void sta_accumulate_removed_link_stats(struct sta_info *sta, int link_id)
 
 		sta->rem_link_stats.pertid_stats.rx_msdu += value;
 		sta->rem_link_stats.pertid_stats.tx_msdu +=
-			link_sta->tx_stats.msdu[tid];
+			link_sta->tx_stats.req_msdu[tid];
 		sta->rem_link_stats.pertid_stats.tx_msdu_retries +=
 			link_sta->status_stats.msdu_retries[tid];
 		sta->rem_link_stats.pertid_stats.tx_msdu_failed +=
@@ -2875,7 +2875,7 @@ static void sta_set_tidstats(struct sta_info *sta,
 
 	if (!(tidstats->filled & BIT(NL80211_TID_STATS_TX_MSDU))) {
 		tidstats->filled |= BIT(NL80211_TID_STATS_TX_MSDU);
-		tidstats->tx_msdu = link_sta_info->tx_stats.msdu[tid];
+		tidstats->tx_msdu = link_sta_info->tx_stats.req_msdu[tid];
 	}
 
 	if (!(tidstats->filled & BIT(NL80211_TID_STATS_TX_MSDU_RETRIES)) &&
@@ -3021,18 +3021,18 @@ static void sta_set_link_sinfo(struct sta_info *sta,
 
 	if (!(link_sinfo->filled & (BIT_ULL(NL80211_STA_INFO_TX_BYTES64) |
 				    BIT_ULL(NL80211_STA_INFO_TX_BYTES)))) {
-		link_sinfo->tx_bytes = 0;
-		for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
-			link_sinfo->tx_bytes +=
-				link_sta_info->tx_stats.bytes[ac];
+		link_sinfo->tx_bytes = link_sta_info->tx_stats.rep_bytes;
+		//for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
+		//	link_sinfo->tx_bytes +=
+		//		link_sta_info->tx_stats.req_bytes[ac];
 		link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BYTES64);
 	}
 
 	if (!(link_sinfo->filled & BIT_ULL(NL80211_STA_INFO_TX_PACKETS))) {
-		link_sinfo->tx_packets = 0;
-		for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
-			link_sinfo->tx_packets +=
-				link_sta_info->tx_stats.packets[ac];
+		link_sinfo->tx_packets = link_sta_info->tx_stats.rep_packets;
+		//for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
+		//	link_sinfo->tx_packets +=
+		//		link_sta_info->tx_stats.packets[ac];
 		link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_PACKETS);
 	}
 
@@ -3257,14 +3257,14 @@ void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo,
 			       BIT_ULL(NL80211_STA_INFO_TX_BYTES)))) {
 		sinfo->tx_bytes = 0;
 		for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
-			sinfo->tx_bytes += sta->deflink.tx_stats.bytes[ac];
+			sinfo->tx_bytes += sta->deflink.tx_stats.req_bytes[ac];
 		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BYTES64);
 	}
 
 	if (!(sinfo->filled & BIT_ULL(NL80211_STA_INFO_TX_PACKETS))) {
 		sinfo->tx_packets = 0;
 		for (ac = 0; ac < IEEE80211_NUM_ACS; ac++)
-			sinfo->tx_packets += sta->deflink.tx_stats.packets[ac];
+			sinfo->tx_packets += sta->deflink.tx_stats.req_packets[ac];
 		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_PACKETS);
 	}
 

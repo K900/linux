@@ -579,11 +579,16 @@ struct link_sta_info {
 
 	/* Updated from TX path only, no locking requirements */
 	struct {
-		u64 packets[IEEE80211_NUM_ACS];
-		u64 bytes[IEEE80211_NUM_ACS];
+		/* Packets and bytes requested to be transmitted, deflink only */
+		u64 req_packets[IEEE80211_NUM_ACS];
+		u64 req_bytes[IEEE80211_NUM_ACS];
+		/* Packets and bytes reported transmitted (per link) */
+		u64 rep_packets;
+		u64 rep_bytes;
 		struct ieee80211_tx_rate last_rate;
 		struct rate_info last_rate_info;
-		u64 msdu[IEEE80211_NUM_TIDS + 1];
+		/* Requested to be transmitted */
+		u64 req_msdu[IEEE80211_NUM_TIDS + 1];
 #ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
 		/* these take liberty with how things are defined, and are
 		 * designed to give a rough idea of how things are going.
