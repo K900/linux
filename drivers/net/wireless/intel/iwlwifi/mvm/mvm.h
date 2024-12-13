@@ -321,8 +321,12 @@ struct iwl_mvm_vif_link_info {
 
 	struct {
 		u32 num_beacons, accu_num_beacons;
-		u8 avg_signal;
+		s8 avg_signal;
 	} beacon_stats;
+
+	/* For received frames, not from firmware. */
+	struct ewma_signal rx_avg_signal;
+	struct ewma_signal rx_avg_beacon_signal;
 
 	enum ieee80211_smps_mode smps_requests[NUM_IWL_MVM_SMPS_REQ];
 	struct iwl_probe_resp_data __rcu *probe_resp_data;

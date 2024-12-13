@@ -298,6 +298,9 @@ void iwl_mvm_init_link(struct iwl_mvm_vif_link_info *link)
 	link->mcast_sta.sta_id = IWL_INVALID_STA;
 	link->ap_sta_id = IWL_INVALID_STA;
 
+	ewma_signal_init(&link->rx_avg_signal);
+	ewma_signal_init(&link->rx_avg_beacon_signal);
+
 	for (int r = 0; r < NUM_IWL_MVM_SMPS_REQ; r++)
 		link->smps_requests[r] =
 			IEEE80211_SMPS_AUTOMATIC;
