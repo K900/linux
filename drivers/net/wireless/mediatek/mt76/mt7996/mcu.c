@@ -98,6 +98,15 @@ struct mt7996_fw_region {
 	u8 reserved1[15];
 } __packed;
 
+struct mbssid_sub_off {
+	bool valid;
+	u16 offset;
+};
+
+struct mt7996_mbssid_data {
+	struct mbssid_sub_off mbssid_idx;
+};
+
 #define MCU_PATCH_ADDRESS		0x200000
 
 #define HE_PHY(p, c)			u8_get_bits(c, IEEE80211_HE_PHY_##p)
@@ -3256,11 +3265,12 @@ mt7996_mcu_beacon_cntdwn(struct sk_buff *rskb, struct sk_buff *skb,
 static void
 mt7996_mcu_beacon_mbss(struct sk_buff *rskb, struct sk_buff *skb,
 		       struct bss_bcn_content_tlv *bcn,
-		       struct ieee80211_mutable_offsets *offs)
+		       struct ieee80211_mutable_offsets *offs,
+		       struct mt7996_mbssid_data *mbssid_data)
 {
 	struct bss_bcn_mbss_tlv *mbss;
-	const struct element *elem;
 	struct tlv *tlv;
+	int i;
 
 	tlv = mt7996_mcu_add_uni_tlv(rskb, UNI_BSS_INFO_BCN_MBSSID, sizeof(*mbss));
 
@@ -3268,38 +3278,12 @@ mt7996_mcu_beacon_mbss(struct sk_buff *rskb, struct sk_buff *skb,
 	mbss->offset[0] = cpu_to_le16(offs->tim_offset);
 	mbss->bitmap = cpu_to_le32(1);
 
-	for_each_element_id(elem, WLAN_EID_MULTIPLE_BSSID,
-			    &skb->data[offs->mbssid_off],
-			    skb->len - offs->mbssid_off) {
-		const struct element *sub_elem;
-
-		if (elem->datalen < 2)
+	for (i = 0; i < MAX_BEACON_NUM; i++) {
+		if (!mbssid_data[i].mbssid_idx.valid)
 			continue;
 
-		for_each_element(sub_elem, elem->data + 1, elem->datalen - 1) {
-			const struct ieee80211_bssid_index *idx;
-			const u8 *idx_ie;
-
-			/* not a valid BSS profile */
-			if (sub_elem->id || sub_elem->datalen < 4)
-				continue;
-
-			/* Find WLAN_EID_MULTI_BSSID_IDX
-			 * in the merged nontransmitted profile
-			 */
-			idx_ie = cfg80211_find_ie(WLAN_EID_MULTI_BSSID_IDX,
-						  sub_elem->data, sub_elem->datalen);
-			if (!idx_ie || idx_ie[1] < sizeof(*idx))
-				continue;
-
-			idx = (void *)(idx_ie + 2);
-			if (!idx->bssid_index || idx->bssid_index > 31)
-				continue;
-
-			mbss->offset[idx->bssid_index] = cpu_to_le16(idx_ie -
-								     skb->data);
-			mbss->bitmap |= cpu_to_le32(BIT(idx->bssid_index));
-		}
+		mbss->offset[i] = cpu_to_le16(mbssid_data[i].mbssid_idx.offset);
+		mbss->bitmap |= cpu_to_le32(BIT(i));
 	}
 }
 
@@ -3338,6 +3322,54 @@ mt7996_mcu_beacon_cont(struct mt7996_dev *dev,
 	memcpy(buf + MT_TXD_SIZE, skb->data, skb->len);
 }
 
+static void
+mt7996_parse_mbssid_elems(struct sk_buff *skb, u16 mbssid_off,
+			  struct mt7996_mbssid_data *mbssid_data)
+{
+	const struct element *elem;
+
+	for_each_element_id(elem, WLAN_EID_MULTIPLE_BSSID,
+			    &skb->data[mbssid_off],
+			    skb->len - mbssid_off) {
+		const struct element *sub_elem;
+
+		if (elem->datalen < 2)
+			continue;
+
+		for_each_element(sub_elem, elem->data + 1, elem->datalen - 1) {
+			const struct ieee80211_bssid_index *idx;
+			const u8 *idx_ie;
+			u8 bssid_idx;
+
+			/* not a valid BSS profile */
+			if (sub_elem->id || sub_elem->datalen < 4)
+				continue;
+
+			/* Find WLAN_EID_MULTI_BSSID_IDX
+			 * in the merged nontransmitted profile
+			 */
+			idx_ie = cfg80211_find_ie(WLAN_EID_MULTI_BSSID_IDX,
+						  sub_elem->data, sub_elem->datalen);
+
+			/* At leat the BSSID idx should be preset and valid.
+			 * Otherwise we do not know the idx.
+			 * FIXME: Handle split subelements if other
+			 * subelements need parsing
+			 */
+			if (!idx_ie || idx_ie[1] < sizeof(*idx))
+				continue;
+
+			idx = (void *)(idx_ie + 2);
+			bssid_idx = idx->bssid_index;
+			if (!bssid_idx || bssid_idx > MAX_BEACON_NUM - 1)
+				continue;
+
+			mbssid_data[bssid_idx].mbssid_idx.offset = idx_ie - skb->data;
+			mbssid_data[bssid_idx].mbssid_idx.valid = true;
+		}
+	}
+}
+
 int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			  struct ieee80211_bss_conf *link_conf, bool enabled)
 {
@@ -3350,6 +3382,7 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct sk_buff *skb, *rskb;
 	struct tlv *tlv;
 	struct bss_bcn_content_tlv *bcn;
+	struct mt7996_mbssid_data *mbssid_data;
 	int len, extra_len = 0;
 
 	if (link_conf->nontransmitted)
@@ -3393,10 +3426,20 @@ int mt7996_mcu_add_beacon(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	info = IEEE80211_SKB_CB(skb);
 	info->hw_queue |= FIELD_PREP(MT_TX_HW_QUEUE_PHY, mlink->band_idx);
 
+	mbssid_data = kzalloc(sizeof(struct mt7996_mbssid_data) * MAX_BEACON_NUM, GFP_KERNEL);
+	if (!mbssid_data) {
+		dev_kfree_skb(rskb);
+		dev_kfree_skb(skb);
+		return -ENOMEM;
+	}
+
+	mt7996_parse_mbssid_elems(skb, offs.mbssid_off, mbssid_data);
 	mt7996_mcu_beacon_cont(dev, link_conf, link, rskb, skb, bcn, &offs);
 	if (link_conf->bssid_indicator)
-		mt7996_mcu_beacon_mbss(rskb, skb, bcn, &offs);
+		mt7996_mcu_beacon_mbss(rskb, skb, bcn, &offs, mbssid_data);
 	mt7996_mcu_beacon_cntdwn(rskb, skb, &offs, link_conf->csa_active);
+
+	kfree(mbssid_data);
 out:
 	dev_kfree_skb(skb);
 	return mt76_mcu_skb_send_msg(&dev->mt76, rskb,
