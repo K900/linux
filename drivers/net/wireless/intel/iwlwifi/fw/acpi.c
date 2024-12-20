@@ -1172,6 +1172,12 @@ int iwl_acpi_get_wbem(struct iwl_fw_runtime *fwrt, u32 *value)
 	int ret = -ENOENT;
 	int tbl_rev;
 
+	if (iwlwifi_mod_params.wbem_override) {
+		*value = iwlwifi_mod_params.wbem_override & IWL_ACPI_WBEM_REV0_MASK;
+		IWL_DEBUG_RADIO(fwrt, "Loaded WBEM config from mod param\n");
+		return 0;
+	}
+
 	data = iwl_acpi_get_object(fwrt->dev, ACPI_WBEM_METHOD);
 	if (IS_ERR(data))
 		return ret;

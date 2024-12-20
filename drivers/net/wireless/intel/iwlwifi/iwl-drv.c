@@ -2171,6 +2171,8 @@ module_param_named(enable_ini, iwlwifi_mod_params.enable_ini, uint, 0444);
 MODULE_PARM_DESC(enable_ini,
 		 "0:disable, 1-15:FW_DBG_PRESET Values, 16:enabled without preset value defined,"
 		 "Debug INI TLV FW debug infrastructure (default: 16)");
+module_param_named(wbem_override, iwlwifi_mod_params.wbem_override, uint, 0644);
+MODULE_PARM_DESC(wbem_override, "If > 0, override ACPI value for WBEM.");
 
 /*
  * set bt_coex_active to true, uCode will do kill/defer
