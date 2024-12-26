@@ -2311,10 +2311,10 @@ static inline void mt76_put_page_pool_buf(void *buf, bool allow_direct)
 static inline void *
 mt76_get_page_pool_buf(struct mt76_queue *q, u32 *offset, u32 size)
 {
+	gfp_t gfp = (GFP_ATOMIC | __GFP_NOWARN | GFP_DMA32);
 	struct page *page;
 
-	page = page_pool_alloc_frag(q->page_pool, offset, size,
-				    GFP_ATOMIC | __GFP_NOWARN | GFP_DMA32);
+	page = page_pool_alloc_frag(q->page_pool, offset, size, gfp);
 	if (!page)
 		return NULL;
 
