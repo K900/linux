@@ -65,6 +65,7 @@ enum iwl_uapsd_disable {
  * @enable_ini: enable new FW debug infratructure (INI TLVs)
  * @disable_11be: disable EHT capabilities, default = false.
  * @wbem_override: Override the WBEM value read from ACPI.
+ * @dsm_override: Override any DSM value read from ACPI or BIOS.
  */
 struct iwl_mod_params {
 	int swcrypto;
@@ -89,6 +90,8 @@ struct iwl_mod_params {
 	u32 enable_ini;
 	bool disable_11be;
 	u32 wbem_override;
+	/* Magic number 13 is length of enum iwl_dsm_funcs */
+	u32 dsm_override[13];
 };
 
 static inline bool iwl_enable_rx_ampdu(void)

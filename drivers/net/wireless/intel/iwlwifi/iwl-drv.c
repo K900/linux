@@ -2173,6 +2173,8 @@ MODULE_PARM_DESC(enable_ini,
 		 "Debug INI TLV FW debug infrastructure (default: 16)");
 module_param_named(wbem_override, iwlwifi_mod_params.wbem_override, uint, 0644);
 MODULE_PARM_DESC(wbem_override, "If > 0, override ACPI value for WBEM.");
+module_param_array_named(dsm_override, iwlwifi_mod_params.dsm_override, uint, NULL, 0644);
+MODULE_PARM_DESC(dsm_override, "If any is > 0, override that DSM value.");
 
 /*
  * set bt_coex_active to true, uCode will do kill/defer
