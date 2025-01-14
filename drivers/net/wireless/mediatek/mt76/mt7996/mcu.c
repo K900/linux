@@ -3467,6 +3467,8 @@ static int mt7996_load_patch(struct mt7996_dev *dev)
 
 	dev_info(dev->mt76.dev, "HW/SW Version: 0x%x, Build Time: %.16s\n",
 		 be32_to_cpu(hdr->hw_sw_ver), hdr->build_date);
+	dev->mt76.fw.hw_sw_ver = be32_to_cpu(hdr->hw_sw_ver);
+	strscpy(dev->mt76.fw.build_date, hdr->build_date, 15);
 
 	for (i = 0; i < be32_to_cpu(hdr->desc.n_region); i++) {
 		struct mt7996_patch_sec *sec;
