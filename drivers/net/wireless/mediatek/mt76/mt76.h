@@ -1062,6 +1062,9 @@ struct mt76_dev {
 
 	u32 rev;
 
+	/* PCI device ID, only used by 7921 to differentiate l and k models. */
+	u32 device_id;
+
 	struct tasklet_struct pre_tbtt_tasklet;
 	int beacon_int;
 	u8 beacon_mask;

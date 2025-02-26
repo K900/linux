@@ -447,6 +447,8 @@ static int mt7921_pci_probe(struct pci_dev *pdev,
 		goto err_free_irq;
 	}
 
+	mdev->device_id = id->device;
+
 	if (of_property_read_bool(dev->mt76.dev->of_node, "wakeup-source"))
 		device_init_wakeup(dev->mt76.dev, true);
 
