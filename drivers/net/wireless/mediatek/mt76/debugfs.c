@@ -167,6 +167,8 @@ mt76_version(struct seq_file *s, void *data)
 	seq_printf(s, "chipset:       ");
 	if (is_mt7922(dev))
 		seq_printf(s, "7922\n");
+	else if (is_mt7921k(dev))
+		seq_printf(s, "7921k\n");
 	/* Add specific connac2 radios here */
 	else if (is_connac2(dev))
 		seq_printf(s, "7921\n");
