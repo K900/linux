@@ -604,6 +604,26 @@ mt7996_tx_stats_show(struct seq_file *file, void *data)
 
 DEFINE_SHOW_ATTRIBUTE(mt7996_tx_stats);
 
+static int
+mt7996_phy_info_show(struct seq_file *file, void *data)
+{
+	struct mt7996_dev *dev = file->private;
+	struct mt7996_phy *phy;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	mt7996_for_each_phy(dev, phy) {
+		seq_printf(file, "MAC: %pM\n", phy->mt76->macaddr);
+		seq_printf(file, "Band: %d\n", phy->mt76->band_idx);
+	}
+
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(mt7996_phy_info);
+
 static void
 mt7996_hw_queue_read(struct seq_file *s, u32 size,
 		     const struct hw_queue_map *map)
@@ -881,6 +901,7 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 	debugfs_create_file("xmit-queues", 0400, dir, dev,
 			    &mt7996_xmit_queues_fops);
 	debugfs_create_file("tx_stats", 0400, dir, dev, &mt7996_tx_stats_fops);
+	debugfs_create_file("phy_info", 0400, dir, dev, &mt7996_phy_info_fops);
 	debugfs_create_file("sys_recovery", 0600, dir, dev,
 			    &mt7996_sys_recovery_ops);
 	debugfs_create_file("fw_debug_wm", 0600, dir, dev, &fops_fw_debug_wm);
