@@ -360,6 +360,10 @@ struct ath9k_ops_config {
 	u8 pll_pwrsave;
 	bool tx_gain_buffalo;
 	bool led_active_high;
+
+#define ATH9K_BLOCK_TX BIT(0)
+#define ATH9K_BLOCK_RX BIT(1)
+	u8 block_traffic;
 };
 
 enum ath9k_int {

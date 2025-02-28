@@ -1219,6 +1219,11 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 		ath_debug_rate_stats(sc, &rs, skb);
 		ath_rx_count_airtime(sc, &rs, skb);
 
+		if (unlikely(sc->sc_ah->config.block_traffic & ATH9K_BLOCK_RX)) {
+			dev_kfree_skb_any(skb);
+			goto requeue;
+		}
+
 		hdr = (struct ieee80211_hdr *)skb->data;
 		if (ieee80211_is_ack(hdr->frame_control))
 			ath_dynack_sample_ack_ts(sc->sc_ah, skb, rs.rs_tstamp);
