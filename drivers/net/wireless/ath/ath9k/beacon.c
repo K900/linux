@@ -136,6 +136,9 @@ static struct ath_buf *ath9k_beacon_generate(struct ieee80211_hw *hw,
 		bf->bf_mpdu = NULL;
 	}
 
+	if (unlikely(sc->sc_ah->config.block_traffic & ATH9K_BLOCK_TX))
+		return NULL;
+
 	skb = ieee80211_beacon_get(hw, vif, 0);
 	if (skb == NULL)
 		return NULL;

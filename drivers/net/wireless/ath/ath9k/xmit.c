@@ -2242,6 +2242,12 @@ static struct ath_buf *ath_tx_setup_buffer(struct ath_softc *sc,
 	int fragno;
 	u16 seqno;
 
+	if (unlikely(sc->sc_ah->config.block_traffic & ATH9K_BLOCK_TX)) {
+		ath_dbg(ath9k_hw_common(sc->sc_ah), XMIT, "%s: blocking TX skb: %p\n",
+			__func__, skb);
+		return NULL;
+	}
+
 	bf = ath_tx_get_buffer(sc);
 	if (!bf) {
 		ath_dbg(common, XMIT, "TX buffers are full\n");
