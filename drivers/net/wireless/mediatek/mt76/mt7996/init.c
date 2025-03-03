@@ -505,7 +505,9 @@ mt7996_init_wiphy(struct ieee80211_hw *hw, struct mtk_wed_device *wed)
 	if (is_mt7990(mdev) && dev->has_eht)
 		hw->max_tx_aggregation_subframes = 512;
 
-	hw->netdev_features = NETIF_F_RXCSUM;
+	hw->netdev_features = NETIF_F_RXCSUM | NETIF_F_HW_CSUM;
+	//hw->netdev_features = NETIF_F_RXCSUM;
+
 	if (mtk_wed_device_active(wed) || mt76_npu_device_active(mdev))
 		hw->netdev_features |= NETIF_F_HW_TC;
 
@@ -640,6 +642,7 @@ void mt7996_mac_init(struct mt7996_dev *dev)
 	int i, rx_path_type;
 
 	mt76_clear(dev, MT_MDP_DCR2, MT_MDP_DCR2_RX_TRANS_SHORT);
+	mt76_wr(dev, MT_MDP_TX_CTRL, 0xF0001); /* enable tx csum offload */
 
 	for (i = 0; i < mt7996_wtbl_size(dev); i++)
 		mt7996_mac_wtbl_update(dev, i,
