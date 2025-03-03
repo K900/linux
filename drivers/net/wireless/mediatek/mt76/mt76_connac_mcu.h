@@ -622,6 +622,8 @@ struct sta_rec_ra_fixed {
 	u8 mmps_mode;
 } __packed;
 
+#define UNI_IPCSO BIT(1) /* enable IP Checksum Offload */
+#define UNI_TCPUDPCSO BIT(2) /* enable TCP/UDP Checksum Offload */
 struct sta_rec_tx_proc {
 	__le16 tag;
 	__le16 len;
