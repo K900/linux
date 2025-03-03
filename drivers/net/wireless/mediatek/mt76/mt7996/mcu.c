@@ -2238,7 +2238,7 @@ mt7996_mcu_sta_tx_proc_tlv(struct sk_buff *skb)
 	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_TX_PROC, sizeof(*tx_proc));
 
 	tx_proc = (struct sta_rec_tx_proc *)tlv;
-	tx_proc->flag = cpu_to_le32(0);
+	tx_proc->flag = cpu_to_le32(UNI_IPCSO | UNI_TCPUDPCSO);
 }
 
 static void
