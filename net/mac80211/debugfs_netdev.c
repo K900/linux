@@ -348,6 +348,7 @@ IEEE80211_IF_FILE_R(rc_rateidx_vht_mcs_mask_5ghz);
 
 IEEE80211_IF_FILE(flags, flags, HEX);
 IEEE80211_IF_FILE(state, state, LHEX);
+IEEE80211_IF_FILE(radio_mask, wdev.radio_mask, HEX);
 IEEE80211_IF_LINK_FILE(txpower, conf->txpower, DEC);
 IEEE80211_IF_LINK_FILE(ap_power_level, ap_power_level, DEC);
 IEEE80211_IF_LINK_FILE(user_power_level, user_power_level, DEC);
@@ -941,6 +942,7 @@ static void add_files(struct ieee80211_sub_if_data *sdata)
 
 	DEBUGFS_ADD(flags);
 	DEBUGFS_ADD(state);
+	DEBUGFS_ADD(radio_mask);
 
 	if (sdata->vif.type != NL80211_IFTYPE_MONITOR)
 		add_common_files(sdata);
