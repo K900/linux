@@ -630,6 +630,14 @@ struct spi_controller {
 	 */
 #define SPI_CONTROLLER_MULTI_CS		BIT(7)
 
+	/*
+	 * When this flag is set:
+	 * 1. Do not set SPI_CS_HIGH by default during setup.
+	 * 2. Invert GPIO polarity in the spi_set_cs function when SPI mode is
+	 *    set to SPI_CS_HIGH.
+	 */
+#define SPI_CONTROLLER_ENABLE_CS_GPIOD BIT(9)
+
 	union {
 		/* Flag indicating this is an SPI slave controller */
 		bool			slave;
