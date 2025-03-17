@@ -90,6 +90,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"signal_chains_avg",
 	/* Add new stats here, channel and others go below */
 	"channel",
+	"ch_center",
 	"noise",
 	"ch_time",
 	"ch_time_busy",
@@ -118,6 +119,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"L1:signal_chains_avg",
 	/* Add new stats here, channel and others go below */
 	"L1:channel",
+	"L1:ch_center",
 	"L1:noise",
 	"L1:ch_time",
 	"L1:ch_time_busy",
@@ -146,6 +148,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"L2:signal_chains_avg",
 	/* Add new stats here, channel and others go below */
 	"L2:channel",
+	"L2:ch_center",
 	"L2:noise",
 	"L2:ch_time",
 	"L2:ch_time_busy",
@@ -215,6 +218,7 @@ static const char ieee80211_gstrings_sta_vdev_stats[][ETH_GSTRING_LEN] = {
 
 	/* Add new stats here, channel and others go below */
 	"channel",
+	"ch_center",
 	"noise",
 	"ch_time",
 	"ch_time_busy",
@@ -253,6 +257,7 @@ static int ieee80211_get_sset_count(struct net_device *dev, int sset)
 #define ADD_SURVEY_STATS(sdata, data, local)				\
 	do {								\
 		struct ieee80211_chanctx_conf *_chanctx_conf;		\
+		struct cfg80211_chan_def *_chan_def;			\
 		struct ieee80211_channel *_channel;			\
 		struct survey_info _survey;				\
 		int __q;						\
@@ -262,16 +267,21 @@ static int ieee80211_get_sset_count(struct net_device *dev, int sset)
 									\
 		rcu_read_lock();					\
 		_chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf); \
-		if ((link))						\
-			_channel = link->conf->chanreq.oper.chan;	\
-		else if (_chanctx_conf)					\
-			_channel = _chanctx_conf->def.chan;		\
-		else if (local->open_count > 0 &&			\
+		if ((link)) {						\
+			_chan_def = &(link)->conf->chanreq.oper;	\
+			_channel = _chan_def->chan;			\
+		} else if (_chanctx_conf) {				\
+			_chan_def = &_chanctx_conf->def;		\
+			_channel = _chan_def->chan;			\
+		} else if (local->open_count > 0 &&			\
 			 local->open_count == local->monitors &&	\
-			 sdata->vif.type == NL80211_IFTYPE_MONITOR)	\
-			_channel = local->monitor_chanreq.oper.chan;	\
-		else							\
+			 sdata->vif.type == NL80211_IFTYPE_MONITOR) {	\
+			_chan_def = &(local)->monitor_chanreq.oper;	\
+			_channel = _chan_def->chan;			\
+		} else {						\
+			_chan_def = NULL;				\
 			_channel = NULL;				\
+		}							\
 		rcu_read_unlock();					\
 									\
 		if (_channel) {						\
@@ -294,6 +304,13 @@ static int ieee80211_get_sset_count(struct net_device *dev, int sset)
 			else						\
 				(data)[i++] = 0;			\
 		}							\
+		if (_chan_def)						\
+			(data)[i++] = _chan_def->center_freq1;		\
+		else							\
+			if ((local))					\
+				(data)[i++] = (local)->dflt_chandef.center_freq1; \
+			else						\
+				(data)[i++] = 0;			\
 		if (_survey.filled & SURVEY_INFO_NOISE_DBM)		\
 			(data)[i++] = (u8)_survey.noise;		\
 		else							\
@@ -319,7 +336,7 @@ static int ieee80211_get_sset_count(struct net_device *dev, int sset)
 		else							\
 			(data)[i++] = -1LL;				\
 	} while (0)
-#define STA_STATS_SURVEY_LEN 7
+#define STA_STATS_SURVEY_LEN 8
 
 #define ADD_STA_STATS(data, sinfo, sta)				\
 	do {							\
