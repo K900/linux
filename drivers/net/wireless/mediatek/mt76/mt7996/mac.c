@@ -2115,6 +2115,12 @@ void mt7996_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 	__le32 *rxd = (__le32 *)skb->data;
 	__le32 *end = (__le32 *)&skb->data[skb->len];
 	enum rx_pkt_type type;
+	int len;
+
+	/* drop the skb when rxd is corrupted */
+	len = le32_get_bits(rxd[0], MT_RXD0_LENGTH);
+	if (unlikely(len != skb->len))
+		goto drop;
 
 	type = le32_get_bits(rxd[0], MT_RXD0_PKT_TYPE);
 	if (type != PKT_TYPE_NORMAL) {
@@ -2156,9 +2162,13 @@ void mt7996_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 		fallthrough;
 	default:
 		mtk_dbg(mdev, MSG, "mt7996-mac-queue-rx-skb, unhandled type: %d\n", type);
-		dev_kfree_skb(skb);
-		break;
+		goto drop;
 	}
+
+	return;
+
+drop:
+	dev_kfree_skb(skb);
 }
 
 static struct mt7996_msdu_page *
