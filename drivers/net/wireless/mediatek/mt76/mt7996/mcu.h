@@ -1978,7 +1978,8 @@ enum {
 	EDCCA_DEFAULT = 0,
 	EDCCA_FCC = 1,
 	EDCCA_ETSI = 2,
-	EDCCA_JAPAN = 3
+	EDCCA_JAPAN = 3,
+	EDCCA_ETSI_2023 = 4,
 };
 
 #endif
