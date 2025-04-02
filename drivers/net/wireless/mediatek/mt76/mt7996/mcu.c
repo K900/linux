@@ -6901,9 +6901,6 @@ mt7996_mcu_rx_bf_event(struct mt7996_dev *dev, struct sk_buff *skb)
 
 int mt7996_mcu_edcca_enable(struct mt7996_phy *phy, bool enable)
 {
-	struct mt7996_dev *dev = phy->dev;
-	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
-	enum nl80211_band band = chandef->chan->band;
 	struct {
 		u8 band_idx;
 		u8 _rsv[3];
@@ -6921,17 +6918,15 @@ int mt7996_mcu_edcca_enable(struct mt7996_phy *phy, bool enable)
 		.std = EDCCA_DEFAULT,
 	};
 
-	switch (dev->mt76.region) {
+	switch (phy->dev->mt76.region) {
 	case NL80211_DFS_JP:
 		req.std = EDCCA_JAPAN;
 		break;
 	case NL80211_DFS_FCC:
-		if (band == NL80211_BAND_6GHZ)
-			req.std = EDCCA_FCC;
+		req.std = EDCCA_FCC;
 		break;
 	case NL80211_DFS_ETSI:
-		if (band == NL80211_BAND_6GHZ)
-			req.std = EDCCA_ETSI;
+		req.std = EDCCA_ETSI_2023;
 		break;
 	default:
 		break;
