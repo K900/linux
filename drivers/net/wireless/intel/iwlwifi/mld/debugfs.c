@@ -433,6 +433,13 @@ static ssize_t iwl_dbgfs_tas_get_status_read(struct iwl_mld *mld, char *buf,
 
 	pos += iwl_mld_dump_tas_resp(resp, count - pos, buf + pos);
 
+	pos += scnprintf(buf + pos, count - pos, "FW version: %s\n",
+			 mld->fwrt.fw->fw_version);
+	pos += scnprintf(buf + pos, count - pos, "Bus: %s\n",
+			 mld->fwrt.dev->bus->name);
+	pos += scnprintf(buf + pos, count - pos, "BusName: %s\n",
+			 dev_name(mld->fwrt.dev));
+
 out:
 	iwl_free_resp(&hcmd);
 	return pos;
