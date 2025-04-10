@@ -35,6 +35,7 @@
 #include "fw/api/d3.h"
 #endif /* CONFIG_PM_SLEEP */
 #include "iwl-trans.h"
+#include "iwl-nvm-parse.h"
 
 #define IWL_MLD_LIMITS(ap)					\
 	{							\
@@ -3191,6 +3192,33 @@ static void iwl_mld_get_et_stats(struct ieee80211_hw *hw,
 		       ei, (int)(IWL_MLD_SSTATS_LEN));
 }
 
+static int iwl_mld_op_get_antenna(struct ieee80211_hw *hw, int radio_idx, u32 *tx_ant, u32 *rx_ant)
+{
+	struct iwl_mld *mld = IWL_MAC80211_GET_MLD(hw);
+	*tx_ant = iwl_mld_get_valid_tx_ant(mld);
+	*rx_ant = iwl_mld_get_valid_rx_ant(mld);
+	return 0;
+}
+
+static int iwl_mld_op_set_antenna(struct ieee80211_hw *hw, int radio_idx, u32 tx_ant, u32 rx_ant)
+{
+	struct iwl_mld *mld = IWL_MAC80211_GET_MLD(hw);
+
+	if (!mld->nvm_data)
+		return -EBUSY;
+
+	/* mac80211 ensures the device is not started,
+	 * so the firmware cannot be running
+	 */
+
+	mld->set_tx_ant = tx_ant;
+	mld->set_rx_ant = rx_ant;
+
+	iwl_reinit_cab(mld->trans, mld->nvm_data, tx_ant, rx_ant, mld->fw);
+
+	return 0;
+}
+
 const struct ieee80211_ops iwl_mld_hw_ops = {
 	.tx = iwl_mld_mac80211_tx,
 	.start = iwl_mld_mac80211_start,
@@ -3227,6 +3255,8 @@ const struct ieee80211_ops iwl_mld_hw_ops = {
 	.flush = iwl_mld_mac80211_flush,
 	.flush_sta = iwl_mld_mac80211_flush_sta,
 	.ampdu_action = iwl_mld_mac80211_ampdu_action,
+	.get_antenna = iwl_mld_op_get_antenna,
+	.set_antenna = iwl_mld_op_set_antenna,
 	.get_et_sset_count = iwl_mld_get_et_sset_count,
 	.get_et_stats = iwl_mld_get_et_stats,
 	.get_et_strings = iwl_mld_get_et_strings,
