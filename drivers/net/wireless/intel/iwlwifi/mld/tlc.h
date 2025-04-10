@@ -18,7 +18,7 @@ void iwl_mld_config_tlc(struct iwl_mld *mld, struct ieee80211_vif *vif,
 void iwl_mld_handle_tlc_notif(struct iwl_mld *mld,
 			      struct iwl_rx_packet *pkt);
 
-int iwl_mld_send_tlc_dhc(struct iwl_mld *mld, u8 sta_id, u32 type, u32 data);
+int iwl_mld_send_tlc_dhc(struct iwl_mld *mld, u8 sta_id, u32 type, u32 data, u32 data2);
 
 void iwl_mld_tlc_update_phy(struct iwl_mld *mld, struct ieee80211_vif *vif,
 			    struct ieee80211_bss_conf *link_conf);
