@@ -696,6 +696,9 @@ iwl_mld_fill_tx_cmd(struct iwl_mld *mld, struct sk_buff *skb,
 	__le32 rate_n_flags = 0;
 	u16 flags = 0;
 	__le16 fc = hdr->frame_control;
+	struct iwl_tx_cb *cb = iwl_tx_skb_cb(skb);
+
+	cb->flags = 0;
 
 	dev_tx_cmd->hdr.cmd = TX_CMD;
 
@@ -725,6 +728,7 @@ iwl_mld_fill_tx_cmd(struct iwl_mld *mld, struct sk_buff *skb,
 
 		/* Check td again, un-protected access above was lazy check. */
 		if (td && td->txo_active) {
+			cb->flags |= IWL_TX_CB_TXO_USED;
 			flags |= IWL_TX_FLAGS_CMD_RATE;
 			rate_n_flags = iwl_mld_get_txo_rate_n_flags(mld, td);
 		}
@@ -910,6 +914,7 @@ static int iwl_mld_tx_mpdu(struct iwl_mld *mld, struct sk_buff *skb,
 	struct iwl_device_tx_cmd *dev_tx_cmd;
 	int queue = iwl_mld_get_tx_queue_id(mld, txq, skb);
 	u8 tid = IWL_MAX_TID_COUNT;
+	struct iwl_tx_cb cb = *iwl_tx_skb_cb(skb);
 
 	if (WARN_ONCE(queue == IWL_MLD_INVALID_QUEUE, "Invalid TX Queue id") ||
 	    queue == IWL_MLD_INVALID_DROP_TX)
@@ -946,6 +951,7 @@ static int iwl_mld_tx_mpdu(struct iwl_mld *mld, struct sk_buff *skb,
 	memset(info->driver_data, 0, sizeof(info->driver_data));
 
 	info->driver_data[1] = dev_tx_cmd;
+	*iwl_tx_skb_cb(skb) = cb; /* re-apply this driver info */
 
 	if (iwl_trans_tx(mld->trans, skb, dev_tx_cmd, queue))
 		goto err;
@@ -1280,7 +1286,8 @@ static void iwl_mld_hwrate_to_tx_rate(struct iwl_mld *mld, u32 rate_n_flags,
 	}
 }
 
-static void iwl_mld_update_tx_stats(struct iwl_mld *mld, struct sk_buff *skb, u32 status)
+static void iwl_mld_update_tx_stats(struct iwl_mld *mld, struct sk_buff *skb, u32 status,
+				    struct iwl_tx_cb *cb)
 {
 	u32 idx = status & TX_STATUS_MSK;
 
@@ -1288,10 +1295,15 @@ static void iwl_mld_update_tx_stats(struct iwl_mld *mld, struct sk_buff *skb, u3
 		idx = TX_STATUS_INTERNAL_ABORT + 1;
 
 	mld->ethtool_stats.tx_status_counts[idx]++;
-	if (idx == TX_STATUS_SUCCESS)
+	if (idx == TX_STATUS_SUCCESS) {
 		mld->ethtool_stats.tx_bytes_nic += skb->len;
-	else
+		if (cb->flags & IWL_TX_CB_TXO_USED)
+			mld->ethtool_stats.txo_tx_mpdu_ok++;
+	} else {
 		mld->ethtool_stats.tx_mpdu_fail++;
+		if (cb->flags & IWL_TX_CB_TXO_USED)
+			mld->ethtool_stats.txo_tx_mpdu_fail++;
+	}
 }
 
 static void iwl_mld_update_tx_ampdu_histogram(struct iwl_mld *mld, int freed)
@@ -1377,6 +1389,7 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 		struct sk_buff *skb = __skb_dequeue(&skbs);
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 		struct ieee80211_hdr *hdr = (void *)skb->data;
+		struct iwl_tx_cb cb = *iwl_tx_skb_cb(skb);
 
 		skb_freed++;
 
@@ -1426,11 +1439,17 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 			info->status.rates[0].count = tx_resp->failure_frame + 1;
 			mld->ethtool_stats.tx_mpdu_attempts += info->status.rates[0].count;
 			mld->ethtool_stats.tx_mpdu_retry += tx_resp->failure_frame;
+			if (cb.flags & IWL_TX_CB_TXO_USED) {
+				mld->ethtool_stats.txo_tx_mpdu_attempts += info->status.rates[0].count;
+				mld->ethtool_stats.txo_tx_mpdu_retry += tx_resp->failure_frame;
+			}
 		} else {
 			/* Not sure we can know how many retries for these. */
 			mld->ethtool_stats.tx_mpdu_attempts += 1;
+			if (cb.flags & IWL_TX_CB_TXO_USED)
+				mld->ethtool_stats.txo_tx_mpdu_attempts += 1;
 		}
-		iwl_mld_update_tx_stats(mld, skb, status);
+		iwl_mld_update_tx_stats(mld, skb, status, &cb);
 	}
 
 	IWL_DEBUG_TX_REPLY(mld,
@@ -1485,6 +1504,7 @@ static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
 	while (!skb_queue_empty(&reclaimed_skbs)) {
 		struct sk_buff *skb = __skb_dequeue(&reclaimed_skbs);
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+		struct iwl_tx_cb cb = *iwl_tx_skb_cb(skb);
 
 		iwl_trans_free_tx_cmd(mld->trans, info->driver_data[1]);
 
@@ -1499,6 +1519,10 @@ static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
 			mld->ethtool_stats.tx_status_counts[TX_STATUS_SUCCESS]++;
 			mld->ethtool_stats.tx_bytes_nic += skb->len;
 			mld->ethtool_stats.tx_mpdu_attempts++;
+			if (cb.flags & IWL_TX_CB_TXO_USED) {
+				mld->ethtool_stats.txo_tx_mpdu_attempts++;
+				mld->ethtool_stats.txo_tx_mpdu_ok++;
+			}
 		} else {
 			info->flags &= ~IEEE80211_TX_STAT_ACK;
 		}
