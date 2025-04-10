@@ -2160,17 +2160,17 @@ static const char mt7996_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"tx_ampdu_len:200-223",
 	"tx_ampdu_len:224-247",
 	"ba_miss_count",
-	"tx_beamformer_ppdu_iBF",
-	"tx_beamformer_ppdu_eBF",
-	"tx_beamformer_rx_feedback_all",
-	"tx_beamformer_rx_feedback_he",
-	"tx_beamformer_rx_feedback_vht",
-	"tx_beamformer_rx_feedback_ht",
-	"tx_beamformer_rx_feedback_bw", /* zero based idx: 20, 40, 80, 160 */
-	"tx_beamformer_rx_feedback_nc",
-	"tx_beamformer_rx_feedback_nr",
-	"tx_beamformee_ok_feedback_pkts",
-	"tx_beamformee_feedback_trig",
+	"tx_bfer_ppdu_iBF",
+	"tx_bfer_ppdu_eBF",
+	"tx_bfer_rx_feedback_all",
+	"tx_bfer_rx_feedback_he",
+	"tx_bfer_rx_feedback_vht",
+	"tx_bfer_rx_feedback_ht",
+	"tx_bfer_rx_feedback_bw", /* zero based idx: 20, 40, 80, 160 */
+	"tx_bfer_rx_feedback_nc",
+	"tx_bfer_rx_feedback_nr",
+	"tx_bfee_ok_feedback_pkts",
+	"tx_bfee_feedback_trig",
 	"tx_mu_beamforming",
 	"tx_mu_mpdu",
 	"tx_mu_successful_mpdu",
@@ -2196,7 +2196,7 @@ static const char mt7996_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"rx_ampdu_valid_subframe_cnt",
 	"rx_ampdu_valid_subframe_b_cnt",
 	"rx_pfdrop_cnt",
-	"rx_vec_queue_overflow_drop_cnt",
+	"rx_vec_q_overflow_drop_cnt",
 	"rx_ba_cnt",
 
 	/* driver rx counters */
@@ -2209,6 +2209,164 @@ static const char mt7996_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"d_rx_bad_vht_rix",
 	"d_rx_bad_mode",
 	"d_rx_bad_bw",
+
+	/* phy 1 stats */
+	"P1:tx_pkts_nic", /* from driver, phy tx-ok skb */
+	"P1:tx_bytes_nic", /* from driver, phy tx-ok bytes */
+	"P1:rx_pkts_nic", /* from driver, phy rx OK skb */
+	"P1:rx_bytes_nic", /* from driver, phy rx OK bytes */
+	"P1:tx_ampdu_cnt",
+	"P1:tx_stop_q_empty_cnt",
+	"P1:tx_mpdu_attempts",
+	"P1:tx_mpdu_success",
+	"P1:tx_rwp_fail_cnt",
+	"P1:tx_rwp_need_cnt",
+	"P1:tx_pkt_ebf_cnt",
+	"P1:tx_pkt_ibf_cnt",
+	"P1:tx_ampdu_len:0-1",
+	"P1:tx_ampdu_len:2-10",
+	"P1:tx_ampdu_len:11-19",
+	"P1:tx_ampdu_len:20-28",
+	"P1:tx_ampdu_len:29-37",
+	"P1:tx_ampdu_len:38-46",
+	"P1:tx_ampdu_len:47-55",
+	"P1:tx_ampdu_len:56-79",
+	"P1:tx_ampdu_len:80-103",
+	"P1:tx_ampdu_len:104-127",
+	"P1:tx_ampdu_len:128-151",
+	"P1:tx_ampdu_len:152-175",
+	"P1:tx_ampdu_len:176-199",
+	"P1:tx_ampdu_len:200-223",
+	"P1:tx_ampdu_len:224-247",
+	"P1:ba_miss_count",
+	"P1:tx_bfer_ppdu_iBF",
+	"P1:tx_bfer_ppdu_eBF",
+	"P1:tx_bfer_rx_feedback_all",
+	"P1:tx_bfer_rx_feedback_he",
+	"P1:tx_bfer_rx_feedback_vht",
+	"P1:tx_bfer_rx_feedback_ht",
+	"P1:tx_bfer_rx_feedback_bw", /* zero based idx: 20, 40, 80, 160 */
+	"P1:tx_bfer_rx_feedback_nc",
+	"P1:tx_bfer_rx_feedback_nr",
+	"P1:tx_bfee_ok_feedback_pkts",
+	"P1:tx_bfee_feedback_trig",
+	"P1:tx_mu_beamforming",
+	"P1:tx_mu_mpdu",
+	"P1:tx_mu_successful_mpdu",
+	"P1:tx_su_successful_mpdu",
+	"P1:tx_msdu_pack_1",
+	"P1:tx_msdu_pack_2",
+	"P1:tx_msdu_pack_3",
+	"P1:tx_msdu_pack_4",
+	"P1:tx_msdu_pack_5",
+	"P1:tx_msdu_pack_6",
+	"P1:tx_msdu_pack_7",
+	"P1:tx_msdu_pack_8",
+
+	/* rx counters */
+	"P1:rx_fifo_full_cnt",
+	"P1:rx_mpdu_cnt",
+	"P1:channel_idle_cnt",
+	"P1:rx_vector_mismatch_cnt",
+	"P1:rx_delimiter_fail_cnt",
+	"P1:rx_len_mismatch_cnt",
+	"P1:rx_ampdu_cnt",
+	"P1:rx_ampdu_bytes_cnt",
+	"P1:rx_ampdu_valid_subframe_cnt",
+	"P1:rx_ampdu_valid_subframe_b_cnt",
+	"P1:rx_pfdrop_cnt",
+	"P1:rx_vec_q_overflow_drop_cnt",
+	"P1:rx_ba_cnt",
+
+	/* driver rx counters */
+	"P1:d_rx_skb",
+	"P1:d_rx_rxd2_amsdu_err",
+	"P1:d_rx_null_channels",
+	"P1:d_rx_max_len_err",
+	"P1:d_rx_too_short",
+	"P1:d_rx_bad_ht_rix",
+	"P1:d_rx_bad_vht_rix",
+	"P1:d_rx_bad_mode",
+	"P1:d_rx_bad_bw",
+
+	/* phy 2 stats*/
+	"P2:tx_pkts_nic", /* from driver, phy tx-ok skb */
+	"P2:tx_bytes_nic", /* from driver, phy tx-ok bytes */
+	"P2:rx_pkts_nic", /* from driver, phy rx OK skb */
+	"P2:rx_bytes_nic", /* from driver, phy rx OK bytes */
+	"P2:tx_ampdu_cnt",
+	"P2:tx_stop_q_empty_cnt",
+	"P2:tx_mpdu_attempts",
+	"P2:tx_mpdu_success",
+	"P2:tx_rwp_fail_cnt",
+	"P2:tx_rwp_need_cnt",
+	"P2:tx_pkt_ebf_cnt",
+	"P2:tx_pkt_ibf_cnt",
+	"P2:tx_ampdu_len:0-1",
+	"P2:tx_ampdu_len:2-10",
+	"P2:tx_ampdu_len:11-19",
+	"P2:tx_ampdu_len:20-28",
+	"P2:tx_ampdu_len:29-37",
+	"P2:tx_ampdu_len:38-46",
+	"P2:tx_ampdu_len:47-55",
+	"P2:tx_ampdu_len:56-79",
+	"P2:tx_ampdu_len:80-103",
+	"P2:tx_ampdu_len:104-127",
+	"P2:tx_ampdu_len:128-151",
+	"P2:tx_ampdu_len:152-175",
+	"P2:tx_ampdu_len:176-199",
+	"P2:tx_ampdu_len:200-223",
+	"P2:tx_ampdu_len:224-247",
+	"P2:ba_miss_count",
+	"P2:tx_bfer_ppdu_iBF",
+	"P2:tx_bfer_ppdu_eBF",
+	"P2:tx_bfer_rx_feedback_all",
+	"P2:tx_bfer_rx_feedback_he",
+	"P2:tx_bfer_rx_feedback_vht",
+	"P2:tx_bfer_rx_feedback_ht",
+	"P2:tx_bfer_rx_feedback_bw", /* zero based idx: 20, 40, 80, 160 */
+	"P2:tx_bfer_rx_feedback_nc",
+	"P2:tx_bfer_rx_feedback_nr",
+	"P2:tx_bfee_ok_feedback_pkts",
+	"P2:tx_bfee_feedback_trig",
+	"P2:tx_mu_beamforming",
+	"P2:tx_mu_mpdu",
+	"P2:tx_mu_successful_mpdu",
+	"P2:tx_su_successful_mpdu",
+	"P2:tx_msdu_pack_1",
+	"P2:tx_msdu_pack_2",
+	"P2:tx_msdu_pack_3",
+	"P2:tx_msdu_pack_4",
+	"P2:tx_msdu_pack_5",
+	"P2:tx_msdu_pack_6",
+	"P2:tx_msdu_pack_7",
+	"P2:tx_msdu_pack_8",
+
+	/* rx counters */
+	"P2:rx_fifo_full_cnt",
+	"P2:rx_mpdu_cnt",
+	"P2:channel_idle_cnt",
+	"P2:rx_vector_mismatch_cnt",
+	"P2:rx_delimiter_fail_cnt",
+	"P2:rx_len_mismatch_cnt",
+	"P2:rx_ampdu_cnt",
+	"P2:rx_ampdu_bytes_cnt",
+	"P2:rx_ampdu_valid_subframe_cnt",
+	"P2:rx_ampdu_valid_subframe_b_cnt",
+	"P2:rx_pfdrop_cnt",
+	"P2:rx_vec_q_overflow_drop_cnt",
+	"P2:rx_ba_cnt",
+
+	/* driver rx counters */
+	"P2:d_rx_skb",
+	"P2:d_rx_rxd2_amsdu_err",
+	"P2:d_rx_null_channels",
+	"P2:d_rx_max_len_err",
+	"P2:d_rx_too_short",
+	"P2:d_rx_bad_ht_rix",
+	"P2:d_rx_bad_vht_rix",
+	"P2:d_rx_bad_mode",
+	"P2:d_rx_bad_bw",
 
 	/* per vif counters */
 	"v_tx_mpdu_attempts", /* counting any retries (all frames) */
@@ -2364,91 +2522,104 @@ void mt7996_get_et_stats(struct ieee80211_hw *hw,
 		.has_eht = true,
 	};
 	/* See mt7996_ampdu_stat_read_phy, etc */
-	int i, ei = 0;
-
-	if (!phy)
-		return;
+	int i, j, ei = 0;
 
 	mutex_lock(&dev->mt76.mutex);
 
-	mt7996_mac_update_stats(phy);
+	for (i = 0; i < MT7996_MAX_RADIOS; i++) {
+		phy = dev->radio_phy[i];
 
-	/* driver phy-wide stats */
-	data[ei++] = mib->tx_pkts_nic;
-	data[ei++] = mib->tx_bytes_nic;
-	data[ei++] = mib->rx_pkts_nic;
-	data[ei++] = mib->rx_bytes_nic;
+		if (!phy) {
+			ei += 73;
+			continue;
+		}
 
-	/* MIB stats from FW/HW */
-	data[ei++] = mib->tx_ampdu_cnt;
-	data[ei++] = mib->tx_stop_q_empty_cnt;
-	data[ei++] = mib->tx_mpdu_attempts_cnt;
-	data[ei++] = mib->tx_mpdu_success_cnt;
-	data[ei++] = mib->tx_rwp_fail_cnt;
-	data[ei++] = mib->tx_rwp_need_cnt;
-	data[ei++] = mib->tx_bf_ebf_ppdu_cnt;
-	data[ei++] = mib->tx_bf_ibf_ppdu_cnt;
+		mib = &phy->mib;
 
-	/* Tx ampdu stat */
-	for (i = 0; i < 15 /*ARRAY_SIZE(bound)*/; i++)
-		data[ei++] = phy->mt76->aggr_stats[i];
-	data[ei++] = phy->mib.ba_miss_cnt;
 
-	/* Tx Beamformer monitor */
-	data[ei++] = mib->tx_bf_ibf_ppdu_cnt;
-	data[ei++] = mib->tx_bf_ebf_ppdu_cnt;
+		mt7996_mac_update_stats(phy);
 
-	/* Tx Beamformer Rx feedback monitor */
-	data[ei++] = mib->tx_bf_rx_fb_all_cnt;
-	data[ei++] = mib->tx_bf_rx_fb_he_cnt;
-	data[ei++] = mib->tx_bf_rx_fb_vht_cnt;
-	data[ei++] = mib->tx_bf_rx_fb_ht_cnt;
+		/* driver phy-wide stats */
+		data[ei++] = mib->tx_pkts_nic;
+		data[ei++] = mib->tx_bytes_nic;
+		data[ei++] = mib->rx_pkts_nic;
+		data[ei++] = mib->rx_bytes_nic;
 
-	data[ei++] = mib->tx_bf_rx_fb_bw;
-	data[ei++] = mib->tx_bf_rx_fb_nc_cnt;
-	data[ei++] = mib->tx_bf_rx_fb_nr_cnt;
+		/* MIB stats from FW/HW */
+		data[ei++] = mib->tx_ampdu_cnt;
+		data[ei++] = mib->tx_stop_q_empty_cnt;
+		data[ei++] = mib->tx_mpdu_attempts_cnt;
+		data[ei++] = mib->tx_mpdu_success_cnt;
+		data[ei++] = mib->tx_rwp_fail_cnt;
+		data[ei++] = mib->tx_rwp_need_cnt;
+		data[ei++] = mib->tx_bf_ebf_ppdu_cnt;
+		data[ei++] = mib->tx_bf_ibf_ppdu_cnt;
 
-	/* Tx Beamformee Rx NDPA & Tx feedback report */
-	data[ei++] = mib->tx_bf_fb_cpl_cnt;
-	data[ei++] = mib->tx_bf_fb_trig_cnt;
+		/* Tx ampdu stat */
+		for (j = 0; j < 15 /*ARRAY_SIZE(bound)*/; j++)
+			data[ei++] = phy->mt76->aggr_stats[j];
+		data[ei++] = mib->ba_miss_cnt;
 
-	/* Tx SU & MU counters */
-	data[ei++] = mib->tx_mu_bf_cnt;
-	data[ei++] = mib->tx_mu_mpdu_cnt;
-	data[ei++] = mib->tx_mu_acked_mpdu_cnt;
-	data[ei++] = mib->tx_su_acked_mpdu_cnt;
+		/* Tx Beamformer monitor */
+		data[ei++] = mib->tx_bf_ibf_ppdu_cnt;
+		data[ei++] = mib->tx_bf_ebf_ppdu_cnt;
 
-	/* Tx amsdu info (pack-count histogram) */
-	for (i = 0; i < ARRAY_SIZE(mib->tx_amsdu); i++)
-		data[ei++] = mib->tx_amsdu[i];
+		/* Tx Beamformer Rx feedback monitor */
+		data[ei++] = mib->tx_bf_rx_fb_all_cnt;
+		data[ei++] = mib->tx_bf_rx_fb_he_cnt;
+		data[ei++] = mib->tx_bf_rx_fb_vht_cnt;
+		data[ei++] = mib->tx_bf_rx_fb_ht_cnt;
 
-	/* rx counters */
-	data[ei++] = mib->rx_fifo_full_cnt;
-	data[ei++] = mib->rx_mpdu_cnt;
-	data[ei++] = mib->channel_idle_cnt;
-	data[ei++] = mib->rx_vector_mismatch_cnt;
-	data[ei++] = mib->rx_delimiter_fail_cnt;
-	data[ei++] = mib->rx_len_mismatch_cnt;
-	data[ei++] = mib->rx_ampdu_cnt;
-	data[ei++] = mib->rx_ampdu_bytes_cnt;
-	data[ei++] = mib->rx_ampdu_valid_subframe_cnt;
-	data[ei++] = mib->rx_ampdu_valid_subframe_bytes_cnt;
-	data[ei++] = mib->rx_pfdrop_cnt;
-	data[ei++] = mib->rx_vec_queue_overflow_drop_cnt;
-	data[ei++] = mib->rx_ba_cnt;
+		data[ei++] = mib->tx_bf_rx_fb_bw;
+		data[ei++] = mib->tx_bf_rx_fb_nc_cnt;
+		data[ei++] = mib->tx_bf_rx_fb_nr_cnt;
 
-	/* rx stats from driver */
-	data[ei++] = mib->rx_d_skb;
-	data[ei++] = mib->rx_d_rxd2_amsdu_err;
-	data[ei++] = mib->rx_d_null_channels;
-	data[ei++] = mib->rx_d_max_len_err;
-	data[ei++] = mib->rx_d_too_short;
-	data[ei++] = mib->rx_d_bad_ht_rix;
-	data[ei++] = mib->rx_d_bad_vht_rix;
-	data[ei++] = mib->rx_d_bad_mode;
-	data[ei++] = mib->rx_d_bad_bw;
+		/* Tx Beamformee Rx NDPA & Tx feedback report */
+		data[ei++] = mib->tx_bf_fb_cpl_cnt;
+		data[ei++] = mib->tx_bf_fb_trig_cnt;
+
+		/* Tx SU & MU counters */
+		data[ei++] = mib->tx_mu_bf_cnt;
+		data[ei++] = mib->tx_mu_mpdu_cnt;
+		data[ei++] = mib->tx_mu_acked_mpdu_cnt;
+		data[ei++] = mib->tx_su_acked_mpdu_cnt;
+
+		/* Tx amsdu info (pack-count histogram) */
+		for (j = 0; j < ARRAY_SIZE(mib->tx_amsdu); j++)
+			data[ei++] = mib->tx_amsdu[j];
+
+		/* rx counters */
+		data[ei++] = mib->rx_fifo_full_cnt;
+		data[ei++] = mib->rx_mpdu_cnt;
+		data[ei++] = mib->channel_idle_cnt;
+		data[ei++] = mib->rx_vector_mismatch_cnt;
+		data[ei++] = mib->rx_delimiter_fail_cnt;
+		data[ei++] = mib->rx_len_mismatch_cnt;
+		data[ei++] = mib->rx_ampdu_cnt;
+		data[ei++] = mib->rx_ampdu_bytes_cnt;
+		data[ei++] = mib->rx_ampdu_valid_subframe_cnt;
+		data[ei++] = mib->rx_ampdu_valid_subframe_bytes_cnt;
+		data[ei++] = mib->rx_pfdrop_cnt;
+		data[ei++] = mib->rx_vec_queue_overflow_drop_cnt;
+		data[ei++] = mib->rx_ba_cnt;
+
+		/* rx stats from driver */
+		data[ei++] = mib->rx_d_skb;
+		data[ei++] = mib->rx_d_rxd2_amsdu_err;
+		data[ei++] = mib->rx_d_null_channels;
+		data[ei++] = mib->rx_d_max_len_err;
+		data[ei++] = mib->rx_d_too_short;
+		data[ei++] = mib->rx_d_bad_ht_rix;
+		data[ei++] = mib->rx_d_bad_vht_rix;
+		data[ei++] = mib->rx_d_bad_mode;
+		data[ei++] = mib->rx_d_bad_bw;
+
+	}
 
 	/* Add values for all stations owned by this vif */
+	/* CT NOTE: Someday we may want to attempt breaking sta stats out
+	 *	    by phy...
+	 */
 	wi.initial_stat_idx = ei;
 	ieee80211_iterate_stations_atomic(hw, mt7996_ethtool_worker, &wi);
 
