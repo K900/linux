@@ -3192,6 +3192,42 @@ static void iwl_mld_get_et_stats(struct ieee80211_hw *hw,
 		       ei, (int)(IWL_MLD_SSTATS_LEN));
 }
 
+static int iwl_mld_mac_get_survey(struct ieee80211_hw *hw, int idx,
+				  struct survey_info *survey)
+{
+	struct iwl_mld *mld = IWL_MAC80211_GET_MLD(hw);
+	struct ieee80211_chanctx_conf *chan_ctx;
+	struct iwl_mld_phy *phy;
+
+	memset(survey, 0, sizeof(*survey));
+
+	/* Code similar to what is in MVM will not work
+	 * on be200 radios, primarily because 'channel' is not assigned.
+	 * So special case this to do something useful on be200
+	 * radio:  Return channel and busy-time for the first 3
+	 * phy contexts.
+	 */
+
+	if (idx > 2)
+		return -ENOENT;
+
+	chan_ctx = iwl_mld_get_chanctx_by_idx(mld, idx);
+	if (!chan_ctx)
+		return 0;
+
+	phy = iwl_mld_phy_from_mac80211(chan_ctx);
+
+	if (!phy)
+		return 0;
+
+	survey->filled = SURVEY_INFO_TIME | SURVEY_INFO_TIME_BUSY;
+	survey->channel = phy->chandef.chan;
+
+	survey->time = jiffies64_to_msecs(phy->channel_time_accum);
+	survey->time_busy = jiffies64_to_msecs(phy->channel_busy_accum);
+	return 0;
+}
+
 static int iwl_mld_op_get_antenna(struct ieee80211_hw *hw, int radio_idx, u32 *tx_ant, u32 *rx_ant)
 {
 	struct iwl_mld *mld = IWL_MAC80211_GET_MLD(hw);
@@ -3290,6 +3326,7 @@ const struct ieee80211_ops iwl_mld_hw_ops = {
 	.link_add_debugfs = iwl_mld_add_link_debugfs,
 	.link_sta_add_debugfs = iwl_mld_add_link_sta_debugfs,
 #endif
+	.get_survey = iwl_mld_mac_get_survey,
 	.mgd_protect_tdls_discover = iwl_mld_mac80211_mgd_protect_tdls_discover,
 	.join_ibss = iwl_mld_mac80211_join_ibss,
 	.leave_ibss = iwl_mld_mac80211_leave_ibss,
