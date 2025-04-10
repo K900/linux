@@ -474,7 +474,8 @@ iwl_mld_decode_he_mu(struct iwl_mld_rx_phy_data *phy_data,
 					      OFDM_RX_FRAME_HE_SIGB_STA_RU));
 }
 
-static void
+/* Return true if status bw was set. */
+static bool
 iwl_mld_decode_he_tb_phy_data(struct iwl_mld_rx_phy_data *phy_data,
 			      struct ieee80211_radiotap_he *he,
 			      struct ieee80211_rx_status *rx_status)
@@ -518,7 +519,7 @@ iwl_mld_decode_he_tb_phy_data(struct iwl_mld_rx_phy_data *phy_data,
 				      IEEE80211_RADIOTAP_HE_DATA6_TB_PPDU_BW);
 
 	if (!(phy_data->ntfy->flags & IWL_SNIF_FLAG_VALID_TB_RX))
-		return;
+		return false;
 
 	he->data1 |= cpu_to_le16(IEEE80211_RADIOTAP_HE_DATA1_LDPC_XSYMSEG_KNOWN |
 				 IEEE80211_RADIOTAP_HE_DATA1_DOPPLER_KNOWN);
@@ -553,9 +554,11 @@ iwl_mld_decode_he_tb_phy_data(struct iwl_mld_rx_phy_data *phy_data,
 	nsts = le32_get_bits(phy_data->ntfy->sigs.he_tb.tb_rx1,
 			     OFDM_UCODE_TRIG_BASE_RX_NSTS) + 1;
 	rx_status->nss = nsts >> !!(rate_n_flags & RATE_MCS_STBC_MSK);
+	return true;
 }
 
-static void
+/* Return true if status bw was set. */
+static bool
 iwl_mld_decode_he_phy_data(struct iwl_mld_rx_phy_data *phy_data,
 			   struct ieee80211_radiotap_he *he,
 			   struct ieee80211_radiotap_he_mu *he_mu,
@@ -564,12 +567,13 @@ iwl_mld_decode_he_phy_data(struct iwl_mld_rx_phy_data *phy_data,
 	u32 rate_n_flags = phy_data->rate_n_flags;
 	u32 he_type = rate_n_flags & RATE_MCS_HE_TYPE_MSK;
 	u32 nsts;
+	bool bw_set = false;
 
 	switch (he_type) {
 	case RATE_MCS_HE_TYPE_TRIG:
-		iwl_mld_decode_he_tb_phy_data(phy_data, he, rx_status);
+		bw_set = iwl_mld_decode_he_tb_phy_data(phy_data, he, rx_status);
+		return bw_set;
 		/* that's it, below is only for SU/MU */
-		return;
 	case RATE_MCS_HE_TYPE_MU:
 		iwl_mld_decode_he_mu(phy_data, he, he_mu, rx_status);
 
@@ -629,9 +633,12 @@ iwl_mld_decode_he_phy_data(struct iwl_mld_rx_phy_data *phy_data,
 	he->data4 |= RTAP_ENC_HE(phy_data->ntfy->sigs.he.a1,
 				 OFDM_RX_FRAME_HE_SPATIAL_REUSE,
 				 IEEE80211_RADIOTAP_HE_DATA4_SU_MU_SPTL_REUSE);
+	return true;
 }
 
-static void iwl_mld_rx_he(struct sk_buff *skb,
+/* Returns true if bandwidth was assigned in this method. */
+static bool iwl_mld_rx_he(struct iwl_mld *mld,
+			  struct sk_buff *skb,
 			  struct iwl_mld_rx_phy_data *phy_data)
 {
 	struct ieee80211_rx_status *rx_status = IEEE80211_SKB_RXCB(skb);
@@ -639,6 +646,7 @@ static void iwl_mld_rx_he(struct sk_buff *skb,
 	struct ieee80211_radiotap_he_mu *he_mu = NULL;
 	u32 rate_n_flags = phy_data->rate_n_flags;
 	u32 he_type = rate_n_flags & RATE_MCS_HE_TYPE_MSK;
+	bool bw_set = false;
 	u8 ltf;
 	static const struct ieee80211_radiotap_he known = {
 		.data1 = cpu_to_le16(IEEE80211_RADIOTAP_HE_DATA1_DATA_MCS_KNOWN |
@@ -670,7 +678,11 @@ static void iwl_mld_rx_he(struct sk_buff *skb,
 		if (rate_n_flags & RATE_MCS_HE_106T_MSK) {
 			rx_status->bw = RATE_INFO_BW_HE_RU;
 			rx_status->he_ru = NL80211_RATE_INFO_HE_RU_ALLOC_106;
+			mld->ethtool_stats.rx_bw_he_ru++;
+			bw_set = true;
 		}
+		mld->ethtool_stats.rx_he_type[he_type >> RATE_MCS_HE_TYPE_POS]++;
+
 		fallthrough;
 	case RATE_MCS_HE_TYPE_SU:
 		/* actual data is filled in mac80211 */
@@ -736,14 +748,15 @@ static void iwl_mld_rx_he(struct sk_buff *skb,
 				      IEEE80211_RADIOTAP_HE_DATA5_LTF_SIZE);
 
 	if (likely(!phy_data->ntfy))
-		return;
+		return bw_set;
 
 	if (he_type == RATE_MCS_HE_TYPE_MU) {
 		he_mu = skb_put_data(skb, &mu_known, sizeof(mu_known));
 		rx_status->flag |= RX_FLAG_RADIOTAP_HE_MU;
 	}
 
-	iwl_mld_decode_he_phy_data(phy_data, he, he_mu, rx_status);
+	bw_set |= iwl_mld_decode_he_phy_data(phy_data, he, he_mu, rx_status);
+	return bw_set;
 }
 
 static void iwl_mld_decode_lsig(struct sk_buff *skb,
@@ -936,7 +949,8 @@ static void iwl_mld_decode_eht_usig(struct iwl_mld_rx_phy_data *phy_data,
 		iwl_mld_decode_eht_usig_non_tb(phy_data, usig);
 }
 
-static void
+/* Return true if status bw was set. */
+static bool
 iwl_mld_eht_set_ru_alloc(struct ieee80211_rx_status *rx_status,
 			 u32 ru_with_p80)
 {
@@ -1000,19 +1014,21 @@ iwl_mld_eht_set_ru_alloc(struct ieee80211_rx_status *rx_status,
 		nl_ru = NL80211_RATE_INFO_EHT_RU_ALLOC_3x996P484;
 		break;
 	default:
-		return;
+		return false;
 	}
 
 	rx_status->bw = RATE_INFO_BW_EHT_RU;
 	rx_status->eht.ru = nl_ru;
+	return true;
 }
 
-static void iwl_mld_decode_eht_tb(struct iwl_mld_rx_phy_data *phy_data,
+/* Return true if status bw was set. */
+static bool iwl_mld_decode_eht_tb(struct iwl_mld_rx_phy_data *phy_data,
 				  struct ieee80211_rx_status *rx_status,
 				  struct ieee80211_radiotap_eht *eht)
 {
 	if (!(phy_data->ntfy->flags & IWL_SNIF_FLAG_VALID_TB_RX))
-		return;
+		return false;
 
 	eht->known |= cpu_to_le32(IEEE80211_RADIOTAP_EHT_KNOWN_RU_ALLOC_TB_FMT |
 				  IEEE80211_RADIOTAP_EHT_KNOWN_LDPC_EXTRA_SYM_OM |
@@ -1044,9 +1060,9 @@ static void iwl_mld_decode_eht_tb(struct iwl_mld_rx_phy_data *phy_data,
 				     OFDM_UCODE_TRIG_BASE_RX_RU_P80,
 				     IEEE80211_RADIOTAP_EHT_DATA1_PRIMARY_80);
 
-	iwl_mld_eht_set_ru_alloc(rx_status,
-				 le32_get_bits(phy_data->ntfy->sigs.eht_tb.tb_rx1,
-					       OFDM_UCODE_TRIG_BASE_RX_RU));
+	return iwl_mld_eht_set_ru_alloc(rx_status,
+					le32_get_bits(phy_data->ntfy->sigs.eht_tb.tb_rx1,
+						      OFDM_UCODE_TRIG_BASE_RX_RU));
 }
 
 static void iwl_mld_eht_decode_user_ru(struct iwl_mld_rx_phy_data *phy_data,
@@ -1157,10 +1173,12 @@ static void iwl_mld_eht_decode_user_ru(struct iwl_mld_rx_phy_data *phy_data,
 	}
 }
 
-static void iwl_mld_decode_eht_non_tb(struct iwl_mld_rx_phy_data *phy_data,
+/* Return true if status bw was set. */
+static bool iwl_mld_decode_eht_non_tb(struct iwl_mld_rx_phy_data *phy_data,
 				      struct ieee80211_rx_status *rx_status,
 				      struct ieee80211_radiotap_eht *eht)
 {
+	bool ret;
 	eht->known |= cpu_to_le32(IEEE80211_RADIOTAP_EHT_KNOWN_SPATIAL_REUSE |
 				  /* All RU allocating size/index is in TB format */
 				  IEEE80211_RADIOTAP_EHT_KNOWN_RU_ALLOC_TB_FMT |
@@ -1202,7 +1220,7 @@ static void iwl_mld_decode_eht_non_tb(struct iwl_mld_rx_phy_data *phy_data,
 
 	iwl_mld_eht_decode_user_ru(phy_data, eht);
 
-	iwl_mld_eht_set_ru_alloc(rx_status,
+	ret = iwl_mld_eht_set_ru_alloc(rx_status,
 				 le32_get_bits(phy_data->ntfy->sigs.eht.b2,
 					       OFDM_RX_FRAME_EHT_STA_RU));
 
@@ -1212,21 +1230,25 @@ static void iwl_mld_decode_eht_non_tb(struct iwl_mld_rx_phy_data *phy_data,
 			LE32_DEC_ENC(phy_data->ntfy->sigs.eht.user_id,
 				     OFDM_RX_FRAME_EHT_USER_FIELD_ID,
 				     IEEE80211_RADIOTAP_EHT_USER_INFO_STA_ID);
+
+	return ret;
 }
 
-static void iwl_mld_decode_eht_phy_data(struct iwl_mld_rx_phy_data *phy_data,
+/* Return true if status bw was set. */
+static bool iwl_mld_decode_eht_phy_data(struct iwl_mld_rx_phy_data *phy_data,
 					struct ieee80211_rx_status *rx_status,
 					struct ieee80211_radiotap_eht *eht)
 {
 	u32 he_type = phy_data->rate_n_flags & RATE_MCS_HE_TYPE_MSK;
 
 	if (he_type == RATE_MCS_HE_TYPE_TRIG)
-		iwl_mld_decode_eht_tb(phy_data, rx_status, eht);
+		return iwl_mld_decode_eht_tb(phy_data, rx_status, eht);
 	else
-		iwl_mld_decode_eht_non_tb(phy_data, rx_status, eht);
+		return iwl_mld_decode_eht_non_tb(phy_data, rx_status, eht);
 }
 
-static void iwl_mld_rx_eht(struct iwl_mld *mld, struct sk_buff *skb,
+/* Returns true if status bandwidth was set. */
+static bool iwl_mld_rx_eht(struct iwl_mld *mld, struct sk_buff *skb,
 			   struct iwl_mld_rx_phy_data *phy_data)
 {
 	struct ieee80211_rx_status *rx_status = IEEE80211_SKB_RXCB(skb);
@@ -1318,10 +1340,10 @@ static void iwl_mld_rx_eht(struct iwl_mld *mld, struct sk_buff *skb,
 	}
 
 	if (likely(!phy_data->ntfy))
-		return;
+		return false;
 
 	iwl_mld_decode_eht_usig(phy_data, skb);
-	iwl_mld_decode_eht_phy_data(phy_data, rx_status, eht);
+	return iwl_mld_decode_eht_phy_data(phy_data, rx_status, eht);
 }
 
 #ifdef CONFIG_IWLWIFI_DEBUGFS
@@ -1380,7 +1402,8 @@ static void iwl_mld_add_rtap_sniffer_phy_data(struct iwl_mld *mld,
 }
 
 static void
-iwl_mld_set_rx_nonlegacy_rate_info(u32 rate_n_flags,
+iwl_mld_set_rx_nonlegacy_rate_info(struct iwl_mld *mld,
+				   u32 rate_n_flags,
 				   struct ieee80211_rx_status *rx_status)
 {
 	u8 stbc = u32_get_bits(rate_n_flags, RATE_MCS_STBC_MSK);
@@ -1391,6 +1414,9 @@ iwl_mld_set_rx_nonlegacy_rate_info(u32 rate_n_flags,
 	rx_status->enc_flags |= stbc << RX_ENC_FLAG_STBC_SHIFT;
 	if (rate_n_flags & RATE_MCS_LDPC_MSK)
 		rx_status->enc_flags |= RX_ENC_FLAG_LDPC;
+
+	mld->ethtool_stats.rx_nss[0]++;
+	mld->ethtool_stats.rx_mcs[rx_status->rate_idx]++;
 }
 
 static void iwl_mld_set_rx_rate(struct iwl_mld *mld,
@@ -1402,24 +1428,6 @@ static void iwl_mld_set_rx_rate(struct iwl_mld *mld,
 	u32 format = rate_n_flags & RATE_MCS_MOD_TYPE_MSK;
 	u32 he_type = u32_get_bits(rate_n_flags, RATE_MCS_HE_TYPE_MSK);
 	bool is_sgi = rate_n_flags & RATE_MCS_SGI_MSK;
-
-	/* bandwidth may be overridden to RU by PHY ntfy */
-	switch (rate_n_flags & RATE_MCS_CHAN_WIDTH_MSK) {
-	case RATE_MCS_CHAN_WIDTH_20:
-		break;
-	case RATE_MCS_CHAN_WIDTH_40:
-		rx_status->bw = RATE_INFO_BW_40;
-		break;
-	case RATE_MCS_CHAN_WIDTH_80:
-		rx_status->bw = RATE_INFO_BW_80;
-		break;
-	case RATE_MCS_CHAN_WIDTH_160:
-		rx_status->bw = RATE_INFO_BW_160;
-		break;
-	case RATE_MCS_CHAN_WIDTH_320:
-		rx_status->bw = RATE_INFO_BW_320;
-		break;
-	}
 
 	switch (format) {
 	case RATE_MCS_MOD_TYPE_CCK:
@@ -1437,6 +1445,12 @@ static void iwl_mld_set_rx_rate(struct iwl_mld *mld,
 		/* valid rate */
 		if (rate >= 0 && rate <= 0xFF) {
 			rx_status->rate_idx = rate;
+			if (rate_n_flags & RATE_MCS_MOD_TYPE_CCK)
+				mld->ethtool_stats.rx_mode[0]++;
+			else
+				mld->ethtool_stats.rx_mode[1]++;
+			mld->ethtool_stats.rx_nss[0]++;
+			mld->ethtool_stats.rx_mcs[rx_status->rate_idx]++;
 			break;
 		}
 
@@ -1460,24 +1474,30 @@ static void iwl_mld_set_rx_rate(struct iwl_mld *mld,
 		rx_status->encoding = RX_ENC_HT;
 		rx_status->rate_idx = RATE_HT_MCS_INDEX(rate_n_flags);
 		rx_status->enc_flags |= stbc << RX_ENC_FLAG_STBC_SHIFT;
+		mld->ethtool_stats.rx_mode[2]++;
+		mld->ethtool_stats.rx_nss[(rx_status->rate_idx / 8)]++;
+		mld->ethtool_stats.rx_mcs[(rx_status->rate_idx % 8)]++;
 		break;
 	case RATE_MCS_MOD_TYPE_VHT:
 		rx_status->encoding = RX_ENC_VHT;
-		iwl_mld_set_rx_nonlegacy_rate_info(rate_n_flags, rx_status);
+		iwl_mld_set_rx_nonlegacy_rate_info(mld, rate_n_flags, rx_status);
+		mld->ethtool_stats.rx_mode[3]++;
 		break;
 	case RATE_MCS_MOD_TYPE_HE:
 		rx_status->encoding = RX_ENC_HE;
 		rx_status->he_dcm =
 			!!(rate_n_flags & RATE_HE_DUAL_CARRIER_MODE_MSK);
-		iwl_mld_set_rx_nonlegacy_rate_info(rate_n_flags, rx_status);
+		iwl_mld_set_rx_nonlegacy_rate_info(mld, rate_n_flags, rx_status);
+		mld->ethtool_stats.rx_mode[4]++;
 		break;
 	case RATE_MCS_MOD_TYPE_EHT:
 		rx_status->encoding = RX_ENC_EHT;
-		iwl_mld_set_rx_nonlegacy_rate_info(rate_n_flags, rx_status);
+		iwl_mld_set_rx_nonlegacy_rate_info(mld, rate_n_flags, rx_status);
+		mld->ethtool_stats.rx_mode[5]++;
 		break;
 	case RATE_MCS_MOD_TYPE_UHR:
 		rx_status->encoding = RX_ENC_UHR;
-		iwl_mld_set_rx_nonlegacy_rate_info(rate_n_flags, rx_status);
+		iwl_mld_set_rx_nonlegacy_rate_info(mld, rate_n_flags, rx_status);
 		if (he_type == RATE_MCS_HE_TYPE_UHR_ELR)
 			rx_status->uhr.elr = 1;
 		break;
@@ -1498,6 +1518,7 @@ static void iwl_mld_rx_fill_status(struct iwl_mld *mld, int link_id,
 	struct ieee80211_rx_status *rx_status = IEEE80211_SKB_RXCB(skb);
 	u32 rate_n_flags = phy_data->rate_n_flags;
 	u32 format = rate_n_flags & RATE_MCS_MOD_TYPE_MSK;
+	bool bw_set = false;
 
 	iwl_mld_fill_signal(mld, link_id, hdr, rx_status, phy_data);
 
@@ -1511,13 +1532,37 @@ static void iwl_mld_rx_fill_status(struct iwl_mld *mld, int link_id,
 
 	/* must be before L-SIG data (radiotap field order) */
 	if (format == RATE_MCS_MOD_TYPE_HE)
-		iwl_mld_rx_he(skb, phy_data);
+		bw_set = iwl_mld_rx_he(mld, skb, phy_data);
 
 	iwl_mld_decode_lsig(skb, phy_data);
 
 	/* TLVs - must be after radiotap fixed fields */
 	if (format == RATE_MCS_MOD_TYPE_EHT)
-		iwl_mld_rx_eht(mld, skb, phy_data);
+		bw_set = iwl_mld_rx_eht(mld, skb, phy_data);
+
+	if (!bw_set) {
+		switch (rate_n_flags & RATE_MCS_CHAN_WIDTH_MSK) {
+		case RATE_MCS_CHAN_WIDTH_20:
+			mld->ethtool_stats.rx_bw[0]++;
+			break;
+		case RATE_MCS_CHAN_WIDTH_40:
+			rx_status->bw = RATE_INFO_BW_40;
+			mld->ethtool_stats.rx_bw[1]++;
+			break;
+		case RATE_MCS_CHAN_WIDTH_80:
+			rx_status->bw = RATE_INFO_BW_80;
+			mld->ethtool_stats.rx_bw[2]++;
+			break;
+		case RATE_MCS_CHAN_WIDTH_160:
+			rx_status->bw = RATE_INFO_BW_160;
+			mld->ethtool_stats.rx_bw[3]++;
+			break;
+		case RATE_MCS_CHAN_WIDTH_320:
+			rx_status->bw = RATE_INFO_BW_320;
+			mld->ethtool_stats.rx_bw[4]++;
+			break;
+		}
+	}
 
 #ifdef CONFIG_IWLWIFI_DEBUGFS
 	if (unlikely(mld->monitor.on)) {
@@ -1591,8 +1636,10 @@ static int iwl_mld_build_rx_skb(struct iwl_mld *mld, struct sk_buff *skb,
 	 */
 	hdrlen += crypt_len;
 
-	if (unlikely(headlen < hdrlen))
+	if (unlikely(headlen < hdrlen)) {
+		mld->ethtool_stats.rx_bad_header_len++;
 		return -EINVAL;
+	}
 
 	/* Since data doesn't move data while putting data on skb and that is
 	 * the only way we use, data + len is the next place that hdr would
@@ -1786,6 +1833,7 @@ iwl_mld_rx_with_sta(struct iwl_mld *mld, struct ieee80211_hdr *hdr,
 	if (iwl_mld_is_dup(mld, sta, hdr, mpdu_desc, rx_status, queue)) {
 		IWL_DEBUG_DROP(mld, "Dropping duplicate packet 0x%x\n",
 			       le16_to_cpu(hdr->seq_ctrl));
+		mld->ethtool_stats.rx_dup++;
 		*drop = true;
 		return NULL;
 	}
@@ -1963,6 +2011,48 @@ static int iwl_mld_rx_crypto(struct iwl_mld *mld,
 	return 0;
 }
 
+static void iwl_mld_count_rx_histogram(struct iwl_mld *mld)
+{
+	u32 count = mld->monitor.rx_this_ampdu_count;
+
+	if (count == 0)
+		return;
+
+	/* rx-ampdu-len histogram, buckets match what mtk7915 supports. */
+	if (count <= 1)
+		mld->ethtool_stats.rx_ampdu_len[0]++;
+	else if (count <= 10)
+		mld->ethtool_stats.rx_ampdu_len[1]++;
+	else if (count <= 19)
+		mld->ethtool_stats.rx_ampdu_len[2]++;
+	else if (count <= 28)
+		mld->ethtool_stats.rx_ampdu_len[3]++;
+	else if (count <= 37)
+		mld->ethtool_stats.rx_ampdu_len[4]++;
+	else if (count <= 46)
+		mld->ethtool_stats.rx_ampdu_len[5]++;
+	else if (count <= 55)
+		mld->ethtool_stats.rx_ampdu_len[6]++;
+	else if (count <= 79)
+		mld->ethtool_stats.rx_ampdu_len[7]++;
+	else if (count <= 103)
+		mld->ethtool_stats.rx_ampdu_len[8]++;
+	else if (count <= 127)
+		mld->ethtool_stats.rx_ampdu_len[9]++;
+	else if (count <= 151)
+		mld->ethtool_stats.rx_ampdu_len[10]++;
+	else if (count <= 175)
+		mld->ethtool_stats.rx_ampdu_len[11]++;
+	else if (count <= 199)
+		mld->ethtool_stats.rx_ampdu_len[12]++;
+	else if (count <= 223)
+		mld->ethtool_stats.rx_ampdu_len[13]++;
+	else
+		mld->ethtool_stats.rx_ampdu_len[14]++;
+
+	mld->monitor.rx_this_ampdu_count = 0;
+}
+
 static void iwl_mld_rx_update_ampdu_data(struct iwl_mld *mld,
 					 struct iwl_mld_rx_phy_data *phy_data,
 					 struct ieee80211_rx_status *rx_status)
@@ -2095,8 +2185,13 @@ void iwl_mld_rx_mpdu(struct iwl_mld *mld, struct napi_struct *napi,
 	if (drop)
 		goto drop;
 
-	if (unlikely(mld->monitor.on))
+	/* update aggregation data for monitor and stats sake */
+	if (phy_data.phy_info & IWL_RX_MPDU_PHY_AMPDU)
 		iwl_mld_rx_update_ampdu_data(mld, &phy_data, rx_status);
+	else
+		/* Add to histogram for last ampdu count */
+		iwl_mld_count_rx_histogram(mld);
+	mld->monitor.rx_this_ampdu_count++;
 
 	/* Keep packets with CRC errors (and with overrun) for monitor mode
 	 * (otherwise the firmware discards them) but mark them as bad.
@@ -2106,6 +2201,10 @@ void iwl_mld_rx_mpdu(struct iwl_mld *mld, struct napi_struct *napi,
 		IWL_DEBUG_RX(mld, "Bad CRC or FIFO: 0x%08X.\n",
 			     le32_to_cpu(mpdu_desc->status));
 		rx_status->flag |= RX_FLAG_FAILED_FCS_CRC;
+		if (!(mpdu_desc->status & cpu_to_le32(IWL_RX_MPDU_STATUS_CRC_OK)))
+			mld->ethtool_stats.rx_crc_err++;
+		else
+			mld->ethtool_stats.rx_fifo_underrun++;
 	}
 
 	if (likely(!(phy_data.phy_info & IWL_RX_MPDU_PHY_TSF_OVERLOAD))) {
@@ -2133,8 +2232,10 @@ void iwl_mld_rx_mpdu(struct iwl_mld *mld, struct napi_struct *napi,
 	iwl_mld_rx_fill_status(mld, link_id, hdr, skb, &phy_data);
 
 	if (iwl_mld_rx_crypto(mld, sta, hdr, rx_status, mpdu_desc, queue,
-			      le32_to_cpu(pkt->len_n_flags), &crypto_len))
+			      le32_to_cpu(pkt->len_n_flags), &crypto_len)) {
+		mld->ethtool_stats.rx_failed_decrypt++;
 		goto drop;
+	}
 
 	if (iwl_mld_build_rx_skb(mld, skb, hdr, mpdu_len, crypto_len, rxb))
 		goto drop;
@@ -2158,6 +2259,8 @@ void iwl_mld_rx_mpdu(struct iwl_mld *mld, struct napi_struct *napi,
 		goto drop;
 	}
 
+	mld->ethtool_stats.rx_pkts++;
+	mld->ethtool_stats.rx_bytes_nic += skb->len;
 	iwl_mld_pass_packet_to_mac80211(mld, napi, skb, queue, sta);
 
 	goto out;

@@ -1032,7 +1032,7 @@ void iwl_mld_tx_from_txq(struct iwl_mld *mld, struct ieee80211_txq *txq)
 	rcu_read_unlock();
 }
 
-static void iwl_mld_hwrate_to_tx_rate(u32 rate_n_flags,
+static void iwl_mld_hwrate_to_tx_rate(struct iwl_mld *mld, u32 rate_n_flags,
 				      struct ieee80211_tx_info *info)
 {
 	enum nl80211_band band = info->band;
@@ -1040,9 +1040,25 @@ static void iwl_mld_hwrate_to_tx_rate(u32 rate_n_flags,
 	u32 sgi = rate_n_flags & RATE_MCS_SGI_MSK;
 	u32 chan_width = rate_n_flags & RATE_MCS_CHAN_WIDTH_MSK;
 	u32 format = rate_n_flags & RATE_MCS_MOD_TYPE_MSK;
+	int bwi = (rate_n_flags & RATE_MCS_CHAN_WIDTH_MSK) >> RATE_MCS_CHAN_WIDTH_POS;
+	u32 rate = format == RATE_MCS_MOD_TYPE_HT ?
+		RATE_HT_MCS_INDEX(rate_n_flags) :
+		rate_n_flags & RATE_MCS_CODE_MSK;
 
 	if (sgi)
 		tx_rate->flags |= IEEE80211_TX_RC_SHORT_GI;
+
+	info->status.antenna =
+		((rate_n_flags & RATE_MCS_ANT_AB_MSK) >> RATE_MCS_ANT_POS);
+	if (info->status.antenna == 0x3)
+		mld->ethtool_stats.tx_nss[1]++;
+	else
+		mld->ethtool_stats.tx_nss[0]++;
+
+	if (rate_n_flags & RATE_MCS_HE_106T_MSK)
+		mld->ethtool_stats.tx_bw_106_tone++;
+	else
+		mld->ethtool_stats.tx_bw[bwi]++;
 
 	switch (chan_width) {
 	case RATE_MCS_CHAN_WIDTH_20:
@@ -1064,6 +1080,8 @@ static void iwl_mld_hwrate_to_tx_rate(u32 rate_n_flags,
 	case RATE_MCS_MOD_TYPE_HT:
 		tx_rate->flags |= IEEE80211_TX_RC_MCS;
 		tx_rate->idx = RATE_HT_MCS_INDEX(rate_n_flags);
+		mld->ethtool_stats.tx_mcs[rate % 8]++; /* treat mcs like we do for VHT */
+		mld->ethtool_stats.tx_ht++;
 		break;
 	case RATE_MCS_MOD_TYPE_VHT:
 		ieee80211_rate_set_vht(tx_rate,
@@ -1071,20 +1089,91 @@ static void iwl_mld_hwrate_to_tx_rate(u32 rate_n_flags,
 				       u32_get_bits(rate_n_flags,
 						    RATE_MCS_NSS_MSK) + 1);
 		tx_rate->flags |= IEEE80211_TX_RC_VHT_MCS;
+		mld->ethtool_stats.tx_mcs[rate]++;
+		mld->ethtool_stats.tx_vht++;
 		break;
 	case RATE_MCS_MOD_TYPE_HE:
+		/* mac80211 cannot do this without ieee80211_tx_status_ext()
+		 * but it only matters for radiotap
+		 */
+		tx_rate->idx = 0;
+		mld->ethtool_stats.tx_mcs[rate]++;
+		mld->ethtool_stats.tx_he++;
+		mld->ethtool_stats.tx_he_type[(rate_n_flags >> RATE_MCS_HE_TYPE_POS) & 0x3]++;
+		break;
 	case RATE_MCS_MOD_TYPE_EHT:
 		/* mac80211 cannot do this without ieee80211_tx_status_ext()
 		 * but it only matters for radiotap
 		 */
 		tx_rate->idx = 0;
+		mld->ethtool_stats.tx_mcs[rate]++;
+		mld->ethtool_stats.tx_eht++;
+		mld->ethtool_stats.tx_he_type[(rate_n_flags >> RATE_MCS_HE_TYPE_POS) & 0x3]++;
+		break;
+	case RATE_MCS_MOD_TYPE_LEGACY_OFDM:
+		tx_rate->idx = iwl_mld_legacy_hw_idx_to_mac80211_idx(rate_n_flags,
+								     band);
+		mld->ethtool_stats.tx_mcs[rate & RATE_LEGACY_RATE_MSK]++;
+		mld->ethtool_stats.tx_ofdm++;
 		break;
 	default:
 		tx_rate->idx =
 			iwl_mld_legacy_hw_idx_to_mac80211_idx(rate_n_flags,
 							      band);
+		mld->ethtool_stats.tx_mcs[rate & RATE_LEGACY_RATE_MSK]++;
+		mld->ethtool_stats.tx_cck++;
 		break;
 	}
+}
+
+static void iwl_mld_update_tx_stats(struct iwl_mld *mld, struct sk_buff *skb, u32 status)
+{
+	u32 idx = status & TX_STATUS_MSK;
+
+	if (idx > TX_STATUS_INTERNAL_ABORT + 1)
+		idx = TX_STATUS_INTERNAL_ABORT + 1;
+
+	mld->ethtool_stats.tx_status_counts[idx]++;
+	if (idx == TX_STATUS_SUCCESS)
+		mld->ethtool_stats.tx_bytes_nic += skb->len;
+	else
+		mld->ethtool_stats.tx_mpdu_fail++;
+}
+
+static void iwl_mld_update_tx_ampdu_histogram(struct iwl_mld *mld, int freed)
+{
+	/* tx-ampdu-len histogram, buckets match what mtk7915 supports. */
+	if (freed <= 1)
+		mld->ethtool_stats.tx_ampdu_len[0]++;
+	else if (freed <= 10)
+		mld->ethtool_stats.tx_ampdu_len[1]++;
+	else if (freed <= 19)
+		mld->ethtool_stats.tx_ampdu_len[2]++;
+	else if (freed <= 28)
+		mld->ethtool_stats.tx_ampdu_len[3]++;
+	else if (freed <= 37)
+		mld->ethtool_stats.tx_ampdu_len[4]++;
+	else if (freed <= 46)
+		mld->ethtool_stats.tx_ampdu_len[5]++;
+	else if (freed <= 55)
+		mld->ethtool_stats.tx_ampdu_len[6]++;
+	else if (freed <= 79)
+		mld->ethtool_stats.tx_ampdu_len[7]++;
+	else if (freed <= 103)
+		mld->ethtool_stats.tx_ampdu_len[8]++;
+	else if (freed <= 127)
+		mld->ethtool_stats.tx_ampdu_len[9]++;
+	else if (freed <= 151)
+		mld->ethtool_stats.tx_ampdu_len[10]++;
+	else if (freed <= 175)
+		mld->ethtool_stats.tx_ampdu_len[11]++;
+	else if (freed <= 199)
+		mld->ethtool_stats.tx_ampdu_len[12]++;
+	else if (freed <= 223)
+		mld->ethtool_stats.tx_ampdu_len[13]++;
+	else
+		mld->ethtool_stats.tx_ampdu_len[14]++;
+	// TODO:  Consider higher buckets, quick experiment shows be200 freeing in the 250 range.
 }
 
 void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
@@ -1128,6 +1217,7 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 
 	/* we can free until ssn % q.n_bd not inclusive */
 	iwl_trans_reclaim(mld->trans, txq_id, ssn, &skbs, false);
+	iwl_mld_update_tx_ampdu_histogram(mld, tx_resp->frame_count);
 
 	while (!skb_queue_empty(&skbs)) {
 		struct sk_buff *skb = __skb_dequeue(&skbs);
@@ -1171,11 +1261,22 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 			iwl_dbg_tlv_time_point(&mld->fwrt, tp, NULL);
 		}
 
-		iwl_mld_hwrate_to_tx_rate(le32_to_cpu(tx_resp->initial_rate),
+		iwl_mld_hwrate_to_tx_rate(mld,
+					  le32_to_cpu(tx_resp->initial_rate),
 					  info);
 
 		if (likely(!iwl_mld_time_sync_frame(mld, skb, hdr->addr1)))
 			ieee80211_tx_status_skb(mld->hw, skb);
+
+		if (skb_freed <= 1) {
+			info->status.rates[0].count = tx_resp->failure_frame + 1;
+			mld->ethtool_stats.tx_mpdu_attempts += info->status.rates[0].count;
+			mld->ethtool_stats.tx_mpdu_retry += tx_resp->failure_frame;
+		} else {
+			/* Not sure we can know how many retries for these. */
+			mld->ethtool_stats.tx_mpdu_attempts += 1;
+		}
+		iwl_mld_update_tx_stats(mld, skb, status);
 	}
 
 	IWL_DEBUG_TX_REPLY(mld,
@@ -1239,10 +1340,14 @@ static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
 		 * frames because before failing a frame the firmware transmits
 		 * it without aggregation at least once.
 		 */
-		if (!in_flush)
+		if (!in_flush) {
 			info->flags |= IEEE80211_TX_STAT_ACK;
-		else
+			mld->ethtool_stats.tx_status_counts[TX_STATUS_SUCCESS]++;
+			mld->ethtool_stats.tx_bytes_nic += skb->len;
+			mld->ethtool_stats.tx_mpdu_attempts++;
+		} else {
 			info->flags &= ~IEEE80211_TX_STAT_ACK;
+		}
 
 		ieee80211_tx_status_skb(mld->hw, skb);
 	}

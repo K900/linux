@@ -2901,6 +2901,296 @@ static int iwl_mld_set_antenna(struct ieee80211_hw *hw, int radio_idx,
 	return 0;
 }
 
+static const char iwl_mld_gstrings_stats[][ETH_GSTRING_LEN] = {
+	"tx_pkts_nic", /* from driver, phy tx-ok skb */
+	"tx_bytes_nic", /* from driver, phy tx-ok bytes */
+	"rx_pkts_nic", /* from driver, phy rx OK skb */
+	"rx_bytes_nic", /* from driver, phy rx OK bytes */
+
+	"tx_mpdu_attempts", /* counting any retries */
+	"tx_mpdu_fail",  /* frames that failed even after retry */
+	"tx_mpdu_retry", /* number of times frames were retried */
+
+	"txo_tx_mpdu_attempts", /* counting any retries, txo frames */
+	"txo_tx_mpdu_fail",  /* frames that failed even after retry, txo frames */
+	"txo_tx_mpdu_retry", /* number of times frames were retried, txo frames */
+	"txo_tx_mpdu_ok", /* frames that succeeded, perhaps after retry, txo frames */
+
+	"esr_disabled_reasons", /* Bitfield for why ESR is disabled (0 means not disabled) */
+	"esr_active", /* Attempting to do ESR or not? */
+	"esr_last_exit_reason", /* Why we exited ESR last */
+
+	"tx_direct_done",
+	"tx_postpone_delay",
+	"tx_postpone_few_bytes",
+	"tx_postpone_bt_prio",
+	"tx_postpone_quiet_period",
+	"tx_postpone_calc_ttak",
+	"tx_fail_internal_x_retry",
+	"tx_fail_short_limit",
+	"tx_fail_long_limit",
+	"tx_fail_underrun",
+	"tx_fail_drain_flow",
+	"tx_fail_rfkill_flush",
+	"tx_fail_life_expire",
+	"tx_fail_dest_ps",
+	"tx_fail_host_aborted",
+	"tx_fail_bt_retry",
+	"tx_fail_sta_invalid",
+	"tx_fail_frag_dropped",
+	"tx_fail_tid_disable",
+	"tx_fail_fifo_flushed",
+	"tx_fail_small_cf_poll",
+	"tx_fail_fw_drop",
+	"tx_fail_color_mismatch",
+	"tx_fail_internal_abort",
+	"tx_fail_unknown_oor",
+
+	"tx_mode_cck",
+	"tx_mode_ofdm",
+	"tx_mode_ht",
+	"tx_mode_vht",
+	"tx_mode_he",
+	"tx_mode_eht",
+	"tx_mode_he_su",
+	"tx_mode_he_ext_su",
+	"tx_mode_he_mu",
+	"tx_mode_he_trig",
+
+	"tx_ampdu_len:0-1",
+	"tx_ampdu_len:2-10",
+	"tx_ampdu_len:11-19",
+	"tx_ampdu_len:20-28",
+	"tx_ampdu_len:29-37",
+	"tx_ampdu_len:38-46",
+	"tx_ampdu_len:47-55",
+	"tx_ampdu_len:56-79",
+	"tx_ampdu_len:80-103",
+	"tx_ampdu_len:104-127",
+	"tx_ampdu_len:128-151",
+	"tx_ampdu_len:152-175",
+	"tx_ampdu_len:176-199",
+	"tx_ampdu_len:200-223",
+	"tx_ampdu_len:224-247", /* and higher */
+
+	"tx_bw_20",
+	"tx_bw_40",
+	"tx_bw_80",
+	"tx_bw_160",
+	"tx_bw_320",
+	"tx_bw_106_tone",
+
+	"tx_mcs_0",
+	"tx_mcs_1",
+	"tx_mcs_2",
+	"tx_mcs_3",
+	"tx_mcs_4",
+	"tx_mcs_5",
+	"tx_mcs_6",
+	"tx_mcs_7",
+	"tx_mcs_8",
+	"tx_mcs_9",
+	"tx_mcs_10",
+	"tx_mcs_11",
+	"tx_mcs_12",
+	"tx_mcs_13",
+
+	"tx_nss_1",
+	"tx_nss_2",
+
+	/* rx stats */
+	"rx_crc_err",
+	"rx_fifo_underrun",
+	"rx_failed_decrypt",
+	"rx_dup",
+	"rx_bad_header_len",
+
+	"rx_mode_cck",
+	"rx_mode_ofdm",
+	"rx_mode_ht",
+	"rx_mode_vht",
+	"rx_mode_he",
+	"rx_mode_eht",
+
+	"rx_mode_he_su",
+	"rx_mode_he_ext_su",
+	"rx_mode_he_mu",
+	"rx_mode_he_trig",
+
+	"rx_bw_20",
+	"rx_bw_40",
+	"rx_bw_80",
+	"rx_bw_160",
+	"rx_bw_320",
+	"rx_bw_he_ru",
+
+	"rx_mcs_0",
+	"rx_mcs_1",
+	"rx_mcs_2",
+	"rx_mcs_3",
+	"rx_mcs_4",
+	"rx_mcs_5",
+	"rx_mcs_6",
+	"rx_mcs_7",
+	"rx_mcs_8",
+	"rx_mcs_9",
+	"rx_mcs_10",
+	"rx_mcs_11",
+	"rx_mcs_12",
+	"rx_mcs_13",
+
+	"rx_ampdu_len:0-1",
+	"rx_ampdu_len:2-10",
+	"rx_ampdu_len:11-19",
+	"rx_ampdu_len:20-28",
+	"rx_ampdu_len:29-37",
+	"rx_ampdu_len:38-46",
+	"rx_ampdu_len:47-55",
+	"rx_ampdu_len:56-79",
+	"rx_ampdu_len:80-103",
+	"rx_ampdu_len:104-127",
+	"rx_ampdu_len:128-151",
+	"rx_ampdu_len:152-175",
+	"rx_ampdu_len:176-199",
+	"rx_ampdu_len:200-223",
+	"rx_ampdu_len:224-247", /* and higher */
+
+	"rx_nss_1",
+	"rx_nss_2",
+};
+
+#define IWL_MLD_SSTATS_LEN ARRAY_SIZE(iwl_mld_gstrings_stats)
+
+static void iwl_mld_get_et_strings(struct ieee80211_hw *hw,
+				   struct ieee80211_vif *vif,
+				   u32 sset, u8 *data)
+{
+	if (sset != ETH_SS_STATS)
+		return;
+
+	memcpy(data, *iwl_mld_gstrings_stats, sizeof(iwl_mld_gstrings_stats));
+}
+
+static int iwl_mld_get_et_sset_count(struct ieee80211_hw *hw,
+				     struct ieee80211_vif *vif, int sset)
+{
+	if (sset != ETH_SS_STATS)
+		return 0;
+
+	return IWL_MLD_SSTATS_LEN;
+}
+
+static void iwl_mld_get_et_stats(struct ieee80211_hw *hw,
+				 struct ieee80211_vif *vif,
+				 struct ethtool_stats *stats, u64 *data)
+{
+	struct iwl_mld *mld = IWL_MAC80211_GET_MLD(hw);
+	struct iwl_mld_vif *mldvif = iwl_mld_vif_from_mac80211(vif);
+
+	int i, ei = 0;
+
+	/* driver phy-wide stats */
+	struct iwl_mld_ethtool_stats *mib = &mld->ethtool_stats;
+
+	data[ei++] = mib->tx_status_counts[TX_STATUS_SUCCESS];
+	data[ei++] = mib->tx_bytes_nic;
+	data[ei++] = mib->rx_pkts;
+	data[ei++] = mib->rx_bytes_nic;
+
+	data[ei++] = mib->tx_mpdu_attempts;
+	data[ei++] = mib->tx_mpdu_fail;
+	data[ei++] = mib->tx_mpdu_retry;
+
+	data[ei++] = mib->txo_tx_mpdu_attempts;
+	data[ei++] = mib->txo_tx_mpdu_fail;
+	data[ei++] = mib->txo_tx_mpdu_retry;
+	data[ei++] = mib->txo_tx_mpdu_ok;
+
+	data[ei++] = mldvif->emlsr.blocked_reasons;
+	data[ei++] = iwl_mld_emlsr_active(vif);
+	data[ei++] = mldvif->emlsr.last_exit_reason;
+
+	data[ei++] = mib->tx_status_counts[TX_STATUS_DIRECT_DONE];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_POSTPONE_DELAY];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_POSTPONE_FEW_BYTES];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_POSTPONE_BT_PRIO];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_POSTPONE_QUIET_PERIOD];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_POSTPONE_CALC_TTAK];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_INTERNAL_CROSSED_RETRY];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_SHORT_LIMIT];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_LONG_LIMIT];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_UNDERRUN];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_DRAIN_FLOW];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_RFKILL_FLUSH];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_LIFE_EXPIRE];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_DEST_PS];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_HOST_ABORTED];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_BT_RETRY];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_STA_INVALID];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_FRAG_DROPPED];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_TID_DISABLE];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_FIFO_FLUSHED];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_SMALL_CF_POLL];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_FW_DROP];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_FAIL_STA_COLOR_MISMATCH];
+	data[ei++] = mib->tx_status_counts[TX_STATUS_INTERNAL_ABORT];
+	/* Failed out-of-range */
+	data[ei++] = mib->tx_status_counts[TX_STATUS_INTERNAL_ABORT + 1];
+
+	data[ei++] = mib->tx_cck;
+	data[ei++] = mib->tx_ofdm;
+	data[ei++] = mib->tx_ht;
+	data[ei++] = mib->tx_vht;
+	data[ei++] = mib->tx_he;
+	data[ei++] = mib->tx_eht;
+
+	for (i = 0; i < ARRAY_SIZE(mib->tx_he_type); i++)
+		data[ei++] = mib->tx_he_type[i];
+
+	for (i = 0; i < ARRAY_SIZE(mib->tx_ampdu_len); i++)
+		data[ei++] = mib->tx_ampdu_len[i];
+
+	for (i = 0; i < ARRAY_SIZE(mib->tx_bw); i++)
+		data[ei++] = mib->tx_bw[i];
+	data[ei++] = mib->tx_bw_106_tone;
+
+	for (i = 0; i < ARRAY_SIZE(mib->tx_mcs); i++)
+		data[ei++] = mib->tx_mcs[i];
+
+	for (i = 0; i < ARRAY_SIZE(mib->tx_nss); i++)
+		data[ei++] = mib->tx_nss[i];
+
+	/* rx counters */
+	data[ei++] = mib->rx_crc_err;
+	data[ei++] = mib->rx_fifo_underrun;
+	data[ei++] = mib->rx_failed_decrypt;
+	data[ei++] = mib->rx_dup;
+	data[ei++] = mib->rx_bad_header_len;
+
+	for (i = 0; i < ARRAY_SIZE(mib->rx_mode); i++)
+		data[ei++] = mib->rx_mode[i];
+
+	for (i = 0; i < ARRAY_SIZE(mib->rx_he_type); i++)
+		data[ei++] = mib->rx_he_type[i];
+
+	for (i = 0; i < ARRAY_SIZE(mib->rx_bw); i++)
+		data[ei++] = mib->rx_bw[i];
+	data[ei++] = mib->rx_bw_he_ru;
+
+	for (i = 0; i < ARRAY_SIZE(mib->rx_mcs); i++)
+		data[ei++] = mib->rx_mcs[i];
+
+	for (i = 0; i < ARRAY_SIZE(mib->rx_ampdu_len); i++)
+		data[ei++] = mib->rx_ampdu_len[i];
+
+	for (i = 0; i < ARRAY_SIZE(mib->rx_nss); i++)
+		data[ei++] = mib->rx_nss[i];
+
+	if (ei != IWL_MLD_SSTATS_LEN)
+		pr_err("ERROR: iwlwifi ethtool stats bug: ei: %d size: %d",
+		       ei, (int)(IWL_MLD_SSTATS_LEN));
+}
+
 const struct ieee80211_ops iwl_mld_hw_ops = {
 	.tx = iwl_mld_mac80211_tx,
 	.start = iwl_mld_mac80211_start,
@@ -2937,6 +3227,9 @@ const struct ieee80211_ops iwl_mld_hw_ops = {
 	.flush = iwl_mld_mac80211_flush,
 	.flush_sta = iwl_mld_mac80211_flush_sta,
 	.ampdu_action = iwl_mld_mac80211_ampdu_action,
+	.get_et_sset_count = iwl_mld_get_et_sset_count,
+	.get_et_stats = iwl_mld_get_et_stats,
+	.get_et_strings = iwl_mld_get_et_strings,
 	.can_aggregate_in_amsdu = iwl_mld_mac80211_can_aggregate,
 	.sync_rx_queues = iwl_mld_mac80211_sync_rx_queues,
 	.link_sta_rc_update = iwl_mld_sta_rc_update,
