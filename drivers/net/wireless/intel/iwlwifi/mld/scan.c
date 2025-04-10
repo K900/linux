@@ -912,7 +912,8 @@ iwl_mld_scan_cfg_channels_6g(struct iwl_mld *mld,
 		 * configured in the scan command.
 		 */
 		if (!cfg80211_channel_is_psc(params->channels[i]) &&
-		    !params->n_6ghz_params && params->n_ssids)
+		    !params->n_6ghz_params && params->n_ssids &&
+		    params->flags & NL80211_SCAN_FLAG_COLOCATED_6GHZ)
 			continue;
 
 		cfg->channel_num = params->channels[i]->hw_value;
@@ -1511,7 +1512,11 @@ iwl_mld_scan_6ghz_passive_scan(struct iwl_mld *mld,
 	if (n_disabled != sband->n_channels) {
 		IWL_DEBUG_SCAN(mld,
 			       "6GHz passive scan: 6GHz channels enabled\n");
-		return;
+		/* if user has disabled colocated-6ghz flag, they are asking for all channels
+		 * to be scanned, so allow passive scanning.
+		 */
+		if (params->flags & NL80211_SCAN_FLAG_COLOCATED_6GHZ)
+			return;
 	}
 
 	/* all conditions to enable 6 GHz passive scan are satisfied */
