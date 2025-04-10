@@ -1385,6 +1385,17 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 	iwl_trans_reclaim(mld->trans, txq_id, ssn, &skbs, false);
 	iwl_mld_update_tx_ampdu_histogram(mld, tx_resp->frame_count);
 
+	rcu_read_lock();
+	if (IWL_FW_CHECK(mld, sta_id >= mld->fw->ucode_capa.num_stations,
+			 "Got invalid sta_id (%d)\n", sta_id)) {
+		link_sta = NULL;
+	} else {
+		link_sta = rcu_dereference(mld->fw_id_to_link_sta[sta_id]);
+
+		if (IS_ERR(link_sta))
+			link_sta = NULL;
+	}
+
 	while (!skb_queue_empty(&skbs)) {
 		struct sk_buff *skb = __skb_dequeue(&skbs);
 		struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
@@ -1398,6 +1409,8 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 		memset(&info->status, 0, sizeof(info->status));
 
 		info->flags &= ~(IEEE80211_TX_STAT_ACK | IEEE80211_TX_STAT_TX_FILTERED);
+		if (link_sta)
+			info->status.tx_link_id = link_sta->link_id + 1;
 
 		/* inform mac80211 about what happened with the frame */
 		switch (status & TX_STATUS_MSK) {
@@ -1460,13 +1473,6 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 	if (tx_failure && mgmt)
 		iwl_mld_toggle_tx_ant(mld, &mld->mgmt_tx_ant);
 
-	if (IWL_FW_CHECK(mld, sta_id >= mld->fw->ucode_capa.num_stations,
-			 "Got invalid sta_id (%d)\n", sta_id))
-		return;
-
-	rcu_read_lock();
-
-	link_sta = rcu_dereference(mld->fw_id_to_link_sta[sta_id]);
 	if (!link_sta) {
 		/* This can happen if the TX cmd was sent before pre_rcu_remove
 		 * but the TX response was received after
@@ -1476,9 +1482,6 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 				   sta_id);
 		goto out;
 	}
-
-	if (IS_ERR(link_sta))
-		goto out;
 
 	mld_sta = iwl_mld_sta_from_mac80211(link_sta->sta);
 
@@ -1493,9 +1496,17 @@ out:
 }
 
 static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
-				   bool in_flush)
+				   bool in_flush, int fw_sta_id)
 {
 	struct sk_buff_head reclaimed_skbs;
+	struct ieee80211_link_sta *link_sta;
+	int link_sta_id = -1;
+
+	rcu_read_lock();
+	link_sta = rcu_dereference(mld->fw_id_to_link_sta[fw_sta_id]);
+	if (link_sta)
+		link_sta_id = link_sta->link_id;
+	rcu_read_unlock();
 
 	__skb_queue_head_init(&reclaimed_skbs);
 
@@ -1527,6 +1538,7 @@ static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
 			info->flags &= ~IEEE80211_TX_STAT_ACK;
 		}
 
+		info->status.tx_link_id = link_sta_id + 1;
 		ieee80211_tx_status_skb(mld->hw, skb);
 	}
 }
@@ -1596,7 +1608,7 @@ int iwl_mld_flush_link_sta_txqs(struct iwl_mld *mld, u32 fw_sta_id)
 				    le16_to_cpu(queue_info->read_before_flush),
 				    read_after);
 
-		iwl_mld_tx_reclaim_txq(mld, txq_id, read_after, true);
+		iwl_mld_tx_reclaim_txq(mld, txq_id, read_after, true, fw_sta_id);
 	}
 
 free_rsp:
@@ -1696,7 +1708,7 @@ void iwl_mld_handle_compressed_ba_notif(struct iwl_mld *mld,
 				 "Invalid txq id %d\n", txq_id))
 			continue;
 
-		iwl_mld_tx_reclaim_txq(mld, txq_id, index, false);
+		iwl_mld_tx_reclaim_txq(mld, txq_id, index, false, ba_res->sta_id);
 	}
 
 	if (IWL_FW_CHECK(mld, sta_id >= mld->fw->ucode_capa.num_stations,
