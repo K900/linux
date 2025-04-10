@@ -107,6 +107,163 @@ static ssize_t iwl_dbgfs_send_echo_cmd_write(struct iwl_mld *mld, char *buf,
 	return iwl_mld_send_cmd_empty(mld, ECHO_CMD) ?: count;
 }
 
+static ssize_t iwl_dbgfs_read_set_rate_override(struct file *file,
+						char __user *user_buf,
+						size_t count, loff_t *ppos)
+{
+	struct iwl_mld *mld = file->private_data;
+	struct iwl_txo_data *td;
+	char *buf2;
+	int size = 8000;
+	int rv, sofar;
+	const char buf[] =
+		"This allows specifying tx rate parameters for larger DATA\n"
+		"frames.  TPC is ignored for now.  Dev-name is ignored, settings\n"
+		"apply radio wide for now.\n"
+		"To set a value, you specify the dev-name and key-value pairs:\n"
+		"tpc=10 sgi=1 mcs=x nss=x pream=x retries=x bw=x ldpc=0|1 enable=0|1\n"
+		"pream: 0=cck, 1=ofdm, 2=HT, 3=VHT, 4=HE_SU, 5=EHT\n"
+		"cck-mcs: 0=1Mbps, 1=2Mbps, 3=5.5Mbps, 3=11Mbps\n"
+		"ofdm-mcs: 0=6Mbps, 1=9Mbps, 2=12Mbps, 3=18Mbps, 4=24Mbps, 5=36Mbps, 6=48Mbps, 7=54Mbps\n"
+		"tpc: adjust power from defaults, in 1/2 db units 0 - 31, 16 is default\n"
+		"sgi: VHT and lower: 0 off, 1 on\n"
+		"sgi: HE-SU: 0 1xLTF+0.8us, 1 2xLTF+0.8us, 2 2xLTF+1.6us, 3 4xLTF+3.2us, 4 4xLTF+0.8us\n"
+		"bw is 0-4 for 20-320\n"
+		"stbc: 0 off, 1 on\n"
+		"ldpc: 0 off, 1 on\n"
+		"nss is zero based (0 means nss-1, 1 means nss-2)\n"
+		" For example, wlan0:\n"
+		"echo \"wlan0 bf=0 tpc=255 sgi=1 mcs=0 nss=1 pream=3 retries=1 bw=0 ldpc=0 stbc=0"
+		" active=1\" > ...iwlwifi/set_rate_override\n";
+
+	buf2 = kzalloc(size, GFP_KERNEL);
+	if (!buf2)
+		return -ENOMEM;
+	strcpy(buf2, buf);
+	sofar = strlen(buf2);
+
+	rcu_read_lock();
+	td = rcu_dereference(mld->txo_data);
+	if (td)
+		sofar += scnprintf(buf2 + sofar, size - sofar,
+				   "vdev (all) bf=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d ldpc=%d stbc=%d active=%d\n",
+				   td->beamforming, td->tx_power, td->tx_rate_sgi, td->tx_rate_idx,
+				   td->tx_rate_nss, td->tx_rate_mode,
+				   td->tx_xmit_count, td->txbw, td->ldpc, td->stbc, td->txo_active);
+	else
+		sofar += scnprintf(buf2 + sofar, size - sofar,
+				   "No TXO values set.\n");
+	rcu_read_unlock();
+
+	rv = simple_read_from_buffer(user_buf, count, ppos, buf2, sofar);
+	kfree(buf2);
+	return rv;
+}
+
+/* Set the rate overrides for data frames.
+ */
+static ssize_t iwl_dbgfs_write_set_rate_override(struct file *file,
+						 const char __user *user_buf,
+						 size_t count, loff_t *ppos)
+{
+	struct iwl_mld *mld = file->private_data;
+	struct iwl_txo_data *td = kzalloc(sizeof(*td), GFP_KERNEL);
+	struct iwl_txo_data *prev_td;
+	char buf[180];
+	char tmp[20];
+	char *tok;
+	int ret;
+	char *bufptr = buf;
+	long rc;
+
+	if (!td) {
+		ret = 0;
+		goto exit;
+	}
+
+	memset(buf, 0, sizeof(buf));
+
+	simple_write_to_buffer(buf, sizeof(buf) - 1, ppos, user_buf, count);
+
+	/* make sure that buf is null terminated */
+	buf[sizeof(buf) - 1] = 0;
+
+	/* drop the possible '\n' from the end */
+	if (buf[count - 1] == '\n')
+		buf[count - 1] = 0;
+
+	/* Ignore empty lines, 'echo' appends them sometimes at least. */
+	if (buf[0] == 0) {
+		ret = count;
+		kfree(td);
+		goto exit;
+	}
+
+	/* String starts with vdev name, ie 'wlan0'  Find the proper vif that
+	 * matches the name. (Well, ignore that for now actually.)
+	 */
+	bufptr = strstr(buf, " ");
+	if (!bufptr)
+		bufptr = buf;
+
+#define IWLWIFI_PARSE_LTOK(a, b)						\
+	do {								\
+		tok = strstr(bufptr, " " #a "=");			\
+		if (tok) {						\
+			char *tspace;					\
+			tok += 1; /* move past initial space */		\
+			strscpy(tmp, tok + strlen(#a "="), sizeof(tmp) - 1); \
+			tmp[sizeof(tmp) - 1] = 0;			\
+			tspace = strstr(tmp, " ");			\
+			if (tspace)					\
+				*tspace = 0;				\
+			if (kstrtol(tmp, 0, &rc) != 0)			\
+				pr_info(				\
+					"iwlwifi: set-rate-override: " #a \
+					"= could not be parsed, tmp: %s\n", \
+					tmp);				\
+			else						\
+				td->b = rc;				\
+		}							\
+	} while (0)
+
+	IWLWIFI_PARSE_LTOK(bf, beamforming);
+	IWLWIFI_PARSE_LTOK(tpc, tx_power);
+	IWLWIFI_PARSE_LTOK(sgi, tx_rate_sgi);
+	IWLWIFI_PARSE_LTOK(mcs, tx_rate_idx);
+	IWLWIFI_PARSE_LTOK(nss, tx_rate_nss);
+	IWLWIFI_PARSE_LTOK(pream, tx_rate_mode);
+	IWLWIFI_PARSE_LTOK(retries, tx_xmit_count);
+	IWLWIFI_PARSE_LTOK(bw, txbw);
+	IWLWIFI_PARSE_LTOK(ldpc, ldpc);
+	IWLWIFI_PARSE_LTOK(stbc, stbc);
+	IWLWIFI_PARSE_LTOK(active, txo_active);
+
+	pr_info("iwlwifi: set-rate-overrides, active=%d bf=%d tpc=%d sgi=%d mcs=%d nss=%d pream=%d retries=%d bw=%d ldpc=%d stbc=%d\n",
+		td->txo_active, td->beamforming, td->tx_power, td->tx_rate_sgi, td->tx_rate_idx,
+		td->tx_rate_nss, td->tx_rate_mode, td->tx_xmit_count,
+		td->txbw, td->ldpc, td->stbc);
+
+	// TODO:  Do we need a mutex here?
+	prev_td = rcu_dereference(mld->txo_data);
+	rcu_assign_pointer(mld->txo_data, td);
+	synchronize_rcu();
+	kfree(prev_td);
+
+	ret = count;
+
+exit:
+	return ret;
+}
+
+static const struct file_operations iwl_dbgfs_set_rate_override_ops = {
+	.read = iwl_dbgfs_read_set_rate_override,
+	.write = iwl_dbgfs_write_set_rate_override,
+	.open = simple_open,
+	.owner = THIS_MODULE,
+	.llseek = default_llseek,
+};
+
 struct iwl_mld_sniffer_apply {
 	struct iwl_mld *mld;
 	const u8 *bssid;
@@ -561,6 +718,7 @@ iwl_mld_add_debugfs_files(struct iwl_mld *mld, struct dentry *debugfs_dir)
 
 	debugfs_create_bool("rx_ts_ptp", 0600, debugfs_dir,
 			    &mld->monitor.ptp_time);
+	MLD_DEBUGFS_ADD_FILE(set_rate_override, debugfs_dir, 0600);
 
 	/* Create a symlink with mac80211. It will be removed when mac80211
 	 * exits (before the opmode exits which removes the target.)

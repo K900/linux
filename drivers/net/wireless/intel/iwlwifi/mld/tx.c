@@ -427,6 +427,150 @@ static u32 iwl_mld_get_tx_ant(struct iwl_mld *mld,
 
 	return BIT(mld->mgmt_tx_ant) << RATE_MCS_ANT_POS;
 }
+static u32 iwl_mld_get_txo_rate_n_flags(struct iwl_mld *mld, struct iwl_txo_data *td)
+{
+	u32 result = 0;
+
+	if (td->tx_rate_mode == 0) { /* cck */
+		result = RATE_MCS_CCK_MSK_V1;
+		switch (td->tx_rate_idx) {
+		case 0: result |= IWL_RATE_1M_PLCP; break;
+		case 1: result |= IWL_RATE_2M_PLCP; break;
+		case 2: result |= IWL_RATE_5M_PLCP; break;
+		default: result |= IWL_RATE_11M_PLCP; break;
+		}
+
+		if (td->ldpc)
+			result |= RATE_MCS_LDPC_MSK_V1;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
+		goto check_v1;
+	} else if (td->tx_rate_mode == 1) { /* ofdm */
+		result = 0;
+		switch (td->tx_rate_idx) {
+		case 0: result |= IWL_RATE_6M_PLCP; break;
+		case 1: result |= IWL_RATE_9M_PLCP; break;
+		case 2: result |= IWL_RATE_12M_PLCP; break;
+		case 3: result |= IWL_RATE_18M_PLCP; break;
+		case 4: result |= IWL_RATE_24M_PLCP; break;
+		case 5: result |= IWL_RATE_36M_PLCP; break;
+		case 6: result |= IWL_RATE_48M_PLCP; break;
+		default: result |= IWL_RATE_54M_PLCP; break;
+		}
+
+		if (td->ldpc)
+			result |= RATE_MCS_LDPC_MSK_V1;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
+		goto check_v1;
+	} else if (td->tx_rate_mode == 2) { /* ht */
+		result = RATE_MCS_HT_MSK_V1;
+		result |= u32_encode_bits(td->tx_rate_nss * 8 + td->tx_rate_idx,
+					  RATE_HT_MCS_RATE_CODE_MSK_V1 |
+					  RATE_HT_MCS_NSS_MSK_V1);
+		if (td->tx_rate_sgi)
+			result |= RATE_MCS_SGI_MSK_V1;
+		if (td->txbw == 1)
+			result |= u32_encode_bits(1, RATE_MCS_CHAN_WIDTH_MSK_V1);
+		/* LDPC required for BW > 20 and/or MCS >= 9 or FW will crash. */
+		if (td->ldpc || td->txbw > 0)
+			result |= RATE_MCS_LDPC_MSK_V1;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
+		goto check_v1;
+	} else if (td->tx_rate_mode == 3) { /* vht */
+		u8 mcs = td->tx_rate_idx;
+		u8 nss = td->tx_rate_nss;
+
+		result = RATE_MCS_VHT_MSK_V1;
+		result |= u32_encode_bits(mcs, RATE_VHT_MCS_RATE_CODE_MSK);
+		result |= u32_encode_bits(nss, RATE_MCS_NSS_MSK);
+		if (td->tx_rate_sgi)
+			result |= RATE_MCS_SGI_MSK_V1;
+		if (td->txbw == 1)
+			result |= u32_encode_bits(1, RATE_MCS_CHAN_WIDTH_MSK_V1);
+		else if (td->txbw == 2)
+			result |= u32_encode_bits(2, RATE_MCS_CHAN_WIDTH_MSK_V1);
+		else if (td->txbw == 3)
+			result |= u32_encode_bits(3, RATE_MCS_CHAN_WIDTH_MSK_V1);
+
+		/* LDPC required for BW > 20 and/or MCS >= 9 or FW will crash. */
+		if (td->ldpc || td->txbw > 0 || mcs >= 9)
+			result |= RATE_MCS_LDPC_MSK_V1;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
+
+		goto check_v1;
+	} else if (td->tx_rate_mode == 4) { /* HE-SU */
+		/* V2 format */
+		u32 mcs = td->tx_rate_idx;
+		u32 nss = td->tx_rate_nss;
+
+		result = RATE_MCS_MOD_TYPE_HE; /* HE-SU by default, others possible */
+		result |= mcs;
+		result |= u32_encode_bits(nss, RATE_MCS_NSS_MSK);
+
+		if (td->txbw == 1)
+			result |= RATE_MCS_CHAN_WIDTH_40;
+		else if (td->txbw == 2)
+			result |= RATE_MCS_CHAN_WIDTH_80;
+		else if (td->txbw == 3)
+			result |= RATE_MCS_CHAN_WIDTH_160;
+
+		/* LDPC required for BW > 20 and/or MCS >= 9 or FW will crash. */
+		if (td->ldpc || td->txbw > 0 || mcs >= 9)
+			result |= RATE_MCS_LDPC_MSK;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
+		if (td->beamforming)
+			result |= RATE_MCS_BF_MSK; /* beamforming on */
+
+		result |= ((u32)(td->tx_rate_sgi)) << RATE_MCS_HE_GI_LTF_POS;
+		/* pr_info("TXO he-su, v2 rate-n-flags: 0x%x\n", result); */
+	} else if (td->tx_rate_mode == 5) { /* EHT */
+		/* V2 format */
+		u32 mcs = td->tx_rate_idx;
+		u32 nss = td->tx_rate_nss;
+
+		result = RATE_MCS_MOD_TYPE_EHT; /* EHT-SU by default, others possible */
+		result |= mcs;
+		result |= u32_encode_bits(nss, RATE_MCS_NSS_MSK);
+
+		if (td->txbw == 1)
+			result |= RATE_MCS_CHAN_WIDTH_40;
+		else if (td->txbw == 2)
+			result |= RATE_MCS_CHAN_WIDTH_80;
+		else if (td->txbw == 3)
+			result |= RATE_MCS_CHAN_WIDTH_160;
+		else if (td->txbw == 4)
+			result |= RATE_MCS_CHAN_WIDTH_320;
+
+		/* LDPC required for BW > 20 and/or MCS >= 9 or FW will crash. */
+		if (td->ldpc || td->txbw > 0 || mcs >= 9)
+			result |= RATE_MCS_LDPC_MSK;
+		if (td->stbc)
+			result |= RATE_MCS_STBC_MSK;
+		if (td->beamforming)
+			result |= RATE_MCS_BF_MSK; /* beamforming on */
+
+		result |= ((u32)(td->tx_rate_sgi)) << RATE_MCS_HE_GI_LTF_POS;
+	}
+
+	result |= RATE_MCS_ANT_AB_MSK; /* enable both antennas */
+	return result;
+
+check_v1:
+	result |= RATE_MCS_ANT_AB_MSK; /* enable both antennas */
+
+#if 0
+	/* TODO: Validate this is needed for iwlmld. Johannes seems to
+	 * think not...
+	 */
+	if (iwl_fw_lookup_notif_ver(mld->fw, LONG_GROUP, TX_CMD, 0) > 6)
+		return iwl_new_rate_from_v1(result);
+#endif
+	return result;
+}
 
 static u32 iwl_mld_get_inject_tx_rate(struct iwl_mld *mld,
 				      struct ieee80211_tx_info *info,
@@ -551,6 +695,7 @@ iwl_mld_fill_tx_cmd(struct iwl_mld *mld, struct sk_buff *skb,
 		      IEEE80211_QOS_CTL_A_MSDU_PRESENT);
 	__le32 rate_n_flags = 0;
 	u16 flags = 0;
+	__le16 fc = hdr->frame_control;
 
 	dev_tx_cmd->hdr.cmd = TX_CMD;
 
@@ -567,13 +712,22 @@ iwl_mld_fill_tx_cmd(struct iwl_mld *mld, struct sk_buff *skb,
 		     (mld_sta && mld_sta->vif->type == NL80211_IFTYPE_NAN) ||
 		     info->control.flags & IEEE80211_TX_CTRL_RATE_INJECT)) {
 		flags |= IWL_TX_FLAGS_CMD_RATE;
-		rate_n_flags = iwl_mld_get_tx_rate_n_flags(mld, info, sta,
-							   hdr->frame_control);
-	} else if (!ieee80211_is_data(hdr->frame_control) ||
+		rate_n_flags = iwl_mld_get_tx_rate_n_flags(mld, info, sta, fc);
+	} else if (!ieee80211_is_data(fc) ||
 		   (mld_sta &&
 		    mld_sta->sta_state < IEEE80211_STA_AUTHORIZED)) {
 		/* These are important frames */
 		flags |= IWL_TX_FLAGS_HIGH_PRI;
+	} else if (mld->txo_data && skb->len >= 400 &&
+		   (ieee80211_is_data(fc) || ieee80211_is_data_qos(fc)) &&
+		   (!(ieee80211_is_qos_nullfunc(fc) || ieee80211_is_nullfunc(fc)))) {
+		struct iwl_txo_data *td = rcu_dereference(mld->txo_data);
+
+		/* Check td again, un-protected access above was lazy check. */
+		if (td && td->txo_active) {
+			flags |= IWL_TX_FLAGS_CMD_RATE;
+			rate_n_flags = iwl_mld_get_txo_rate_n_flags(mld, td);
+		}
 	}
 
 	tx_cmd = (void *)dev_tx_cmd->payload;
