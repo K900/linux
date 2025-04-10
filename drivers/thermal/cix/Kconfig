@@ -6,6 +6,7 @@ config CIX_THERMAL
 	depends on THERMAL && THERMAL_GOV_POWER_ALLOCATOR
 	depends on CPU_FREQ && ENERGY_MODEL
 	depends on ACPI_CPPC_CPUFREQ
+	select CIX_SCMI_ENERGY_MODEL
 	help
 	  Power allocator (IPA) support for CIX platforms, including the
 	  cpu-ipa MMIO driver for per-CPU static/dynamic power, ACPI thermal
@@ -14,3 +15,13 @@ config CIX_THERMAL
 
 	  If unsure, say Y on CIX Sky1 systems using the power_allocator
 	  thermal governor.
+
+config CIX_SCMI_ENERGY_MODEL
+	tristate "SCMI based Cix Energy Model driver"
+	depends on ENERGY_MODEL
+	depends on CIX_THERMAL
+	depends on ARM_SCMI_PROTOCOL
+	help
+	  It uses SCMI Message Protocol and SCMI performance domain helpers
+	  to register Energy Model (EM) for Cix platforms. Supports both
+	  genpd-bound devices and DT-based domain ID parsing.

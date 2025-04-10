@@ -24,6 +24,10 @@ struct scmi_perf_domain {
 	u32 domain_id;
 };
 
+/* Global protocol ops for use by drivers that need direct domain ID access */
+static const struct scmi_perf_proto_ops *global_perf_ops;
+static const struct scmi_protocol_handle *global_ph;
+
 #define to_scmi_pd(pd) container_of(pd, struct scmi_perf_domain, genpd)
 
 static int
@@ -170,6 +174,10 @@ static int scmi_perf_domain_probe(struct scmi_device *sdev)
 	perf_ops = handle->devm_protocol_get(sdev, SCMI_PROTOCOL_PERF, &ph);
 	if (IS_ERR(perf_ops))
 		return PTR_ERR(perf_ops);
+
+	/* Store global protocol ops for direct domain ID access */
+	global_perf_ops = perf_ops;
+	global_ph = ph;
 
 	num_domains = perf_ops->num_domains_get(ph);
 	if (num_domains < 0) {
@@ -333,6 +341,43 @@ enum scmi_power_scale scmi_perf_domain_power_scale(struct device *dev)
 	return pd->perf_ops->power_scale_get(pd->ph);
 }
 EXPORT_SYMBOL_GPL(scmi_perf_domain_power_scale);
+
+/**
+ * scmi_perf_domain_est_power_by_id() - Get estimated power via SCMI by domain ID
+ * @domain_id: SCMI performance domain ID
+ * @rate:      [in/out] Frequency in Hz (may be adjusted by firmware)
+ * @power:     [out] Estimated power in firmware-native units
+ *
+ * This function allows drivers to access SCMI power estimates by direct
+ * domain ID, bypassing the genpd binding requirement. Useful for devices
+ * that are not attached to SCMI perf domain via power-domains property.
+ *
+ * Returns 0 on success, or negative error.
+ */
+int scmi_perf_domain_est_power_by_id(u32 domain_id, unsigned long *rate,
+				      unsigned long *power)
+{
+	if (!global_perf_ops)
+		return -ENODEV;
+
+	return global_perf_ops->est_power_get(global_ph, domain_id, rate, power);
+}
+EXPORT_SYMBOL_GPL(scmi_perf_domain_est_power_by_id);
+
+/**
+ * scmi_perf_domain_power_scale_by_id() - Get power scale by domain ID
+ * @domain_id: SCMI performance domain ID
+ *
+ * Returns the power scale enum, or SCMI_POWER_BOGOWATTS on error.
+ */
+enum scmi_power_scale scmi_perf_domain_power_scale_by_id(u32 domain_id)
+{
+	if (!global_perf_ops)
+		return SCMI_POWER_BOGOWATTS;
+
+	return global_perf_ops->power_scale_get(global_ph);
+}
+EXPORT_SYMBOL_GPL(scmi_perf_domain_power_scale_by_id);
 
 module_scmi_driver(scmi_perf_domain_driver);
 
