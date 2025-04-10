@@ -20,6 +20,7 @@
 #include "fw/api/datapath.h"
 #include "fw/api/rx.h"
 #include "fw/api/rs.h"
+#include "fw/api/tx.h"
 #include "fw/api/context.h"
 #include "fw/api/coex.h"
 #include "fw/api/location.h"
@@ -98,6 +99,54 @@
  */
 
 #define IWL_MLD_MAX_ADDRESSES		5
+
+struct iwl_mld_ethtool_stats {
+	u64 tx_bytes_nic; /* successful tx bytes */
+
+	u64 tx_mpdu_attempts; /* counting any retries */
+	u64 tx_mpdu_fail; /* Failed even after retry */
+	u64 tx_mpdu_retry; /* Number of times frames were retried */
+
+	unsigned long txo_tx_mpdu_attempts; /* counting any retries, txo frames */
+	unsigned long txo_tx_mpdu_fail; /* frames that failed even after retry, txo frames */
+	unsigned long txo_tx_mpdu_ok; /* tx frames */
+	unsigned long txo_tx_mpdu_retry; /* number of times frames were retried, txo frames */
+
+	/* maps to iwl_tx_status enum
+	 * (TX_STATUS_INTERNAL_ABORT + 1) gathers all larger values.
+	 */
+	u64 tx_status_counts[TX_STATUS_INTERNAL_ABORT + 2];
+
+	u64 tx_cck;
+	u64 tx_ofdm;
+	u64 tx_ht;
+	u64 tx_vht;
+	u64 tx_he;
+	u64 tx_eht;
+
+	u64 tx_he_type[4]; /* su, ext_su, mu, trig */
+	u64 tx_ampdu_len[15];
+	u64 tx_bw[5]; /* 20, 40, 80, 160, 320 */
+	u64 tx_bw_106_tone;
+	u64 tx_mcs[14]; /* mcs 0 to mcs 13 */
+	u64 tx_nss[2]; /* tx nss histogram */
+
+	u64 rx_pkts; /* successful rx skb */
+	u64 rx_bytes_nic; /* successful tx bytes */
+	u64 rx_crc_err;
+	u64 rx_fifo_underrun;
+	u64 rx_failed_decrypt;
+	u64 rx_dup;
+	u64 rx_bad_header_len;
+
+	u64 rx_mode[6]; /* cck, ofdm, ht, vht, he, eht */
+	u64 rx_he_type[4]; /* su, ext_su, mu, trig */
+	u64 rx_bw[5]; /* 20, 40, 80, 160, 320 */
+	u64 rx_bw_he_ru;
+	u64 rx_mcs[14]; /* mcs 0 to mcs 13 */
+	u64 rx_ampdu_len[15];
+	u64 rx_nss[2]; /* rx nss histogram */
+};
 
 /**
  * struct iwl_mld - MLD op mode
@@ -211,6 +260,7 @@ struct iwl_mld {
 		u8 num_igtks;
 		struct {
 			bool on;
+			u32 rx_this_ampdu_count;
 			u32 ampdu_ref;
 			bool ampdu_toggle;
 			u8 p80;
@@ -311,6 +361,7 @@ struct iwl_mld {
 	struct iwl_mld_time_sync_data __rcu *time_sync;
 
 	struct ftm_initiator_data ftm_initiator;
+	struct iwl_mld_ethtool_stats ethtool_stats;
 };
 
 /* memset the part of the struct that requires cleanup on restart */
