@@ -26,6 +26,7 @@ struct iwl_mld_chanctx_usage_data {
 	struct iwl_mld *mld;
 	struct ieee80211_chanctx_conf *ctx;
 	bool use_def;
+	int idx;
 };
 
 static bool iwl_mld_chanctx_fils_enabled(struct ieee80211_vif *vif,
@@ -58,6 +59,21 @@ static void iwl_mld_chanctx_usage_iter(void *_data, u8 *mac,
 	}
 }
 
+static void iwl_mld_chanctx_find_iter(void *_data, u8 *mac,
+				      struct ieee80211_vif *vif)
+{
+	struct iwl_mld_chanctx_usage_data *data = _data;
+	struct ieee80211_bss_conf *link_conf;
+	int link_id;
+
+	for_each_vif_active_link(vif, link_conf, link_id) {
+		if (link_id == data->idx) {
+			data->ctx = rcu_access_pointer(link_conf->chanctx_conf);
+			break;
+		}
+	}
+}
+
 struct cfg80211_chan_def *
 iwl_mld_get_chandef_from_chanctx(struct iwl_mld *mld,
 				 struct ieee80211_chanctx_conf *ctx)
@@ -73,6 +89,22 @@ iwl_mld_get_chandef_from_chanctx(struct iwl_mld *mld,
 						&data);
 
 	return data.use_def ? &ctx->def : &ctx->min_def;
+}
+
+struct ieee80211_chanctx_conf *
+iwl_mld_get_chanctx_by_idx(struct iwl_mld *mld, int idx)
+{
+	struct iwl_mld_chanctx_usage_data data = {
+		.mld = mld,
+		.idx = idx,
+	};
+
+	ieee80211_iterate_active_interfaces_mtx(mld->hw,
+						IEEE80211_IFACE_ITER_NORMAL,
+						iwl_mld_chanctx_find_iter,
+						&data);
+
+	return data.ctx;
 }
 
 static u8

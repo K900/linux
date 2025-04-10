@@ -26,8 +26,14 @@ struct iwl_mld_phy {
 		struct cfg80211_chan_def chandef;
 	);
 	/* And here fields that survive a hw restart */
+	u32 channel_load;
 	u32 channel_load_by_us;
 	u32 avg_channel_load_not_by_us;
+
+	u64 channel_time_accum; /* in jiffies */
+	u64 channel_busy_accum; /* in jiffies */
+	u64 last_jiffies; /* last time we accumulated the above */
+
 	struct iwl_mld *mld;
 };
 
@@ -51,6 +57,8 @@ struct cfg80211_chan_def *
 iwl_mld_get_chandef_from_chanctx(struct iwl_mld *mld,
 				 struct ieee80211_chanctx_conf *ctx);
 u8 iwl_mld_get_fw_ctrl_pos(const struct cfg80211_chan_def *chandef);
+struct ieee80211_chanctx_conf *
+iwl_mld_get_chanctx_by_idx(struct iwl_mld *mld, int idx);
 
 int iwl_mld_send_phy_cfg_cmd(struct iwl_mld *mld);
 
