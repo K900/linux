@@ -1230,7 +1230,7 @@ static ssize_t _iwl_dbgfs_fixed_rate_write(struct iwl_mld *mld, char *buf,
 	ret = iwl_mld_send_tlc_dhc(mld, fw_sta_id,
 				   partial ? IWL_TLC_DEBUG_PARTIAL_FIXED_RATE :
 					     IWL_TLC_DEBUG_FIXED_RATE,
-				   rate);
+				   rate, 0);
 
 	rs_pretty_print_rate(pretty_rate, sizeof(pretty_rate), rate);
 
@@ -1259,7 +1259,7 @@ static ssize_t iwl_dbgfs_link_sta_tlc_dhc_write(struct iwl_mld *mld, char *buf,
 {
 	struct ieee80211_link_sta *link_sta = data;
 	struct iwl_mld_link_sta *mld_link_sta;
-	u32 type, value;
+	u32 type, value, val2 = 0;
 	int ret;
 	u8 fw_sta_id;
 
@@ -1269,15 +1269,15 @@ static ssize_t iwl_dbgfs_link_sta_tlc_dhc_write(struct iwl_mld *mld, char *buf,
 
 	fw_sta_id = mld_link_sta->fw_id;
 
-	if (sscanf(buf, "%i %i", &type, &value) != 2) {
-		IWL_DEBUG_RATE(mld, "usage <type> <value>\n");
+	if (sscanf(buf, "%i %i %i", &type, &value, &val2) != 2) {
+		IWL_DEBUG_RATE(mld, "usage <type> <value> <value2>\n");
 		return -EINVAL;
 	}
 
 	if (iwl_mld_dbgfs_fw_cmd_disabled(mld))
 		return -EIO;
 
-	ret = iwl_mld_send_tlc_dhc(mld, fw_sta_id, type, value);
+	ret = iwl_mld_send_tlc_dhc(mld, fw_sta_id, type, value, val2);
 
 	return ret ? : count;
 }
