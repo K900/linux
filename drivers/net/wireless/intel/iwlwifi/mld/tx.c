@@ -1485,6 +1485,17 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 
 	mld_sta = iwl_mld_sta_from_mac80211(link_sta->sta);
 
+	{
+		/* Save last tx rate_n_flags for per-link reporting.
+		 */
+		struct iwl_mld_vif *mld_vif =
+			iwl_mld_vif_from_mac80211(mld_sta->vif);
+		struct iwl_mld_link *link;
+
+		link = mld_vif->link[link_sta->link_id];
+		link->last_tx_rate_n_flags = le32_to_cpu(tx_resp->initial_rate);
+	}
+
 	if (tx_failure && mld_sta->sta_state < IEEE80211_STA_AUTHORIZED)
 		iwl_mld_toggle_tx_ant(mld, &mld_sta->data_tx_ant);
 

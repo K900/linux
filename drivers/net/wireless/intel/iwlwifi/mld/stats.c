@@ -173,15 +173,12 @@ int iwl_mld_request_periodic_fw_stats(struct iwl_mld *mld, bool enable)
 	return iwl_mld_send_fw_stats_cmd(mld, cfg_mask, cfg_time, type_mask);
 }
 
-static void iwl_mld_sta_stats_fill_txrate(struct iwl_mld_sta *mld_sta,
-					  struct station_info *sinfo)
+/* Map rate_n_flags into struct rate_info */
+static void iwl_mld_set_sta_rate(u32 rate_n_flags,
+				 struct rate_info *rinfo)
 {
-	struct rate_info *rinfo = &sinfo->txrate;
-	u32 rate_n_flags = mld_sta->deflink.last_rate_n_flags;
 	u32 format = rate_n_flags & RATE_MCS_MOD_TYPE_MSK;
 	u32 gi_ltf;
-
-	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
 
 	switch (rate_n_flags & RATE_MCS_CHAN_WIDTH_MSK) {
 	case RATE_MCS_CHAN_WIDTH_20:
@@ -313,6 +310,17 @@ static void iwl_mld_sta_stats_fill_txrate(struct iwl_mld_sta *mld_sta,
 	}
 }
 
+static void iwl_mld_sta_stats_fill_txrate(struct iwl_mld_sta *mld_sta,
+					  struct station_info *sinfo)
+{
+	struct rate_info *rinfo = &sinfo->txrate;
+	u32 rate_n_flags = mld_sta->deflink.last_rate_n_flags;
+
+	iwl_mld_set_sta_rate(rate_n_flags, rinfo);
+
+	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
+}
+
 static void iwl_mld_sta_stats_fill_beacon_signal_avg(struct ieee80211_vif *vif,
 						     struct station_info *sinfo)
 {
@@ -354,6 +362,7 @@ void iwl_mld_mac80211_sta_statistics(struct ieee80211_hw *hw,
 {
 	struct iwl_mld_sta *mld_sta = iwl_mld_sta_from_mac80211(sta);
 	struct iwl_mld_vif *mld_vif = iwl_mld_vif_from_mac80211(vif);
+	struct iwl_mld_link *link;
 
 	/* Grab chain signal avg, mac80211 cannot do it because
 	 * this driver uses RSS.  Grab signal_avg here too because firmware
@@ -372,6 +381,19 @@ void iwl_mld_mac80211_sta_statistics(struct ieee80211_hw *hw,
 	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG);
 	sinfo->chain_signal_avg[0] = -ewma_signal_read(&mld_sta->rx_avg_chain_signal[0]);
 	sinfo->chain_signal_avg[1] = -ewma_signal_read(&mld_sta->rx_avg_chain_signal[1]);
+
+	for_each_mld_vif_valid_link(mld_vif, link) {
+		struct link_station_info *ilink;
+
+		ilink = sinfo->links[link_id];
+
+		ilink->filled |= BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG);
+		ilink->rx_beacon_signal_avg =
+			-ewma_signal_read(&link->rx_avg_beacon_signal);
+
+		iwl_mld_set_sta_rate(link->last_tx_rate_n_flags, &ilink->txrate);
+		ilink->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
+	}
 
 	/* This API is not EMLSR ready, so we cannot provide complete
 	 * information if EMLSR is active

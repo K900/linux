@@ -90,6 +90,7 @@ struct iwl_mld_link {
 	bool silent_deactivation;
 	struct iwl_probe_resp_data __rcu *probe_resp_data;
 
+	u32 last_tx_rate_n_flags;
 	struct {
 		s8 avg_signal;
 	} beacon_stats;
