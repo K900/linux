@@ -6,20 +6,8 @@ Revert "iwlwifi: mvm: disable RX-diversity in powersave"
 iwlwifi: Added block_traffic debugfs file ...
   # Will let Rory do this one.
 
-wifi: iwlwifi: fixed average per-chain RSSI reporting for rxmq path
-  # Needs doing I imagine.
-
 wifi: iwlwifi: add esr into debugfs
   # Maybe not needed.
 
 wifi: iwlwifi: use phy-ctx channel laod if no ies
   # Skipping, maybe not needed in mld driver
-
-iwlwifi:  Use driver rssi stats to determine link RSSI
-  #  Probably needs doing, after 'rx signal improvements' above.
-
-wifi:  Report per-link beacon avg rssi
-  # Needs doing.
-
-wifi:  Support per link tx-rate in station_info logic.
-  # Needs doing
