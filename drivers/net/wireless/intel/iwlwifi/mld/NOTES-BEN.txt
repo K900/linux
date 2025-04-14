@@ -3,9 +3,6 @@ mvm patches that are not ported to mld, but probably should be:
 Revert "iwlwifi: mvm: disable RX-diversity in powersave"
   #  Not sure on this one.
 
-iwlwifi: RX signal improvements.
-  # NOTE:  mld driver has disable_bf debugfs entry already.
-
 iwlwifi: Added block_traffic debugfs file ...
   # Will let Rory do this one.
 
