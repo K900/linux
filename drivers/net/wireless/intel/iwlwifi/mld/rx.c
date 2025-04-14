@@ -1538,6 +1538,11 @@ static void iwl_mld_rx_fill_status(struct iwl_mld *mld, int link_id,
 
 	if (phy_data->ntfy)
 		iwl_mld_add_rtap_sniffer_phy_data(mld, skb, phy_data->ntfy);
+
+	/* Depends on rx_status->nss being configured properly, call this at
+	 * bottom of this method.
+	 */
+	iwl_mld_fill_signal(mld, link_id, hdr, rx_status, phy_data);
 }
 
 /* iwl_mld_create_skb adds the rxb to a new skb */
