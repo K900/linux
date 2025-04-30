@@ -5430,7 +5430,8 @@ static int ath10k_config_retry_limit(struct ath10k *ar, int limit)
 		 */
 		ath10k_warn(ar, "Firmware lacks feature flag indicating a retry limit of > 2 is OK, requested limit: %d\n",
 			    limit);
-		return -EINVAL;
+		/* Leave it at whatever firmware uses for defaults. */
+		return 0;
 	}
 
 	list_for_each_entry(arvif, &ar->arvifs, list) {
