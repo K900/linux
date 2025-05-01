@@ -2026,43 +2026,70 @@ mt7996_set_coverage_class(struct ieee80211_hw *hw, int radio_idx,
 	mutex_unlock(&dev->mt76.mutex);
 }
 
+static int mt7996_do_set_tx_ant(int cfg_radio_id, int actual_radio_id,
+				struct mt7996_dev *dev,
+				struct mt7996_phy *phy, u32 _tx_ant, u32 rx_ant)
+{
+	u8 band_idx = phy->mt76->band_idx;
+	u8 shift = dev->chainshift[band_idx];
+	u32 tx_ant = _tx_ant;
+
+	if (cfg_radio_id == -1) {
+		/* Setting all radios.  If user specified only antennas for band 0,
+		 * then assume they want same for each band.
+		 */
+		if (tx_ant <= 0xf)
+			tx_ant = tx_ant << shift;
+	} else {
+		tx_ant = tx_ant << shift;
+	}
+
+	if (!(tx_ant & phy->orig_chainmask)) {
+		pr_info("ERROR: mt7996-set-antenna,  cfg-radio-id: %d actual-id: %d tx_ant: 0x%x  orig-chainmask: 0x%x band-idx: %d shift: %d\n",
+			cfg_radio_id, actual_radio_id, tx_ant, phy->orig_chainmask, band_idx, shift);
+		return -EINVAL;
+	}
+
+	phy->mt76->chainmask = tx_ant & phy->orig_chainmask;
+	phy->mt76->antenna_mask = (phy->mt76->chainmask >> shift) &
+				   phy->orig_antenna_mask;
+
+	mt76_set_stream_caps(phy->mt76, true);
+	mt7996_set_stream_vht_txbf_caps(phy);
+	mt7996_set_stream_he_eht_caps(phy);
+	mt7996_mcu_set_txpower_sku(phy);
+
+	return 0;
+}
+
 static int
 mt7996_set_antenna(struct ieee80211_hw *hw, int radio_idx,
 		   u32 tx_ant, u32 rx_ant)
 {
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	int i;
+	int rv = 0;
 
 	if (tx_ant != rx_ant)
 		return -EINVAL;
 
-	for (i = 0; i < hw->wiphy->n_radio; i++) {
-		struct mt7996_phy *phy = dev->radio_phy[i];
-
-		if (!(tx_ant & phy->orig_chainmask))
-			return -EINVAL;
-	}
-
 	mutex_lock(&dev->mt76.mutex);
 
-	for (i = 0; i < hw->wiphy->n_radio; i++) {
-		struct mt7996_phy *phy = dev->radio_phy[i];
-		u8 band_idx = phy->mt76->band_idx;
-		u8 shift = dev->chainshift[band_idx];
+	if (radio_idx == -1) {
+		for (i = 0; i < hw->wiphy->n_radio; i++) {
+			struct mt7996_phy *phy = dev->radio_phy[i];
 
-		phy->mt76->chainmask = tx_ant & phy->orig_chainmask;
-		phy->mt76->antenna_mask = (phy->mt76->chainmask >> shift) &
-					  phy->orig_antenna_mask;
+			rv |= mt7996_do_set_tx_ant(radio_idx, i, dev, phy, tx_ant, rx_ant);
+		}
+	} else {
+		struct mt7996_phy *phy = dev->radio_phy[radio_idx];
 
-		mt76_set_stream_caps(phy->mt76, true);
-		mt7996_set_stream_vht_txbf_caps(phy);
-		mt7996_set_stream_he_eht_caps(phy);
-		mt7996_mcu_set_txpower_sku(phy);
+		rv |= mt7996_do_set_tx_ant(radio_idx, radio_idx, dev, phy, tx_ant, rx_ant);
 	}
 
 	mutex_unlock(&dev->mt76.mutex);
 
-	return 0;
+	return rv;
 }
 
 static void mt7996_sta_statistics(struct ieee80211_hw *hw,
