@@ -1,0 +1,49 @@
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index eb4a2f0abaa1..5374e01c1112 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -9644,15 +9644,18 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
+			chan = ieee80211_get_channel_khz(wiphy, freq);
+			if (!chan) {
+				err = -EINVAL;
+-				pr_info("scan: get-channel failed, freq: %d\n",
+-				       freq);
++				pr_info("%s scan: get-channel failed, freq: %d\n",
++					wiphy_name(wiphy), freq);
+				goto out_free;
+			}
+
+			/* ignore disabled channels */
+			if (chan->flags & IEEE80211_CHAN_DISABLED ||
+-			    !cfg80211_wdev_channel_allowed(wdev, chan))
++			    !cfg80211_wdev_channel_allowed(wdev, chan)) {
++				pr_info("%s: scan: skipping disabled channel: %d\n",
++					wiphy_name(wiphy), chan->center_freq);
+				continue;
++			}
+
+			request->channels[i] = chan;
+			i++;
+@@ -9672,8 +9675,11 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
+				chan = &wiphy->bands[band]->channels[j];
+
+				if (chan->flags & IEEE80211_CHAN_DISABLED ||
+-				    !cfg80211_wdev_channel_allowed(wdev, chan))
++				    !cfg80211_wdev_channel_allowed(wdev, chan)) {
++					pr_info("%s: scan: band: %d skipping disabled channel: %d\n",
++						wiphy_name(wiphy), band, chan->center_freq);
+					continue;
++				}
+
+				request->channels[i] = chan;
+				i++;
+@@ -9682,7 +9688,8 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
+	}
+
+	if (!i) {
+-		pr_err("scan:  No scannable channels found.\n");
++		pr_err("scan:  No scannable channels found, scan-freqs: %p.\n",
++		       scan_freqs);
+		err = -EINVAL;
+		goto out_free;
+	}
