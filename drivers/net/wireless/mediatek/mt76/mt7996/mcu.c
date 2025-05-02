@@ -6961,6 +6961,7 @@ int mt7996_mcu_edcca_threshold_ctrl(struct mt7996_phy *phy, u8 *value, bool set)
 		__le16 len;
 		u8 threshold[4];
 		bool init;
+		u8 _rsv2[3];
 	} __packed *res, req = {
 		.band_idx = phy->mt76->band_idx,
 		.tag = cpu_to_le16(UNI_BAND_CONFIG_EDCCA_THRESHOLD),
