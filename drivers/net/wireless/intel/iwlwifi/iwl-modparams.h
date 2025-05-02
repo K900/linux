@@ -66,6 +66,7 @@ enum iwl_uapsd_disable {
  * @disable_11be: disable EHT capabilities, default = false.
  * @wbem_override: Override the WBEM value read from ACPI.
  * @dsm_override: Override any DSM value read from ACPI or BIOS.
+ * @allow_puncturing:  Force allow puncturing in US and CAN regdom.
  */
 struct iwl_mod_params {
 	int swcrypto;
@@ -79,6 +80,7 @@ struct iwl_mod_params {
 #ifdef CONFIG_IWLWIFI_DEBUG
 	u32 debug_level;
 #endif
+	int allow_puncturing;
 	char *nvm_file;
 	u32 uapsd_disable;
 	bool disable_11ac;
