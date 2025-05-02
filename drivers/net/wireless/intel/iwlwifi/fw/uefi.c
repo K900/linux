@@ -975,6 +975,9 @@ int iwl_uefi_get_puncturing(struct iwl_fw_runtime *fwrt)
 	 */
 	int puncturing = 0;
 
+	if (iwlwifi_mod_params.allow_puncturing)
+		return IWL_UEFI_CNV_PUNCTURING_USA_EN_MSK | IWL_UEFI_CNV_PUNCTURING_CANADA_EN_MSK;
+
 	data = iwl_uefi_get_verified_variable(fwrt->trans,
 					      IWL_UEFI_PUNCTURING_NAME,
 					      "UefiCnvWlanPuncturing",

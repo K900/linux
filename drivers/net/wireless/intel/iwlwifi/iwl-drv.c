@@ -2056,6 +2056,7 @@ struct iwl_mod_params iwlwifi_mod_params = {
 	.power_level = IWL_POWER_INDEX_1,
 	.uapsd_disable = IWL_DISABLE_UAPSD_BSS | IWL_DISABLE_UAPSD_P2P_CLIENT,
 	.enable_ini = ENABLE_INI,
+	.allow_puncturing = 1, /* For US/CA regdom, testing purposes. */
 	/* the rest are 0 by default */
 };
 IWL_EXPORT_SYMBOL(iwlwifi_mod_params);
@@ -2147,6 +2148,9 @@ module_exit(iwl_drv_exit);
 module_param_named(debug, iwlwifi_mod_params.debug_level, uint, 0644);
 MODULE_PARM_DESC(debug, "debug output mask");
 #endif
+
+module_param_named(allow_puncturing, iwlwifi_mod_params.allow_puncturing, uint, 0444);
+MODULE_PARM_DESC(allow_puncturing, "Allow puncturing in US/CAN regdomains");
 
 module_param_named(swcrypto, iwlwifi_mod_params.swcrypto, int, 0444);
 MODULE_PARM_DESC(swcrypto, "using crypto in software (default 0 [hardware])");
