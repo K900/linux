@@ -6178,18 +6178,31 @@ static int mt7996_mcu_set_scs_stats(struct mt7996_phy *phy)
 static void mt7996_sta_rssi_work(void *data, struct ieee80211_sta *sta)
 {
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
-	struct mt7996_sta_link *msta_link;
 	struct mt7996_phy *poll_phy = (struct mt7996_phy *)data;
+	struct mt7996_vif *mvif = msta->vif;
+	struct ieee80211_link_sta *link_sta;
+	struct ieee80211_vif *vif;
+	unsigned int link_id;
 
-	mutex_lock(&poll_phy->dev->mt76.mutex);
-	msta_link = mt76_dereference(msta->link[0], &poll_phy->dev->mt76);
-	if (!msta_link)
-		goto out;
+	vif = container_of((void *)mvif, struct ieee80211_vif, drv_priv);
 
-	if (poll_phy->scs_ctrl.sta_min_rssi > msta_link->ack_signal)
-		poll_phy->scs_ctrl.sta_min_rssi = msta_link->ack_signal;
-out:
-	mutex_unlock(&poll_phy->dev->mt76.mutex);
+	rcu_read_lock();
+	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+		struct mt7996_sta_link *msta_link;
+
+		msta_link = rcu_dereference(msta->link[link_id]);
+		if (!msta_link)
+			continue;
+
+		if (msta_link->wcid.phy_idx != poll_phy->mt76->band_idx)
+			continue;
+
+		if (poll_phy->scs_ctrl.sta_min_rssi > msta_link->ack_signal)
+			poll_phy->scs_ctrl.sta_min_rssi = msta_link->ack_signal;
+
+		break;
+	}
+	rcu_read_unlock();
 }
 
 void mt7996_mcu_scs_sta_poll(struct work_struct *work)
