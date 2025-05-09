@@ -217,6 +217,7 @@ static void ath_txq_skb_done(struct ath_softc *sc, struct sk_buff *skb)
 	if (q < 0)
 		return;
 
+	txq = sc->tx.txq_map[q];
 	if (--txq->pending_frames < 0) {
 		struct ath_common *common = ath9k_hw_common(sc->sc_ah);
 		if (net_ratelimit())
