@@ -319,8 +319,11 @@ ieee80211_determine_ap_chan(struct ieee80211_sub_if_data *sdata,
 
 	ieee80211_chandef_ht_oper(ht_oper, chandef);
 
-	if (conn->mode < IEEE80211_CONN_MODE_VHT)
+	if (conn->mode < IEEE80211_CONN_MODE_VHT) {
+		sdata_info(sdata,
+			   "Connection does not support VHT, falling back to HT\n");
 		return IEEE80211_CONN_MODE_HT;
+	}
 
 	vht_chandef = *chandef;
 
@@ -351,8 +354,6 @@ ieee80211_determine_ap_chan(struct ieee80211_sub_if_data *sdata,
 		if (sband->band == NL80211_BAND_5GHZ)
 			return IEEE80211_CONN_MODE_HT;
 		no_vht = true;
-	} else if (sband->band == NL80211_BAND_2GHZ) {
-		no_vht = true;
 	} else if (!ieee80211_chandef_vht_oper(&sdata->local->hw,
 					       data->vht_cap_info,
 					       vht_oper, ht_oper,
@@ -373,8 +374,11 @@ ieee80211_determine_ap_chan(struct ieee80211_sub_if_data *sdata,
 	/* stick to current max mode if we or the AP don't have HE */
 	if (conn->mode < IEEE80211_CONN_MODE_HE ||
 	    !elems->he_operation || !elems->he_cap) {
-		if (no_vht)
+		if (no_vht) {
+			sdata_info(sdata,
+				   "VHT unsupported, falling back to HT\n");
 			return IEEE80211_CONN_MODE_HT;
+		}
 		return IEEE80211_CONN_MODE_VHT;
 	}
 
@@ -1227,6 +1231,9 @@ ieee80211_determine_chan_mode(struct ieee80211_sub_if_data *sdata,
 	int ret;
 
 again:
+	mlme_link_id_dbg(sdata, link_id, "local STA is %s, determining AP...\n",
+			 ieee80211_conn_mode_str(conn->mode));
+
 	parse_params.mode = conn->mode;
 	elems = ieee802_11_parse_elems_full(&parse_params);
 	if (!elems)
