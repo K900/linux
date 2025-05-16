@@ -18,6 +18,22 @@ bool mt7921_disable_deep_sleep;
 module_param_named(disable_deep_sleep, mt7921_disable_deep_sleep, bool, 0644);
 MODULE_PARM_DESC(disable_deep_sleep, "disable runtime deep-sleep");
 
+static u32 mt7921_debug_lvl = MTK_DEBUG_FATAL | MTK_DEBUG_WRN;
+module_param_named(debug_lvl, mt7921_debug_lvl, uint, 0644);
+MODULE_PARM_DESC(debug_lvl,
+		 "Enable debugging messages\n"
+		 "0x00001	tx path\n"
+		 "0x00002	tx path verbose\n"
+		 "0x00004	fatal/very-important messages\n"
+		 "0x00008	warning messages\n"
+		 "0x00010	Info about messages to/from firmware\n"
+		 "0x00020	Configuration related\n"
+		 "0x00040	block-ack and aggregation related\n"
+		 "0x00080	verbose rx path\n"
+		 "0x00100	Last n messages to MCU when something goes wrong\n"
+		 "0xffffffff	any/all\n"
+	);
+
 static int
 mt7921_init_he_caps(struct mt792x_phy *phy, enum nl80211_band band,
 		    struct ieee80211_sband_iftype_data *data)
@@ -281,6 +297,8 @@ static int mt7921_start(struct ieee80211_hw *hw)
 {
 	struct mt792x_phy *phy = mt792x_hw_phy(hw);
 	int err;
+
+	phy->dev->mt76.debug_lvl = mt7921_debug_lvl;
 
 	mt792x_mutex_acquire(phy->dev);
 	err = __mt7921_start(phy);
