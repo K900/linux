@@ -9,6 +9,7 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/spinlock.h>
+#include <linux/circ_buf.h>
 #include <linux/skbuff.h>
 #include <linux/leds.h>
 #include <linux/usb.h>
@@ -966,6 +967,20 @@ struct mt76_phy {
 		bool al;
 		u8 pin;
 	} leds;
+
+#define MT76_MCU_DEBUG_N_MSG 8
+#define MT76_MCU_DEBUG_BUF_SIZE 128
+	struct mt76_circ_buf {
+		struct mt76_mcu_buf {
+			u8 message[MT76_MCU_DEBUG_BUF_SIZE];
+			int size;
+			u32 command;
+		} buf[MT76_MCU_DEBUG_BUF_SIZE];
+		int head;
+		int tail;
+	} mcu_debug;
+
+	u8 mcu_poison;
 };
 
 struct mt76_dev {
@@ -1263,6 +1278,7 @@ enum MTK_DEUBG {
 	MTK_DEBUG_CFG		= 0x00000020, /* Configuration related */
 	MTK_DEBUG_BA		= 0x00000040, /* block-ack and aggregation related */
 	MTK_DEBUG_RXV		= 0x00000080, /* verbose rx path */
+	MTK_DEBUG_MCU_DUMP	= 0x00000100, /* Last n messages to MCU when something goes wrong */
 	MTK_DEBUG_ANY		= 0xffffffff
 };
 
@@ -2161,6 +2177,8 @@ mt76_mcu_skb_send_msg(struct mt76_dev *dev, struct sk_buff *skb, int cmd,
 {
 	return mt76_mcu_skb_send_and_get_msg(dev, skb, cmd, wait_resp, NULL);
 }
+
+void mt76_dump_mcu_debug_buf(struct mt76_phy *phy);
 
 void mt76_set_irq_mask(struct mt76_dev *dev, u32 addr, u32 clear, u32 set);
 

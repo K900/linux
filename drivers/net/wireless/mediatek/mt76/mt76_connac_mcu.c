@@ -3238,6 +3238,8 @@ int mt76_connac2_mcu_fill_message(struct mt76_dev *dev, struct sk_buff *skb,
 	int txd_len, mcu_cmd = FIELD_GET(__MCU_CMD_FIELD_ID, cmd);
 	struct mt76_connac2_mcu_uni_txd *uni_txd;
 	struct mt76_connac2_mcu_txd *mcu_txd;
+	struct mt76_circ_buf *mcu_debug = &dev->phy.mcu_debug;
+	struct mt76_mcu_buf *mcu_buf = &mcu_debug->buf[mcu_debug->head];
 	__le32 *txd;
 	u32 val;
 	u8 seq;
@@ -3303,6 +3305,16 @@ int mt76_connac2_mcu_fill_message(struct mt76_dev *dev, struct sk_buff *skb,
 exit:
 	if (wait_seq)
 		*wait_seq = seq;
+
+	if (dev->debug_lvl & MTK_DEBUG_MCU_DUMP) {
+		mcu_buf->size = min(MT76_MCU_DEBUG_BUF_SIZE, txd_len);
+		memcpy(mcu_buf->message, txd, mcu_buf->size);
+		mcu_buf->command = cmd;
+
+		mcu_debug->head = (mcu_debug->head + 1) % MT76_MCU_DEBUG_N_MSG;
+		if (mcu_debug->head == mcu_debug->tail)
+			mcu_debug->tail = (mcu_debug->tail + 1) % MT76_MCU_DEBUG_N_MSG;
+	}
 
 	return 0;
 }
