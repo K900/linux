@@ -69,6 +69,45 @@ int mt76_mcu_send_and_get_msg(struct mt76_dev *dev, int cmd, const void *data,
 }
 EXPORT_SYMBOL_GPL(mt76_mcu_send_and_get_msg);
 
+static inline void scan_skb_for(struct sk_buff *skb, u8 target, int how_many) {
+	int in_a_row = 0;
+	for (int i = 0; i < skb->len; i++) {
+		if (skb->data[i] == target)
+			in_a_row++;
+		else
+			in_a_row = 0;
+
+		if (in_a_row >= how_many) {
+			pr_info("Found potentially poisoned buffer (%02hhx, %d in a row)\n",
+			        target, in_a_row);
+			dump_stack_lvl(KERN_INFO);
+			for (int j = 0; j < skb->len; j += 4) {
+				switch ((skb->len - j) % 4) {
+					case 1:
+						pr_info("%02hhx\n", skb->data[j]);
+						break;
+					case 2:
+						pr_info("%02hhx %02hhx\n",
+						        skb->data[j], skb->data[j + 1]);
+						break;
+					case 3:
+						pr_info("%02hhx %02hhx %02hhx\n",
+						        skb->data[j], skb->data[j + 1],
+							skb->data[j + 2]);
+						break;
+					default:
+						pr_info("%02hhx %02hhx %02hhx %02hhx\n",
+						        skb->data[j], skb->data[j + 1],
+							skb->data[j + 2], skb->data[j + 3]);
+						break;
+				}
+			}
+
+			break;
+		}
+	}
+}
+
 int mt76_mcu_skb_send_and_get_msg(struct mt76_dev *dev, struct sk_buff *skb,
 				  int cmd, bool wait_resp,
 				  struct sk_buff **ret_skb)
@@ -102,6 +141,9 @@ retry:
 	if (ret < 0)
 		goto out;
 
+	if (dev->phy.mcu_poison)
+		scan_skb_for(skb, dev->phy.mcu_poison, 1);
+
 	if (!wait_resp) {
 		ret = 0;
 		goto out;
@@ -126,6 +168,8 @@ retry:
 			dev_kfree_skb(skb);
 	} while (ret == -EAGAIN);
 
+	if (ret == -ETIMEDOUT)
+		mt76_dump_mcu_debug_buf(&dev->phy);
 
 out:
 	dev_kfree_skb(orig_skb);
@@ -159,3 +203,26 @@ int __mt76_mcu_send_firmware(struct mt76_dev *dev, int cmd, const void *data,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(__mt76_mcu_send_firmware);
+
+void mt76_dump_mcu_debug_buf(struct mt76_phy *phy) {
+	struct mt76_circ_buf *mcu_debug = &phy->mcu_debug;
+
+	mtk_dbg(phy->dev, MCU_DUMP, "Dumping last %d messages sent to firmware:\n",
+	        CIRC_CNT(mcu_debug->head, mcu_debug->tail, MT76_MCU_DEBUG_N_MSG));
+
+	for (int i = mcu_debug->tail; i != mcu_debug->head; i = (i + 1) % MT76_MCU_DEBUG_N_MSG) {
+		struct mt76_mcu_buf *mcu_buf = &mcu_debug->buf[i];
+		char msg_out_buf[MT76_MCU_DEBUG_BUF_SIZE * 3 + 1];
+		int j;
+
+		for (j = 0; j < mcu_buf->size; j++) {
+			snprintf(msg_out_buf + (3 * j), 4, "%02hhx ", mcu_buf->message[j]);
+		}
+
+		msg_out_buf[j * 3] = '\0';
+
+		mtk_dbg(phy->dev, MCU_DUMP, "cmd: %08x  size: %d  msg (hex, LE): %s\n",
+		        mcu_buf->command, mcu_buf->size, msg_out_buf);
+	}
+}
+EXPORT_SYMBOL_GPL(mt76_dump_mcu_debug_buf);
