@@ -17,6 +17,10 @@ MODULE_PARM_DESC(debug_lvl,
 		 "0x00004	fatal/very-important messages\n"
 		 "0x00008	warning messages\n"
 		 "0x00010	Info about messages to/from firmware\n"
+		 "0x00020	Configuration related\n"
+		 "0x00040	block-ack and aggregation related\n"
+		 "0x00080	verbose rx path\n"
+		 "0x00100	Last n messages to MCU when something goes wrong\n"
 		 "0xffffffff	any/all\n"
 	);
 
