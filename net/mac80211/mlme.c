@@ -6598,13 +6598,13 @@ ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 	}
 
 	/* VHT - if we have - is fine, including 80 MHz, check 160 below again */
-	if (sband->band != NL80211_BAND_2GHZ) {
-		conn->bw_limit = IEEE80211_CONN_BW_LIMIT_160;
-	}
-	else {
+	if (vht_cap.vht_supported) {
+		conn->mode = IEEE80211_CONN_MODE_VHT;
 		conn->bw_limit = IEEE80211_CONN_BW_LIMIT_40;
 	}
-	conn->mode = IEEE80211_CONN_MODE_VHT;
+
+	if (sband->band != NL80211_BAND_2GHZ)
+		conn->bw_limit = IEEE80211_CONN_BW_LIMIT_160;
 
 	if (is_5ghz &&
 	    !(vht_cap.cap & (IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ |
