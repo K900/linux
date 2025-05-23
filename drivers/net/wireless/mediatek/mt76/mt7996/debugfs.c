@@ -115,15 +115,17 @@ mt7996_sys_recovery_set(struct file *file, const char __user *user_buf,
 	/* WARNING: trigger firmware crash */
 	case UNI_CMD_SER_SET_SYSTEM_ASSERT:
 		// trigger wm assert exception
-		ret = mt7996_mcu_trigger_assert(dev);
-		if (ret)
-			return ret;
+		mt76_wr(dev, 0x89018108, 0x20);
+		mt76_wr(dev, 0x89018118, 0x20);
 		// trigger wa assert exception
-		mt76_wr(dev, 0x89098108, 0x20);
-		mt76_wr(dev, 0x89098118, 0x20);
+		if (mt7996_has_wa(dev)) {
+			mt76_wr(dev, 0x89098108, 0x20);
+			mt76_wr(dev, 0x89098118, 0x20);
+		}
 		break;
 	case UNI_CMD_SER_FW_COREDUMP_WA:
-		mt7996_coredump(dev, MT7996_COREDUMP_MANUAL_WA);
+		if (mt7996_has_wa(dev))
+			mt7996_coredump(dev, MT7996_COREDUMP_MANUAL_WA);
 		break;
 	case UNI_CMD_SER_FW_COREDUMP_WM:
 		mt7996_coredump(dev, MT7996_COREDUMP_MANUAL_WM);

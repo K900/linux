@@ -105,6 +105,49 @@ static const struct mt7996_mem_region mt7992_wm_mem_regions[] = {
 	},
 };
 
+static const struct mt7996_mem_region mt7990_wm_mem_regions[] = {
+	{
+		.start = 0x00800000,
+		.len = 0x0004afff,
+		.name = "ULM0",
+	},
+	{
+		.start = 0x00900000,
+		.len = 0x0003ffff,
+		.name = "ULM1",
+	},
+	{
+		.start = 0x02200000,
+		.len = 0x00045fff,
+		.name = "ULM2",
+	},
+	{
+		.start = 0x00400000,
+		.len = 0x00027fff,
+		.name = "SRAM",
+	},
+	{
+		.start = 0xe0000000,
+		.len = 0x00dffff,
+		.name = "CRAM0",
+	},
+	{
+		.start = 0xe00e0000,
+		.len = 0x00dffff,
+		.name = "CRAM1",
+	},
+	{
+		.start = 0xe01c0000,
+		.len = 0x005ffff,
+		.name = "CRAM2",
+	},
+	{
+		.start = 0x7c050000,
+		.len = 0x00007fff,
+		.name = "CONN_INFRA",
+	},
+};
+
 const struct mt7996_mem_region*
 mt7996_coredump_get_mem_layout(struct mt7996_dev *dev, u8 type, u32 *num)
 {
@@ -127,7 +170,10 @@ mt7996_coredump_get_mem_layout(struct mt7996_dev *dev, u8 type, u32 *num)
 		*num = ARRAY_SIZE(mt7992_wm_mem_regions);
 		return &mt7992_wm_mem_regions[0];
 	case MT7990_DEVICE_ID:
-		/* Todo: add mt7990 support */
+		if (type == MT7996_RAM_TYPE_WA)
+			return NULL;
+		*num = ARRAY_SIZE(mt7990_wm_mem_regions);
+		return &mt7990_wm_mem_regions[0];
 	default:
 		return NULL;
 	}
@@ -176,12 +222,32 @@ static void
 mt7996_coredump_fw_state(struct mt7996_dev *dev, u8 type, struct mt7996_coredump *dump,
 			 bool *exception)
 {
-	u32 count, reg = MT_FW_WM_DUMP_STATE;
+	u32 count, coredump_reg;
 
-	if (type == MT7996_RAM_TYPE_WA)
-		reg = MT_FW_WA_DUMP_STATE;
+	switch (mt76_chip(&dev->mt76)) {
+	case MT7996_DEVICE_ID:
+	case MT7996_DEVICE_ID_2:
+		if (type == MT7996_RAM_TYPE_WA)
+			coredump_reg = mt76_rr(dev, 0x7c05b080) + 4;
+		else
+			coredump_reg = 0x02209e90;
+		break;
+	case MT7992_DEVICE_ID:
+		if (type == MT7996_RAM_TYPE_WA)
+			coredump_reg = mt76_rr(dev, 0x7c056480) + 4;
+		else
+			coredump_reg = mt76_rr(dev, 0x7c0564a8) + 4;
+		break;
+	case MT7990_DEVICE_ID:
+		coredump_reg = mt76_rr(dev, 0x7c0564a8) + 4;
+		break;
+	default:
+		dev_info(dev->mt76.dev, "%s coredump not supported\n",
+			 wiphy_name(dev->mt76.hw->wiphy));
+		return;
+	}
 
-	count = mt76_rr(dev, reg);
+	count = mt76_rr(dev, coredump_reg);
 
 	/* normal mode: driver can manually trigger assert for detail info */
 	if (!count)
@@ -199,7 +265,8 @@ mt7996_coredump_fw_stack(struct mt7996_dev *dev, u8 type, struct mt7996_coredump
 	u32 reg, i, offset = 0, val = MT7996_RAM_TYPE_WM;
 
 	if (type == MT7996_RAM_TYPE_WA) {
-		offset = MT_MCU_WA_EXCP_BASE - MT_MCU_WM_EXCP_BASE;
+		offset = is_mt7996(&dev->mt76) ?
+			 (MT_MCU_WA_EXCP_BASE - MT_MCU_WM_EXCP_BASE) : 0;
 		val = MT7996_RAM_TYPE_WA;
 	}
 
@@ -212,34 +279,42 @@ mt7996_coredump_fw_stack(struct mt7996_dev *dev, u8 type, struct mt7996_coredump
 	for (i = 0; i < 10; i++)
 		dump->pc_cur[i] = mt76_rr(dev, MT_CONN_DBG_CTL_PC_LOG);
 
-	/* stop call stack record */
-	if (!exception) {
-		mt76_clear(dev, MT_MCU_WM_EXCP_PC_CTRL + offset, BIT(0));
-		mt76_clear(dev, MT_MCU_WM_EXCP_LR_CTRL + offset, BIT(0));
-	}
-
 	/* read PC log */
-	dump->pc_dbg_ctrl = mt76_rr(dev, MT_MCU_WM_EXCP_PC_CTRL + offset);
-	dump->pc_cur_idx = FIELD_GET(MT_MCU_WM_EXCP_PC_CTRL_IDX_STATUS,
-				     dump->pc_dbg_ctrl);
-	for (i = 0; i < 32; i++) {
-		reg = MT_MCU_WM_EXCP_PC_LOG + i * 4 + offset;
-		dump->pc_stack[i] = mt76_rr(dev, reg);
-	}
+	if (is_mt7996(&dev->mt76)) {
+		dump->pc_dbg_ctrl = mt76_rr(dev, MT_MCU_WM_EXCP_PC_CTRL + offset);
+		dump->pc_cur_idx = FIELD_GET(MT_MCU_WM_EXCP_PC_CTRL_IDX_STATUS,
+					     dump->pc_dbg_ctrl);
+		for (i = 0; i < 32; i++) {
+			reg = MT_MCU_WM_EXCP_PC_LOG + i * 4 + offset;
+			dump->pc_stack[i] = mt76_rr(dev, reg);
+		}
 
-	/* read LR log */
-	dump->lr_dbg_ctrl = mt76_rr(dev, MT_MCU_WM_EXCP_LR_CTRL + offset);
-	dump->lr_cur_idx = FIELD_GET(MT_MCU_WM_EXCP_LR_CTRL_IDX_STATUS,
-				     dump->lr_dbg_ctrl);
-	for (i = 0; i < 32; i++) {
-		reg = MT_MCU_WM_EXCP_LR_LOG + i * 4 + offset;
-		dump->lr_stack[i] = mt76_rr(dev, reg);
-	}
-
-	/* start call stack record */
-	if (!exception) {
-		mt76_set(dev, MT_MCU_WM_EXCP_PC_CTRL + offset, BIT(0));
-		mt76_set(dev, MT_MCU_WM_EXCP_LR_CTRL + offset, BIT(0));
+		/* read LR log */
+		dump->lr_dbg_ctrl = mt76_rr(dev, MT_MCU_WM_EXCP_LR_CTRL + offset);
+		dump->lr_cur_idx = FIELD_GET(MT_MCU_WM_EXCP_LR_CTRL_IDX_STATUS,
+					     dump->lr_dbg_ctrl);
+		for (i = 0; i < 32; i++) {
+			reg = MT_MCU_WM_EXCP_LR_LOG + i * 4 + offset;
+			dump->lr_stack[i] = mt76_rr(dev, reg);
+		}
+	} else {
+		mt76_wr(dev, MT_CONN_DBG_CTL_PC_LOG_SEL, 0x20);
+		dump->pc_dbg_ctrl = mt76_rr(dev, MT_CONN_DBG_CTL_PC_LOG);
+		dump->pc_cur_idx = FIELD_GET(MT_CONN_DBG_CTL_PC_LOG_IDX_STATUS,
+					     dump->pc_dbg_ctrl);
+		for (i = 0; i < 32; i++) {
+			mt76_wr(dev, MT_CONN_DBG_CTL_PC_LOG_SEL, i);
+			dump->pc_stack[i] = mt76_rr(dev, MT_CONN_DBG_CTL_PC_LOG);
+		}
+		/* read LR log */
+		mt76_wr(dev, MT_CONN_DBG_CTL_GPR_LOG_SEL, 0x20);
+		dump->lr_dbg_ctrl = mt76_rr(dev, MT_CONN_DBG_CTL_GPR_BUS_OUT_LOG);
+		dump->lr_cur_idx = FIELD_GET(MT_CONN_DBG_CTL_GPR_BUS_OUT_IDX_STATUS,
+					     dump->lr_dbg_ctrl);
+		for (i = 0; i < 32; i++) {
+			mt76_wr(dev, MT_CONN_DBG_CTL_GPR_LOG_SEL, i);
+			dump->lr_stack[i] = mt76_rr(dev, MT_CONN_DBG_CTL_GPR_BUS_OUT_LOG);
+		}
 	}
 }
 
