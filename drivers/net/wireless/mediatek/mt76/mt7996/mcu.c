@@ -5202,6 +5202,29 @@ int mt7996_mcu_set_rts_thresh(struct mt7996_phy *phy, u32 val)
 				 &req, sizeof(req), true);
 }
 
+#if 0
+static int mt7996_mcu_set_band_config(struct mt7996_phy *phy, u16 option, bool enable)
+{
+	struct {
+		u8 band_idx;
+		u8 _rsv[3];
+
+		__le16 tag;
+		__le16 len;
+		u8 enable;
+		u8 _rsv2[3];
+	} __packed req = {
+		.band_idx = phy->mt76->band_idx,
+		.tag = cpu_to_le16(option),
+		.len = cpu_to_le16(sizeof(req) - 4),
+		.enable = enable,
+	};
+
+	return mt76_mcu_send_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(BAND_CONFIG),
+				 &req, sizeof(req), true);
+}
+#endif
+
 int mt7996_mcu_set_radio_en(struct mt7996_phy *phy, bool enable)
 {
 	struct {
