@@ -1222,6 +1222,15 @@ mt7996_txpower_level_set(void *data, u64 val)
 DEFINE_DEBUGFS_ATTRIBUTE(fops_txpower_level, NULL,
 			 mt7996_txpower_level_set, "%lld\n");
 
+static int
+mt7996_scs_enable_set(void *data, u64 val)
+{
+	struct mt7996_phy *phy = data;
+	return mt7996_mcu_set_scs(phy, (u8) val);
+}
+DEFINE_DEBUGFS_ATTRIBUTE(fops_scs_enable, NULL,
+			 mt7996_scs_enable_set, "%lld\n");
+
 static ssize_t
 mt7996_get_txpower_info(struct file *file, char __user *user_buf,
 			size_t count, loff_t *ppos)
@@ -1711,6 +1720,7 @@ DEFINE_SHOW_ATTRIBUTE(mt7996_sr_scene_cond);
 int mt7996_init_debugfs(struct mt7996_dev *dev)
 {
 	struct dentry *dir;
+	struct mt7996_phy *phy = &dev->phy;
 
 	dir = mt76_register_debugfs_fops(&dev->mphy, NULL);
 
@@ -1752,6 +1762,7 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 	debugfs_create_file("sr_scene_cond", 0400, dir, dev, &mt7996_sr_scene_cond_fops);
 
 	debugfs_create_bool("mgmt_pwr_enhance", 0600, dir, &dev->mt76.mgmt_pwr_enhance);
+	debugfs_create_file("scs_enable", 0200, dir, phy, &fops_scs_enable);
 
 	debugfs_create_u32("dfs_hw_pattern", 0400, dir, &dev->hw_pattern);
 	debugfs_create_file("radar_trigger", 0200, dir, dev,
