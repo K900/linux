@@ -2889,6 +2889,7 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 	cancel_work_sync(&dev->wed_rro.work);
 	mt7996_for_each_phy(dev, phy)
 		cancel_delayed_work_sync(&phy->mt76->mac_work);
+	cancel_delayed_work_sync(&dev->scs_work);
 
 	mt76_abort_scan(&dev->mt76);
 
@@ -2929,6 +2930,8 @@ mt7996_mac_full_reset(struct mt7996_dev *dev)
 	i = mt76_wcid_alloc(dev->mt76.wcid_mask, MT7996_WTBL_STA);
 	dev->mt76.global_wcid.idx = i;
 	dev->recovery.hw_full_reset = false;
+
+	ieee80211_queue_delayed_work(mt76_hw(dev), &dev->scs_work, HZ);
 
 	mutex_unlock(&dev->mt76.mutex);
 

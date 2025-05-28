@@ -317,6 +317,16 @@ struct mt7996_hif {
 	enum pcie_link_width width;
 };
 
+struct mt7996_scs_ctrl {
+	u8 scs_enable;
+	s8 sta_min_rssi;
+};
+
+enum {
+	SCS_DISABLE = 0,
+	SCS_ENABLE,
+};
+
 #define WED_RRO_ADDR_SIGNATURE_MASK	GENMASK(31, 24)
 #define WED_RRO_ADDR_COUNT_MASK		GENMASK(14, 4)
 #define WED_RRO_ADDR_HEAD_HIGH_MASK	GENMASK(3, 0)
@@ -416,6 +426,7 @@ struct mt7996_phy {
 	bool adjust_txp_by_loss; /* adjust txpower higher based on path-loss reported by radio */
 	u8 pp_mode;
 	u16 punct_bitmap;
+	struct mt7996_scs_ctrl scs_ctrl;
 };
 
 struct mt7996_dev {
@@ -457,6 +468,7 @@ struct mt7996_dev {
 	struct work_struct rc_work;
 	struct work_struct dump_work;
 	struct work_struct reset_work;
+	struct delayed_work scs_work;
 	wait_queue_head_t reset_wait;
 	struct {
 		u32 state;
@@ -829,6 +841,10 @@ static inline bool mt7996_has_hwrro(struct mt7996_dev *dev)
 {
 	return dev->mt76.hwrro_mode != MT76_HWRRO_OFF;
 }
+
+int mt7996_mcu_set_scs(struct mt7996_phy *phy, u8 enable);
+void mt7996_mcu_scs_sta_poll(struct work_struct *work);
+int mt7996_mcu_set_band_confg(struct mt7996_phy *phy, u16 option, bool enable);
 
 static inline u8 mt7996_max_interface_num(struct mt7996_dev *dev)
 {
