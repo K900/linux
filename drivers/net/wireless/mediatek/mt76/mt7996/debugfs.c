@@ -51,10 +51,12 @@ static ssize_t
 mt7996_sys_recovery_set(struct file *file, const char __user *user_buf,
 			size_t count, loff_t *ppos)
 {
-	struct mt7996_dev *dev = file->private_data;
-	char buf[16], *sep;
+	struct mt7996_phy *phy = file->private_data;
+	struct mt7996_dev *dev = phy->dev;
+	bool band = phy->mt76->band_idx;
+	char buf[16];
 	int ret = 0;
-	u16 band, val;
+	u16 val;
 
 	if (count >= sizeof(buf))
 		return -EINVAL;
@@ -67,26 +69,21 @@ mt7996_sys_recovery_set(struct file *file, const char __user *user_buf,
 	else
 		buf[count] = '\0';
 
-	sep = strchr(buf, ',');
-	if (!sep)
-		return -EINVAL;
-
-	*sep = 0;
-	if (kstrtou16(buf, 0, &band) || kstrtou16(sep + 1, 0, &val))
+	if (kstrtou16(buf, 0, &val))
 		return -EINVAL;
 
 	switch (val) {
 	/*
-	 * <band>,0: grab firmware current SER state.
-	 * <band>,1: trigger & enable system error L1 recovery.
-	 * <band>,2: trigger & enable system error L2 recovery.
-	 * <band>,3: trigger & enable system error L3 rx abort.
-	 * <band>,4: trigger & enable system error L3 tx abort
-	 * <band>,5: trigger & enable system error L3 tx disable.
-	 * <band>,6: trigger & enable system error L3 bf recovery.
-	 * <band>,7: trigger & enable system error L4 mdp recovery.
-	 * <band>,8: trigger & enable system error full recovery.
-	 * <band>,9: trigger firmware crash.
+	 * 0: grab firmware current SER state.
+	 * 1: trigger & enable system error L1 recovery.
+	 * 2: trigger & enable system error L2 recovery.
+	 * 3: trigger & enable system error L3 rx abort.
+	 * 4: trigger & enable system error L3 tx abort
+	 * 5: trigger & enable system error L3 tx disable.
+	 * 6: trigger & enable system error L3 bf recovery.
+	 * 7: trigger & enable system error L4 mdp recovery.
+	 * 8: trigger & enable system error full recovery.
+	 * 9: trigger firmware crash.
 	 * 10: trigger grab wa firmware coredump.
 	 * 11: trigger grab wm firmware coredump.
 	 * 12: hw bit detect only.
@@ -111,15 +108,25 @@ mt7996_sys_recovery_set(struct file *file, const char __user *user_buf,
 	/* enable full chip reset */
 	case UNI_CMD_SER_SET_RECOVER_FULL:
 		mt76_set(dev, MT_WFDMA0_MCU_HOST_INT_ENA, MT_MCU_CMD_WDT_MASK);
-		dev->recovery.state |= MT_MCU_CMD_WDT_MASK;
+		dev->recovery.state |= MT_MCU_CMD_WM_WDT;
 		mt7996_reset(dev);
 		break;
 
 	/* WARNING: trigger firmware crash */
 	case UNI_CMD_SER_SET_SYSTEM_ASSERT:
+		// trigger wm assert exception
 		ret = mt7996_mcu_trigger_assert(dev);
 		if (ret)
 			return ret;
+		// trigger wa assert exception
+		mt76_wr(dev, 0x89098108, 0x20);
+		mt76_wr(dev, 0x89098118, 0x20);
+		break;
+	case UNI_CMD_SER_FW_COREDUMP_WA:
+		mt7996_coredump(dev, MT7996_COREDUMP_MANUAL_WA);
+		break;
+	case UNI_CMD_SER_FW_COREDUMP_WM:
+		mt7996_coredump(dev, MT7996_COREDUMP_MANUAL_WM);
 		break;
 	case UNI_CMD_SER_SET_HW_BIT_DETECT_ONLY:
 		ret = mt7996_mcu_set_ser(dev, UNI_CMD_SER_SET, BIT(0), band);
@@ -137,7 +144,8 @@ static ssize_t
 mt7996_sys_recovery_get(struct file *file, char __user *user_buf,
 			size_t count, loff_t *ppos)
 {
-	struct mt7996_dev *dev = file->private_data;
+	struct mt7996_phy *phy = file->private_data;
+	struct mt7996_dev *dev = phy->dev;
 	char *buff;
 	int desc = 0;
 	ssize_t ret;
@@ -151,25 +159,35 @@ mt7996_sys_recovery_get(struct file *file, char __user *user_buf,
 	desc += scnprintf(buff + desc, bufsz - desc,
 			  "Please echo the correct value ...\n");
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,0: grab firmware transient SER state\n");
+			  "%2d: grab firmware transient SER state\n",
+			  UNI_CMD_SER_QUERY);
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,1: trigger system error L1 recovery\n");
+			  "%2d: trigger system error L1 recovery\n",
+			  UNI_CMD_SER_SET_RECOVER_L1);
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,2: trigger system error L2 recovery\n");
+			  "%2d: trigger system error L2 recovery\n",
+			  UNI_CMD_SER_SET_RECOVER_L2);
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,3: trigger system error L3 rx abort\n");
+			  "%2d: trigger system error L3 rx abort\n",
+			  UNI_CMD_SER_SET_RECOVER_L3_RX_ABORT);
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,4: trigger system error L3 tx abort\n");
+			  "%2d: trigger system error L3 tx abort\n",
+			  UNI_CMD_SER_SET_RECOVER_L3_TX_ABORT);
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,5: trigger system error L3 tx disable\n");
+			  "%2d: trigger system error L3 tx disable\n",
+			  UNI_CMD_SER_SET_RECOVER_L3_TX_DISABLE);
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,6: trigger system error L3 bf recovery\n");
+			  "%2d: trigger system error L3 bf recovery\n",
+			  UNI_CMD_SER_SET_RECOVER_L3_BF);
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,7: trigger system error L4 mdp recovery\n");
+			  "%2d: trigger system error L4 mdp recovery\n",
+			  UNI_CMD_SER_SET_RECOVER_L4_MDP);
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,8: trigger system error full recovery\n");
+			  "%2d: trigger system error full recovery\n",
+			  UNI_CMD_SER_SET_RECOVER_FULL);
 	desc += scnprintf(buff + desc, bufsz - desc,
-			  "<band>,9: trigger firmware crash\n");
+			  "%2d: trigger firmware crash\n",
+			  UNI_CMD_SER_SET_SYSTEM_ASSERT);
 	desc += scnprintf(buff + desc, bufsz - desc,
 			  "%2d: trigger grab wa firmware coredump\n",
 			  UNI_CMD_SER_FW_COREDUMP_WA);
@@ -1730,7 +1748,7 @@ int mt7996_init_debugfs(struct mt7996_dev *dev)
 			    &mt7996_xmit_queues_fops);
 	debugfs_create_file("tx_stats", 0400, dir, dev, &mt7996_tx_stats_fops);
 	debugfs_create_file("phy_info", 0400, dir, dev, &mt7996_phy_info_fops);
-	debugfs_create_file("sys_recovery", 0600, dir, dev,
+	debugfs_create_file("sys_recovery", 0600, dir, phy,
 			    &mt7996_sys_recovery_ops);
 	debugfs_create_file("fw_debug_wm", 0600, dir, dev, &fops_fw_debug_wm);
 	debugfs_create_file("fw_debug_wa", 0600, dir, dev, &fops_fw_debug_wa);
