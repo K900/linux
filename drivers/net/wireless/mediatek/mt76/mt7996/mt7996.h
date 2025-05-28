@@ -123,8 +123,11 @@
 #define MT7996_CRIT_TEMP		110
 #define MT7996_MAX_TEMP			120
 
+#define MT7996_BUILD_TIME_LEN		24
+
 #define MT7996_MAX_HIF_RXD_IN_PG	5
 #define MT7996_RRO_MSDU_PG_HASH_SIZE	127
+
 #define MT7996_RRO_MAX_SESSION		1024
 #define MT7996_RRO_WINDOW_MAX_LEN	1024
 #define MT7996_RRO_ADDR_ELEM_LEN	128
@@ -154,6 +157,7 @@ enum mt7996_ram_type {
 	MT7996_RAM_TYPE_WM,
 	MT7996_RAM_TYPE_WA,
 	MT7996_RAM_TYPE_DSP,
+	__MT7996_RAM_TYPE_MAX,
 };
 
 enum mt7996_var_type {
@@ -188,6 +192,14 @@ enum mt7996_eeprom_mode {
 #define MT7996_EFUSE_BASE_OFFS_ADIE1	0x1e00
 #define MT7996_EFUSE_BASE_OFFS_ADIE2	0x1200
 #define MT7992_EFUSE_BASE_OFFS_ADIE1	0x1200
+
+enum mt7996_coredump_state {
+	MT7996_COREDUMP_IDLE = 0,
+	MT7996_COREDUMP_MANUAL_WA,
+	MT7996_COREDUMP_MANUAL_WM,
+	MT7996_COREDUMP_AUTO,
+	__MT7996_COREDUMP_TYPE_MAX,
+};
 
 enum mt7996_txq_id {
 	MT7996_TXQ_FWDL = 16,
@@ -301,6 +313,7 @@ struct mt7996_vif {
 struct mt7996_crash_data {
 	guid_t guid;
 	struct timespec64 timestamp;
+	bool supported;
 
 	u8 *memdump_buf;
 	size_t memdump_buf_len;
@@ -483,11 +496,14 @@ struct mt7996_dev {
 
 	/* protects coredump data */
 	struct mutex dump_mutex;
+	u8 dump_state;
 #ifdef CONFIG_DEV_COREDUMP
 	struct {
-		struct mt7996_crash_data *crash_data;
+		struct mt7996_crash_data *crash_data[__MT7996_RAM_TYPE_MAX];
 	} coredump;
 #endif
+	char patch_build_date[MT7996_BUILD_TIME_LEN];
+	char ram_build_date[__MT7996_RAM_TYPE_MAX][MT7996_BUILD_TIME_LEN];
 
 	struct list_head sta_rc_list;
 	struct list_head twt_list;
@@ -735,6 +751,7 @@ int mt7996_init_tx_queues(struct mt7996_phy *phy, int idx,
 void mt7996_init_txpower(struct mt7996_phy *phy);
 int mt7996_txbf_init(struct mt7996_dev *dev);
 void mt7996_reset(struct mt7996_dev *dev);
+void mt7996_coredump(struct mt7996_dev *dev, u8 state);
 int mt7996_run(struct mt7996_phy *phy);
 int mt7996_mcu_init(struct mt7996_dev *dev);
 int mt7996_mcu_init_firmware(struct mt7996_dev *dev);
