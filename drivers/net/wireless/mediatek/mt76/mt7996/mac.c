@@ -2976,6 +2976,7 @@ void mt7996_mac_reset_work(struct work_struct *work)
 	if (!(READ_ONCE(dev->recovery.state) & MT_MCU_CMD_STOP_DMA))
 		return;
 
+	dev->recovery.l1_reset_last = dev->recovery.l1_reset;
 	dev_info(dev->mt76.dev,"\n%s L1 SER recovery start.",
 		 wiphy_name(hw->wiphy));
 
@@ -3188,6 +3189,7 @@ void mt7996_reset(struct mt7996_dev *dev)
 	if (READ_ONCE(dev->recovery.state) & MT_MCU_CMD_STOP_DMA) {
 		set_bit(MT76_MCU_RESET, &dev->mphy.state);
 		wake_up(&dev->mt76.mcu.wait);
+		dev->recovery.l1_reset++;
 	}
 
 	queue_work(dev->mt76.wq, &dev->reset_work);
