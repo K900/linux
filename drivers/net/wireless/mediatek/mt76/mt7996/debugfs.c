@@ -353,12 +353,41 @@ mt7996_fw_debug_wm_set(void *data, u64 val)
 		DEBUG_CMD_RPT_TRIG,
 		DEBUG_SPL,
 		DEBUG_RPT_RX,
-		DEBUG_RPT_RA = 68,
-	} debug;
+		DEBUG_IDS_SND = 84,
+		DEBUG_IDS_BSRP,
+		DEBUG_IDS_TPUT_MON,
+		DEBUG_IDS_PP = 93,
+		DEBUG_IDS_RA,
+		DEBUG_IDS_BF,
+		DEBUG_IDS_SR,
+		DEBUG_IDS_RU,
+		DEBUG_IDS_MUMIMO,
+		DEBUG_IDS_MLO = 100,
+		DEBUG_IDS_ERR_LOG,
+	};
+	u8 debug_category[] = {
+		DEBUG_TXCMD,
+		DEBUG_CMD_RPT_TX,
+		DEBUG_CMD_RPT_TRIG,
+		DEBUG_SPL,
+		DEBUG_RPT_RX,
+		DEBUG_IDS_SND,
+		DEBUG_IDS_BSRP,
+		DEBUG_IDS_TPUT_MON,
+		DEBUG_IDS_PP,
+		DEBUG_IDS_RA,
+		DEBUG_IDS_BF,
+		DEBUG_IDS_SR,
+		DEBUG_IDS_RU,
+		DEBUG_IDS_MUMIMO,
+		DEBUG_IDS_MLO,
+		DEBUG_IDS_ERR_LOG,
+	};
 	bool tx, rx, en;
 	int ret;
+	u8 i;
 
-	dev->fw_debug_wm = val ? MCU_FW_LOG_TO_HOST : 0;
+	dev->fw_debug_wm = val;
 
 	if (dev->fw_debug_bin)
 		val = MCU_FW_LOG_RELAY;
@@ -373,18 +402,22 @@ mt7996_fw_debug_wm_set(void *data, u64 val)
 	if (ret)
 		return ret;
 
-	for (debug = DEBUG_TXCMD; debug <= DEBUG_RPT_RA; debug++) {
-		if (debug == 67)
-			continue;
-
-		if (debug == DEBUG_RPT_RX)
+	for (i = 0; i < ARRAY_SIZE(debug_category); i++) {
+		if (debug_category[i] == DEBUG_RPT_RX)
 			val = en && rx;
 		else
 			val = en && tx;
 
-		ret = mt7996_mcu_fw_dbg_ctrl(dev, debug, val);
+		ret = mt7996_mcu_fw_dbg_ctrl(dev, debug_category[i], val);
 		if (ret)
 			return ret;
+
+		if ((debug_category[i] == DEBUG_TXCMD ||
+		     debug_category[i] == DEBUG_IDS_SND) && en) {
+			ret = mt7996_mcu_fw_dbg_ctrl(dev, debug_category[i], 2);
+			if (ret)
+				return ret;
+		}
 	}
 
 	return 0;
