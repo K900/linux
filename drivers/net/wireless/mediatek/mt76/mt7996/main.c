@@ -101,6 +101,8 @@ static int mt7996_start(struct ieee80211_hw *hw)
 		u8 queue = mt76_connac_lmac_mapping(IEEE80211_AC_VI);
 
 		ret = mt7996_mcu_cp_support(dev, queue);
+		dev->sr_pp_enable = true;
+		dev->uba_enable = true;
 	}
 	mutex_unlock(&dev->mt76.mutex);
 
