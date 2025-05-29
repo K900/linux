@@ -575,6 +575,12 @@ struct mt7996_dev {
 	// TODO:  debugfs to configure this, upstream mtk uses vendor API.
 	bool sr_pp_enable;
 	bool uba_enable;
+
+	struct {
+		void *txbf_phase_cal;
+		void *txbf_pfmu_data;
+		void *txbf_pfmu_tag;
+	} test;
 };
 
 enum {
@@ -974,6 +980,9 @@ void mt7996_set_stream_he_eht_caps(struct mt7996_phy *phy);
 void mt7996_set_stream_vht_txbf_caps(struct mt7996_phy *phy);
 void mt7996_update_channel(struct mt76_phy *mphy);
 int mt7996_init_debugfs(struct mt7996_dev *dev);
+
+void mt7996_mcu_rx_bf_event(struct mt7996_dev *dev, struct sk_buff *skb);
+
 int mt7996_mcu_set_tx_power_ctrl(struct mt7996_phy *phy, u8 power_ctrl_id, u8 data);
 int mt7996_mcu_get_tx_power_info(struct mt7996_phy *phy, u8 category, void *event);
 void mt7996_debugfs_rx_fw_monitor(struct mt7996_dev *dev, const void *data, int len);
