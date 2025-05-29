@@ -1277,4 +1277,75 @@ struct fixed_rate_table_ctrl {
 	u8 _rsv2;
 } __packed;
 
+
+enum tm_trx_param_idx {
+	TM_TRX_PARAM_RSV,
+	/* MAC */
+	TM_TRX_PARAM_SET_TRX,
+	TM_TRX_PARAM_RX_FILTER,
+	TM_TRX_PARAM_RX_FILTER_PKT_LEN,
+	TM_TRX_PARAM_SLOT_TIME,
+	TM_TRX_PARAM_CLEAN_PERSTA_TXQUEUE,
+	TM_TRX_PARAM_AMPDU_WTBL,
+	TM_TRX_PARAM_MU_RX_AID,
+	TM_TRX_PARAM_PHY_MANUAL_TX,
+
+	/* PHY */
+	TM_TRX_PARAM_RX_PATH,
+	TM_TRX_PARAM_TX_STREAM,
+	TM_TRX_PARAM_TSSI_STATUS,
+	TM_TRX_PARAM_DPD_STATUS,
+	TM_TRX_PARAM_RATE_POWER_OFFSET_ON_OFF,
+	TM_TRX_PARAM_THERMO_COMP_STATUS,
+	TM_TRX_PARAM_FREQ_OFFSET,
+	TM_TRX_PARAM_FAGC_RSSI_PATH,
+	TM_TRX_PARAM_PHY_STATUS_COUNT,
+	TM_TRX_PARAM_RXV_INDEX,
+
+	TM_TRX_PARAM_ANTENNA_PORT,
+	TM_TRX_PARAM_THERMAL_ONOFF,
+	TM_TRX_PARAM_TX_POWER_CONTROL_ALL_RF,
+	TM_TRX_PARAM_RATE_POWER_OFFSET,
+	TM_TRX_PARAM_SLT_CMD_TEST,
+	TM_TRX_PARAM_SKU,
+	TM_TRX_PARAM_POWER_PERCENTAGE_ON_OFF,
+	TM_TRX_PARAM_BF_BACKOFF_ON_OFF,
+	TM_TRX_PARAM_POWER_PERCENTAGE_LEVEL,
+	TM_TRX_PARAM_FRTBL_CFG,
+	TM_TRX_PARAM_PREAMBLE_PUNC_ON_OFF,
+
+	TM_TRX_PARAM_MAX_NUM,
+};
+
+enum trx_action {
+	TM_TRX_ACTION_SET,
+	TM_TRX_ACTION_GET,
+};
+
+struct tm_trx_set {
+	u8 type;
+	u8 enable;
+	u8 band_idx;
+	u8 rsv;
+} __packed;
+
+struct mt7996_tm_trx_req {
+	u8 param_num;
+	u8 _rsv[3];
+
+	__le16 tag;
+	__le16 len;
+
+	__le16 param_idx;
+	u8 band_idx;
+	u8 testmode_en;
+	u8 action;
+	u8 rsv[3];
+
+	u32 data;
+	struct tm_trx_set set_trx;
+
+	u8 buf[220];
+} __packed;
+
 #endif
