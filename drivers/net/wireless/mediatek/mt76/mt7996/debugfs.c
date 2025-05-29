@@ -1902,13 +1902,63 @@ mt7996_queues_show(struct seq_file *s, void *data)
 
 	return 0;
 }
-
 DEFINE_SHOW_ATTRIBUTE(mt7996_queues);
+
+static int
+mt7996_sta_links_info_show(struct seq_file *s, void *data)
+{
+	struct ieee80211_sta *sta = s->private;
+	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+	u64 tx_cnt = 0, tx_fails = 0, tx_retries = 0, rx_cnt = 0;
+	struct mt7996_dev *dev = mt7996_vif_link_phy(&msta->vif->deflink)->dev;
+	unsigned long valid_links;
+	u8 link_id;
+
+	seq_printf(s, "primary link, link ID = %d\n", msta->deflink_id);
+	seq_printf(s, "valid links = 0x%x\n", sta->valid_links);
+
+	mutex_lock(&dev->mt76.mutex);
+	valid_links = sta->valid_links ?: BIT(0);
+	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
+		struct mt7996_sta_link *msta_link =
+			mt76_dereference(msta->link[link_id], &dev->mt76);
+		struct mt76_wcid *wcid;
+
+		if (!msta_link)
+			continue;
+
+		wcid = &msta_link->wcid;
+
+		tx_cnt += wcid->stats.tx_attempts;
+		tx_fails += wcid->stats.tx_failed;
+		tx_retries += wcid->stats.tx_retries;
+		rx_cnt += wcid->stats.rx_packets;
+
+		seq_printf(s, "link%d: wcid=%d, phy=%d, link_valid=%d\n",
+			    wcid->link_id, wcid->idx, wcid->phy_idx, wcid->link_valid);
+	}
+	mutex_unlock(&dev->mt76.mutex);
+
+	/* PER may be imprecise, because MSDU total and failed counts
+	 * are updated at different times.
+	 */
+	seq_printf(s, "TX MSDU Count: %llu\n", tx_cnt);
+	seq_printf(s, "TX MSDU Fails: %llu (PER: %llu.%llu%%)\n", tx_fails,
+		   tx_cnt ? tx_fails * 1000 / tx_cnt / 10 : 0,
+		   tx_cnt ? tx_fails * 1000 / tx_cnt % 10 : 0);
+	seq_printf(s, "TX MSDU Retries: %llu\n", tx_retries);
+	seq_printf(s, "RX MSDU Count: %llu\n", rx_cnt);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(mt7996_sta_links_info);
 
 void mt7996_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta, struct dentry *dir)
 {
 	debugfs_create_file("hw-queues", 0400, dir, sta, &mt7996_queues_fops);
+	debugfs_create_file("mt76_links_info", 0400, dir, sta,
+			    &mt7996_sta_links_info_fops);
 }
 
 static ssize_t mt7996_link_sta_fixed_rate_set(struct file *file,
