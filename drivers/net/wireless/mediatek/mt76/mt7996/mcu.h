@@ -1851,4 +1851,19 @@ static inline int get_ibf_version(struct mt7996_dev *dev)
 	}
 }
 
+enum {
+	EDCCA_CTRL_SET_EN = 0,
+	EDCCA_CTRL_SET_THRES,
+	EDCCA_CTRL_GET_EN,
+	EDCCA_CTRL_GET_THRES,
+	EDCCA_CTRL_NUM,
+};
+
+enum {
+	EDCCA_DEFAULT = 0,
+	EDCCA_FCC = 1,
+	EDCCA_ETSI = 2,
+	EDCCA_JAPAN = 3
+};
+
 #endif
