@@ -1,0 +1,46 @@
+Skipped:
+ mtk: mt76: mt7996: update TX/RX rates via MCU command
+  I have a feeling it is not fully correct, and it definately has huge conflicts
+  with how we are doing things.
+
+mtk: mt76: mt7996: support configure trigger frame and coding type
+  Testmode/cert only it seems
+
+mtk: mt76: mt7996: Add lpi support with sku_idx and enhancement
+  Seems power-save related, skipping for now.
+
+mtk: mt76: mt7996: add per-band token limit
+  Needs some prelim stuff from the big partial patch.
+
+mtk: mt76: mt7996: separate hwrro from wed
+mtk: mt76: mt7996: Add AFC and lpi power support
+mtk: mt76: mt7996: add external eeprom support
+mtk: mt76: mt7996: add efuse write protection
+mtk: mt76: mt7990: use device id macro in internal debug file
+mtk: mt76: mt7996: add listmode support
+mtk: mt76: mt7996: parse nvmem partition name & offset for flash write back
+mtk: mt76: mt7996: add testmode support for single wiphy
+mtk: mt76: use compile flag to disable some wed change for kernel 6.6
+mtk: mt76: mt7996: replace band idx with radio idx in vendor command
+mtk: mt76: mt7996: fix and refactor air monitor
+mtk: mt76: mt7990: add mt7987 wed hw path support
+mtk: mt76: mt7996: fix testmode issues
+mtk: mt76: mt7996: fix adie efuse merge support
+mtk: mt76: fix coverity REVERSE_INULL
+  Does not appear valid for our kernel.
+mtk: mt76: mt7996: add testmode rx gain cal support
+mtk: mt76: mt7996: add testmode fast cal support
+mtk: mt76: mt7996: testmode refactor
+mtk: mt76: mt7996: Enable sku when hostapd bring sku index attr
+mtk: mt76: mt7996: fix testmode RX frame issue
+mtk: mt76: mt7996: fix testmode rx stats issue
+mtk: mt76: mt7996: rework testmode dump stats
+mtk: mt76: mt7996: Add sw path hwrro3.1 support
+mtk: mt76: mt7996: get color bitmap on link's bss_conf according link_id
+
+
+TODOS:
+  Bring in more of the mtk-add-debug-tools-partial.patch
+
+  mt76_wcid_add_poll(&dev->mt76, &msta_link->wcid); called from mt7996_mac_fill_rx would
+  seem to be a performance problem?
