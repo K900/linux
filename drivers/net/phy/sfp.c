@@ -476,6 +476,14 @@ static void sfp_quirk_ubnt_uf_instant(const struct sfp_eeprom_id *id,
 	linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseX_Full_BIT, modes);
 }
 
+static void sfp_quirk_odi(const struct sfp_eeprom_id *id,
+                          unsigned long *modes,
+			  unsigned long *interfaces)
+{
+	sfp_quirk_disable_autoneg(id, modes, interfaces);
+	sfp_quirk_2500basex(id, modes, interfaces);
+}
+
 #define SFP_QUIRK(_v, _p, _m, _f) \
 	{ .vendor = _v, .part = _p, .modes = _m, .fixup = _f, }
 #define SFP_QUIRK_M(_v, _p, _m) SFP_QUIRK(_v, _p, _m, NULL)
@@ -517,6 +525,9 @@ static const struct sfp_quirk sfp_quirks[] = {
 	// their EEPROM
 	SFP_QUIRK("HUAWEI", "MA5671A", sfp_quirk_2500basex,
 		  sfp_fixup_ignore_tx_fault),
+
+	// This thing is cursed.
+	SFP_QUIRK("ODI", "DFP-34X-2C3", sfp_quirk_odi, sfp_fixup_ignore_los),
 
 	// Lantech 8330-262D-E can operate at 2500base-X, but incorrectly report
 	// 2500MBd NRZ in their EEPROM
