@@ -559,6 +559,9 @@ static const struct sfp_quirk sfp_quirks[] = {
 	SFP_QUIRK("HSGQ", "HSGQ-XPON-Stick", sfp_quirk_2500basex,
 		  sfp_fixup_ignore_tx_fault),
 
+	// Apparently identical variant of the HSGQ stick, just with different branding
+	SFP_QUIRK("ODI", "DFP-34X-2C3", sfp_quirk_2500basex, sfp_fixup_ignore_tx_fault),
+
 	// Lantech 8330-262D-E and 8330-265D can operate at 2500base-X, but
 	// incorrectly report 2500MBd NRZ in their EEPROM.
 	// Some 8330-265D modules have inverted LOS, while all of them report
