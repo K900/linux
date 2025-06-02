@@ -672,6 +672,48 @@ mt7996_tx_stats_show(struct seq_file *file, void *data)
 DEFINE_SHOW_ATTRIBUTE(mt7996_tx_stats);
 
 static int
+mt7996_rxfilter_show(struct seq_file *file, void *data)
+{
+	struct mt7996_phy *phy = file->private;
+
+	mutex_lock(&phy->dev->mt76.mutex);
+
+	seq_printf(file, "CR: 0x%08x\n", phy->rxfilter);
+
+#define MT7996_RFCR_PRINT(flag) do {			\
+		if (phy->rxfilter & MT_WF_RFCR_##flag)	\
+			seq_printf(file, #flag "\n");	\
+	} while (0)
+
+	MT7996_RFCR_PRINT(DROP_STBC_MULTI);
+	MT7996_RFCR_PRINT(DROP_FCSFAIL);
+	MT7996_RFCR_PRINT(DROP_PROBEREQ);
+	MT7996_RFCR_PRINT(DROP_MCAST);
+	MT7996_RFCR_PRINT(DROP_BCAST);
+	MT7996_RFCR_PRINT(DROP_MCAST_FILTERED);
+	MT7996_RFCR_PRINT(DROP_A3_MAC);
+	MT7996_RFCR_PRINT(DROP_A3_BSSID);
+	MT7996_RFCR_PRINT(DROP_A2_BSSID);
+	MT7996_RFCR_PRINT(DROP_OTHER_BEACON);
+	MT7996_RFCR_PRINT(DROP_FRAME_REPORT);
+	MT7996_RFCR_PRINT(DROP_CTL_RSV);
+	MT7996_RFCR_PRINT(DROP_CTS);
+	MT7996_RFCR_PRINT(DROP_RTS);
+	MT7996_RFCR_PRINT(DROP_DUPLICATE);
+	MT7996_RFCR_PRINT(DROP_OTHER_BSS);
+	MT7996_RFCR_PRINT(DROP_OTHER_UC);
+	MT7996_RFCR_PRINT(DROP_OTHER_TIM);
+	MT7996_RFCR_PRINT(DROP_NDPA);
+	MT7996_RFCR_PRINT(DROP_UNWANTED_CTL);
+
+	mutex_unlock(&phy->dev->mt76.mutex);
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(mt7996_rxfilter);
+
+static int
 mt7996_phy_info_show(struct seq_file *file, void *data)
 {
 	struct mt7996_dev *dev = file->private;
@@ -1899,6 +1941,7 @@ int mt7996_init_band_debugfs(struct mt7996_phy *phy)
 			    &mt7996_xmit_queues_fops);
 	debugfs_create_file("sys_recovery", 0600, dir, phy,
 			    &mt7996_sys_recovery_ops);
+	debugfs_create_file("rxfilter", 0400, dir, phy, &mt7996_rxfilter_fops);
 #ifdef CONFIG_MTK_DEBUG
 	mt7996_mtk_init_band_debugfs(phy, dir);
 	mt7996_mtk_init_band_debugfs_internal(phy, dir);
