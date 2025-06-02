@@ -1818,16 +1818,20 @@ int mt7996_register_device(struct mt7996_dev *dev)
 	if (ret)
 		return ret;
 
-	mt7996_for_each_phy(dev, phy)
+	ret = mt7996_init_dev_debugfs(&dev->phy);
+	if (ret)
+		goto error;
+
+	mt7996_for_each_phy(dev, phy) {
 		mt7996_thermal_init(phy);
+		ret = mt7996_init_band_debugfs(phy);
+		if (ret)
+			goto error;
+	}
 
 	ieee80211_queue_work(mt76_hw(dev), &dev->init_work);
 
 	dev->recovery.hw_init_done = true;
-
-	ret = mt7996_init_debugfs(dev);
-	if (ret)
-		goto error;
 
 	ret = mt7996_coredump_register(dev);
 	if (ret)
