@@ -44,6 +44,9 @@ int mt76_add_chanctx(struct ieee80211_hw *hw,
 	if (dev->scan.phy == phy)
 		mt76_abort_scan(dev);
 
+	mt76_dbg(dev, MT76_DBG_CHAN, "%s: add %u on mt76 band %d\n",
+		 __func__, conf->def.chan->hw_value, phy->band_idx);
+
 	mutex_lock(&dev->mutex);
 	if (!phy->chanctx)
 		ret = mt76_phy_update_channel(phy, conf);
@@ -65,6 +68,9 @@ void mt76_remove_chanctx(struct ieee80211_hw *hw,
 	phy = ctx->phy;
 	if (WARN_ON_ONCE(!phy))
 		return;
+
+	mt76_dbg(dev, MT76_DBG_CHAN, "%s: remove %u\n",
+		 __func__, conf->def.chan->hw_value);
 
 	if (dev->scan.phy == phy)
 		mt76_abort_scan(dev);
@@ -88,6 +94,8 @@ void mt76_change_chanctx(struct ieee80211_hw *hw,
 			 IEEE80211_CHANCTX_CHANGE_RADAR)))
 		return;
 
+	mt76_dbg(dev, MT76_DBG_CHAN, "%s: change to %u, 0x%x\n",
+		 __func__, conf->def.chan->hw_value, changed);
 	if (phy->roc_vif)
 		mt76_abort_roc(phy);
 
@@ -113,6 +121,9 @@ int mt76_assign_vif_chanctx(struct ieee80211_hw *hw,
 	struct mt76_dev *dev = phy->dev;
 	bool mlink_alloc = false;
 	int ret = 0;
+
+	mt76_dbg(dev, MT76_DBG_CHAN, "%s: assign link_id %u to %d MHz\n",
+		 __func__, link_id, conf->def.chan->center_freq);
 
 	if (dev->scan.vif == vif)
 		mt76_abort_scan(dev);
@@ -160,6 +171,9 @@ void mt76_unassign_vif_chanctx(struct ieee80211_hw *hw,
 	struct mt76_vif_link *mlink = (struct mt76_vif_link *)vif->drv_priv;
 	struct mt76_phy *phy = ctx->phy;
 	struct mt76_dev *dev = phy->dev;
+
+	mt76_dbg(dev, MT76_DBG_CHAN, "%s, remove link %u from %d MHz\n",
+		 __func__, mlink->link_idx, conf->def.chan->center_freq);
 
 	if (dev->scan.vif == vif)
 		mt76_abort_scan(dev);
@@ -243,6 +257,17 @@ int mt76_switch_vif_chanctx(struct ieee80211_hw *hw,
 		if (!mlink)
 			continue;
 
+		mt76_dbg(dev, MT76_DBG_CHAN,
+			 "%s: chan=%d->%d, width=%d->%d, punct_bitmap=0x%04x->0x%04x, link=%u\n",
+			 __func__,
+			 vifs[i].old_ctx->def.chan->hw_value,
+			 vifs[i].new_ctx->def.chan->hw_value,
+			 vifs[i].old_ctx->def.width,
+			 vifs[i].new_ctx->def.width,
+			 vifs[i].old_ctx->def.punctured,
+			 vifs[i].new_ctx->def.punctured,
+			 vifs[i].link_conf->link_id);
+		
 		if (old_phy != phy) {
 			dev->drv->vif_link_remove(old_phy, v->vif, v->link_conf,
 						  mlink);
@@ -336,6 +361,9 @@ void mt76_roc_complete(struct mt76_phy *phy)
 	phy->roc_link = NULL;
 	if (!test_bit(MT76_MCU_RESET, &dev->phy.state))
 		ieee80211_remain_on_channel_expired(phy->hw);
+
+	mt76_dbg(dev, MT76_DBG_CHAN, "finish roc work, go back to freq=%u\n",
+		 phy->main_chandef.chan->center_freq);
 }
 
 void mt76_roc_complete_work(struct work_struct *work)
@@ -374,6 +402,9 @@ int mt76_remain_on_channel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	phy = dev->band_phys[chan->band];
 	if (!phy)
 		return -EINVAL;
+
+	mt76_dbg(dev, MT76_DBG_CHAN, "start roc work on freq=%u\n",
+		 chan->center_freq);
 
 	cancel_delayed_work_sync(&phy->mac_work);
 
