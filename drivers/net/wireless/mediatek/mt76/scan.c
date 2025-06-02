@@ -48,15 +48,15 @@ mt76_scan_send_probe(struct mt76_dev *dev, struct cfg80211_ssid *ssid)
 	struct mt76_phy *phy = dev->scan.phy;
 	struct ieee80211_tx_info *info;
 	struct sk_buff *skb;
+	struct ieee80211_hdr *hdr;
 
 	skb = ieee80211_probereq_get(phy->hw, vif->addr, ssid->ssid,
 				     ssid->ssid_len, req->ie_len);
 	if (!skb)
 		return;
 
+	hdr = (struct ieee80211_hdr *)skb->data;
 	if (is_unicast_ether_addr(req->bssid)) {
-		struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
-
 		ether_addr_copy(hdr->addr1, req->bssid);
 		ether_addr_copy(hdr->addr3, req->bssid);
 	}
@@ -76,6 +76,9 @@ mt76_scan_send_probe(struct mt76_dev *dev, struct cfg80211_ssid *ssid)
 	if (req->no_cck)
 		info->flags |= IEEE80211_TX_CTL_NO_CCK_RATE;
 	info->control.flags |= IEEE80211_TX_CTRL_DONT_USE_RATE_MASK;
+
+	mt76_dbg(dev, MT76_DBG_CHAN, "%s: scan probe req, vif->addr: %pM  addr1: %pM addr2: %pM  addr3: %pM\n",
+		 __func__, vif->addr, hdr->addr1, hdr->addr2, hdr->addr3);
 
 	mt76_tx(phy, NULL, mvif->wcid, skb);
 
@@ -171,6 +174,9 @@ out:
 						  (req->duration >> 5)));
 
 	ieee80211_queue_delayed_work(dev->phy.hw, &dev->scan_work, duration);
+
+	mt76_dbg(dev, MT76_DBG_SCAN, "%s: move to active scan on channel %d\n",
+		 __func__, phy->chandef.center_freq1);
 }
 
 int mt76_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
@@ -186,6 +192,9 @@ int mt76_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		if (!phy)
 			return -EINVAL;
 	}
+
+	mt76_dbg(dev, MT76_DBG_CHAN, "%s: trigger scan on mt76 band %u\n",
+		 __func__, phy->band_idx);
 
 	mutex_lock(&dev->mutex);
 
@@ -206,6 +215,9 @@ int mt76_hw_scan(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	dev->scan.vif = vif;
 	dev->scan.phy = phy;
 	dev->scan.mlink = mlink;
+
+	mt76_dbg(dev, MT76_DBG_CHAN, "%s: queing scan, mlink idx: %d  link_idx: %d  omac_idx: %d  wmm_idx: %d offchannel: %d\n",
+		 __func__, mlink->idx, mlink->link_idx, mlink->omac_idx, mlink->band_idx, mlink->wmm_idx);
 	ieee80211_queue_delayed_work(dev->phy.hw, &dev->scan_work, 0);
 
 out:
