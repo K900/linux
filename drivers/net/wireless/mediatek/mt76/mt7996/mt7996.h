@@ -998,7 +998,8 @@ int mt7996_dfs_init_radar_detector(struct mt7996_phy *phy);
 void mt7996_set_stream_he_eht_caps(struct mt7996_phy *phy);
 void mt7996_set_stream_vht_txbf_caps(struct mt7996_phy *phy);
 void mt7996_update_channel(struct mt76_phy *mphy);
-int mt7996_init_debugfs(struct mt7996_dev *dev);
+int mt7996_init_dev_debugfs(struct mt7996_phy *phy);
+int mt7996_init_band_debugfs(struct mt7996_phy *phy);
 
 void mt7996_mcu_rx_bf_event(struct mt7996_dev *dev, struct sk_buff *skb);
 
