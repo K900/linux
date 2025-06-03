@@ -17,7 +17,6 @@ mcu_rx_all_sta_info_event (later)
 mcu_uni_rx_unsolicited_event changes (done enough for now)
 other mtk mcu stuff
 mt76_token_consume
-init_band_debugfs
 red_drop stats
 mac_update_stats
 mcu_get_rssi
@@ -1510,13 +1509,11 @@ index 25cb9b5e0be2..a38dcc3e7e58 100644
 	seq_puts(s, "\n");
  }
 
--static void
--mt7996_tx_stats_show_phy(struct seq_file *file, struct mt7996_phy *phy)
-+static int
-+mt7996_tx_stats_show(struct seq_file *file, void *data)
+ static int
+ mt7996_tx_stats_show(struct seq_file *file, void *data)
  {
-+	struct mt7996_phy *phy = file->private;
-+	struct mt7996_dev *dev = phy->dev;
+	struct mt7996_phy *phy = file->private;
+	struct mt7996_dev *dev = phy->dev;
 	struct mt76_mib_stats *mib = &phy->mib;
 	u32 attempts, success, per;
 -	int i;
@@ -1569,10 +1566,8 @@ index 25cb9b5e0be2..a38dcc3e7e58 100644
  static int
  mt7996_hw_queues_show(struct seq_file *file, void *data)
  {
--	struct mt7996_dev *dev = file->private;
--	struct mt7996_phy *phy = &dev->phy;
-+	struct mt7996_phy *phy = file->private;
-+	struct mt7996_dev *dev = phy->dev;
+	struct mt7996_phy *phy = file->private;
+	struct mt7996_dev *dev = phy->dev;
 	static const struct hw_queue_map ple_queue_map[] = {
 		{ "CPU_Q0",  0,  1, MT_CTX0	      },
 		{ "CPU_Q1",  1,  1, MT_CTX0 + 1	      },
@@ -1596,10 +1591,8 @@ index 25cb9b5e0be2..a38dcc3e7e58 100644
  static int
  mt7996_xmit_queues_show(struct seq_file *file, void *data)
  {
--	struct mt7996_dev *dev = file->private;
--	struct mt7996_phy *phy;
-+	struct mt7996_phy *phy = file->private;
-+	struct mt7996_dev *dev = phy->dev;
+	struct mt7996_phy *phy = file->private;
+	struct mt7996_dev *dev = phy->dev;
 	struct {
 		struct mt76_queue *q;
 		char *queue;
@@ -1667,57 +1660,53 @@ index 25cb9b5e0be2..a38dcc3e7e58 100644
 +	.llseek = default_llseek,
 +};
 +
-+int mt7996_init_band_debugfs(struct mt7996_phy *phy)
-+{
-+	struct mt7996_dev *dev = phy->dev;
+int mt7996_init_band_debugfs(struct mt7996_phy *phy)
+{
+	struct mt7996_dev *dev = phy->dev;
 	struct dentry *dir;
-+	char dir_name[10];
-+
-+	if (!dev->debugfs_dir)
-+		return -EINVAL;
-+
-+	snprintf(dir_name, sizeof(dir_name), "band%d", phy->mt76->band_idx);
+	char dir_name[10];
 
--	dir = mt76_register_debugfs_fops(&dev->mphy, NULL);
-+	dir = debugfs_create_dir(dir_name, dev->debugfs_dir);
+	if (!dev->debugfs_dir)
+		return -EINVAL;
+
+	snprintf(dir_name, sizeof(dir_name), "band%d", phy->mt76->band_idx);
+
+	dir = debugfs_create_dir(dir_name, dev->debugfs_dir);
 	if (!dir)
 		return -ENOMEM;
 
--	debugfs_create_file("hw-queues", 0400, dir, dev,
-+	debugfs_create_file("hw-queues", 0400, dir, phy,
+	debugfs_create_file("hw-queues", 0400, dir, phy,
 			    &mt7996_hw_queues_fops);
--	debugfs_create_file("xmit-queues", 0400, dir, dev,
-+	debugfs_create_file("xmit-queues", 0400, dir, phy,
+	debugfs_create_file("xmit-queues", 0400, dir, phy,
 			    &mt7996_xmit_queues_fops);
--	debugfs_create_file("tx_stats", 0400, dir, dev, &mt7996_tx_stats_fops);
 	debugfs_create_file("sys_recovery", 0600, dir, phy,
 			    &mt7996_sys_recovery_ops);
 	debugfs_create_file("atf_enable", 0600, dir, phy, &fops_atf_enable);
-+	debugfs_create_file("tx_stats", 0400, dir, phy, &mt7996_tx_stats_fops);
-+	if (phy->mt76->cap.has_5ghz) {
-+		debugfs_create_u32("dfs_hw_pattern", 0400, dir,
-+				   &dev->hw_pattern);
-+		debugfs_create_file("radar_trigger", 0200, dir, dev,
-+				    &fops_radar_trigger);
-+		debugfs_create_devm_seqfile(dev->mt76.dev, "rdd_monitor", dir,
-+					    mt7996_rdd_monitor);
-+	}
-+
-+#ifdef CONFIG_MTK_DEBUG
-+	mt7996_mtk_init_band_debugfs(phy, dir);
-+	mt7996_mtk_init_band_debugfs_internal(phy, dir);
-+#endif
-+	return 0;
-+}
-+
-+int mt7996_init_dev_debugfs(struct mt7996_phy *phy)
-+{
-+	struct mt7996_dev *dev = phy->dev;
-+	struct dentry *dir;
-+
-+	dir = mt76_register_debugfs_fops(phy->mt76, NULL);
-+	if (!dir)
-+		return -ENOMEM;
+	debugfs_create_file("tx_stats", 0400, dir, phy, &mt7996_tx_stats_fops);
+	if (phy->mt76->cap.has_5ghz) {
+		debugfs_create_u32("dfs_hw_pattern", 0400, dir,
+				   &dev->hw_pattern);
+		debugfs_create_file("radar_trigger", 0200, dir, dev,
+				    &fops_radar_trigger);
+		debugfs_create_devm_seqfile(dev->mt76.dev, "rdd_monitor", dir,
+					    mt7996_rdd_monitor);
+	}
+
+#ifdef CONFIG_MTK_DEBUG
+	mt7996_mtk_init_band_debugfs(phy, dir);
+	mt7996_mtk_init_band_debugfs_internal(phy, dir);
+#endif
+	return 0;
+}
+
+ int mt7996_init_dev_debugfs(struct mt7996_phy *phy)
+ {
+	struct mt7996_dev *dev = phy->dev;
+	struct dentry *dir;
+
+	dir = mt76_register_debugfs_fops(phy->mt76, NULL);
+	if (!dir)
+		return -ENOMEM;
 	debugfs_create_file("fw_debug_wm", 0600, dir, dev, &fops_fw_debug_wm);
 	debugfs_create_file("fw_debug_wa", 0600, dir, dev, &fops_fw_debug_wa);
 	debugfs_create_file("fw_debug_bin", 0600, dir, dev, &fops_fw_debug_bin);
@@ -1734,20 +1723,18 @@ index 25cb9b5e0be2..a38dcc3e7e58 100644
 	debugfs_create_file("fw_debug_muru_disable", 0600, dir, dev,
 			    &fops_fw_debug_muru_disable);
 
-+	if (phy == &dev->phy) {
-+		dev->debugfs_dir = dir;
-+#ifdef CONFIG_MTK_DEBUG
-+		mt7996_mtk_init_dev_debugfs_internal(phy, dir);
-+#endif
-+	}
-
 -	debugfs_create_u32("dfs_hw_pattern", 0400, dir, &dev->hw_pattern);
 -	debugfs_create_file("radar_trigger", 0200, dir, dev,
 -			    &fops_radar_trigger);
 -	debugfs_create_devm_seqfile(dev->mt76.dev, "rdd_monitor", dir,
 -				    mt7996_rdd_monitor);
--
--	dev->debugfs_dir = dir;
+
+	if (phy == &dev->phy) {
+		dev->debugfs_dir = dir;
+ #ifdef CONFIG_MTK_DEBUG
+		mt7996_mtk_init_dev_debugfs_internal(phy, dir);
+ #endif
+	}
 +#ifdef CONFIG_MTK_DEBUG
 +	debugfs_create_u16("wlan_idx", 0600, dir, &dev->wlan_idx);
 +	mt7996_mtk_init_dev_debugfs(dev, dir);
@@ -3204,25 +3191,20 @@ index 62c882cdf20c..31b083b436a3 100644
 	if (ret)
 		return ret;
 
--	mt7996_for_each_phy(dev, phy)
-+	ret = mt7996_init_dev_debugfs(&dev->phy);
-+	if (ret)
-+		goto error;
-+
-+	mt7996_for_each_phy(dev, phy) {
+	ret = mt7996_init_dev_debugfs(&dev->phy);
+	if (ret)
+		goto error;
+
+	mt7996_for_each_phy(dev, phy) {
 		mt7996_thermal_init(phy);
-+		ret = mt7996_init_band_debugfs(phy);
-+		if (ret)
-+			goto error;
-+	}
+		ret = mt7996_init_band_debugfs(phy);
+		if (ret)
+			goto error;
+	}
 
 	ieee80211_queue_work(mt76_hw(dev), &dev->init_work);
 
 	dev->recovery.hw_init_done = true;
-
--	ret = mt7996_init_debugfs(dev);
--	if (ret)
--		goto error;
 
 	ret = mt7996_coredump_register(dev);
 	if (ret)
@@ -6431,15 +6413,6 @@ struct mt7996_scs_ctrl {
 int mt7996_mcu_set_scs(struct mt7996_phy *phy, u8 enable);
 void mt7996_mcu_scs_sta_poll(struct work_struct *work);
 int mt7996_mcu_set_band_confg(struct mt7996_phy *phy, u16 option, bool enable);
-@@ -757,6 +1208,7 @@ void mt7996_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
-			 struct sk_buff *skb, u32 *info);
- void mt7996_set_stream_vht_txbf_caps(struct mt7996_phy *phy);
- void mt7996_update_channel(struct mt76_phy *mphy);
--int mt7996_init_debugfs(struct mt7996_dev *dev);
-+int mt7996_init_dev_debugfs(struct mt7996_phy *phy);
-+int mt7996_init_band_debugfs(struct mt7996_phy *phy);
- void mt7996_debugfs_rx_fw_monitor(struct mt7996_dev *dev, const void *data, int len);
- bool mt7996_debugfs_rx_log(struct mt7996_dev *dev, const void *data, int len);
 @@ -777,19 +1230,53 @@ int mt7996_mcu_wtbl_update_hdr_trans(struct mt7996_dev *dev,
  int mt7996_mmio_wed_init(struct mt7996_dev *dev, void *pdev_ptr,
 			 bool hif2, int *irq);
