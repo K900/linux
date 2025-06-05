@@ -359,6 +359,10 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	};
 	int mld_idx, idx, ret;
 
+	mt76_dbg(&dev->mt76, MT76_DBG_BSS,
+		 "%s:  vif_link_add called, link_id: %d.\n",
+		 __func__, it.link_id);
+
 	if ((mvif->mt76.valid_links & BIT(link_conf->link_id)) &&
 	    !mlink->offchannel) {
 		if (vif->type == NL80211_IFTYPE_AP)
@@ -512,6 +516,11 @@ void mt7996_vif_link_remove(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	struct mt7996_sta_link *msta_link = &link->msta_link;
 	unsigned int link_id = msta_link->wcid.link_id;
 	struct mt7996_phy *phy = mphy->priv;
+
+	mt76_dbg(mphy->dev, MT76_DBG_BSS,
+		 "%s: band=%u, bss_idx=%u, link_id=%u, wcid=%u hw: %px\n",
+		 __func__, phy->mt76->band_idx, mlink->idx, link_id,
+		 msta_link->wcid.idx, mphy->hw);
 
 	/* Hw requires to destroy active links tearing down the interface, so
 	 * postpone it removing the interface.
@@ -1341,6 +1350,8 @@ mt7996_mac_sta_add_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	unsigned int link_id;
 	int err = 0;
 
+	mt76_dbg(&dev->mt76, MT76_DBG_STA,
+		 "%s: new_links=0x%lx\n", __func__, new_links);
 	for_each_set_bit(link_id, &new_links, IEEE80211_MLD_MAX_NUM_LINKS) {
 		struct ieee80211_bss_conf *link_conf;
 		struct ieee80211_link_sta *link_sta;
@@ -1356,24 +1367,36 @@ mt7996_mac_sta_add_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 
 		link_conf = link_conf_dereference_protected(vif, link_id);
 		if (!link_conf) {
+			mt76_dbg(&dev->mt76, MT76_DBG_STA,
+				 "%s: WARNING: STA %pM link_id: %d could not find link_conf: %p\n",
+				 __func__, sta->addr, link_id, link_conf);
 			err = -EINVAL;
 			goto error_unlink;
 		}
 
 		link = mt7996_vif_link(dev, vif, link_id);
 		if (!link) {
+			mt76_dbg(&dev->mt76, MT76_DBG_STA,
+				 "%s: WARNING: STA %pM link_id: %d could not find link: %p\n",
+				 __func__, sta->addr, link_id, link);
 			err = -EINVAL;
 			goto error_unlink;
 		}
 
 		link_sta = link_sta_dereference_protected(sta, link_id);
 		if (!link_sta) {
+			mt76_dbg(&dev->mt76, MT76_DBG_STA,
+				 "%s: WARNING: STA %pM link_id: %d could not find link_sta: %p\n",
+				 __func__, sta->addr, link_id, link_sta);
 			err = -EINVAL;
 			goto error_unlink;
 		}
 
 		mphy = mt76_vif_link_phy(&link->mt76);
 		if (!mphy) {
+			mt76_dbg(&dev->mt76, MT76_DBG_STA,
+				 "%s: WARNING: STA %pM link_id: %d could not find phy: %p\n",
+				 __func__, sta->addr, link_id, mphy);
 			err = -EINVAL;
 			goto error_unlink;
 		}
