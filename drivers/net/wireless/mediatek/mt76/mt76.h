@@ -884,6 +884,7 @@ struct mt76_vif_link {
 	u8 omac_idx;
 	u8 band_idx;
 	u8 wmm_idx;
+	u8 bss_idx; /* == 0 -> use link index, > 0 -> use this index minus 1 */
 	u8 scan_seq_num;
 	u8 cipher;
 	u8 basic_rates_idx;
