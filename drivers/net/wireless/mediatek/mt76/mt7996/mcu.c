@@ -1449,8 +1449,13 @@ int mt7996_mcu_add_bss_info(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 	struct sk_buff *skb;
 
 	if (mlink->omac_idx >= REPEATER_BSSID_START) {
-		mt7996_mcu_muar_config(dev, mlink, link_conf->addr, false, enable);
-		mt7996_mcu_muar_config(dev, mlink, link_conf->bssid, true, enable);
+		if (enable) {
+			mt7996_mcu_muar_config(dev, mlink, link_conf->addr, false, enable);
+			mt7996_mcu_muar_config(dev, mlink, link_conf->bssid, true, enable);
+		} else {
+			mt7996_mcu_muar_config(dev, mlink, NULL, false, enable);
+			mt7996_mcu_muar_config(dev, mlink, NULL, true, enable);
+		}
 	}
 
 	skb = __mt7996_mcu_alloc_bss_req(&dev->mt76, mlink,
