@@ -1488,6 +1488,9 @@ __mt7996_mcu_alloc_bss_req(struct mt76_dev *dev, struct mt76_vif_link *mvif, int
 	};
 	struct sk_buff *skb;
 
+	if (mvif->bss_idx)
+		hdr.bss_idx = mvif->bss_idx - 1;
+
 	skb = mt76_mcu_msg_alloc(dev, NULL, len);
 	if (!skb)
 		return ERR_PTR(-ENOMEM);
@@ -4170,6 +4173,9 @@ int mt7996_mcu_set_tx(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 	struct sk_buff *skb;
 	int len = sizeof(hdr) + IEEE80211_NUM_ACS * sizeof(struct edca);
 	int ac;
+
+	if (link->mt76.bss_idx)
+		hdr.bss_idx = link->mt76.bss_idx - 1;
 
 	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL, len);
 	if (!skb)
