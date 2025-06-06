@@ -286,6 +286,9 @@ __mt76_connac_mcu_alloc_sta_req(struct mt76_dev *dev, struct mt76_vif_link *mvif
 	if (wcid && !wcid->sta && !wcid->sta_disabled)
 		hdr.muar_idx = 0xe;
 
+	if (mvif->bss_idx)
+		hdr.bss_idx = mvif->bss_idx - 1;
+
 	mt76_connac_mcu_get_wlan_idx(dev, wcid, &hdr.wlan_idx_lo,
 				     &hdr.wlan_idx_hi);
 	skb = __mt76_mcu_msg_alloc(dev, NULL, len, len, GFP_ATOMIC);

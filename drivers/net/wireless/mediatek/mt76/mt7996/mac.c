@@ -1539,7 +1539,12 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 			if (!mlink)
 				mlink = rcu_dereference(mvif->mt76.link[wcid->link_id]);
 
-			txp->fw.bss_idx = mlink ? mlink->idx : mvif->deflink.mt76.idx;
+			mlink = mlink ?: &mvif->deflink.mt76;
+
+			if (mlink->bss_idx)
+				txp->fw.bss_idx = mlink->bss_idx - 1;
+			else
+				txp->fw.bss_idx = mlink->idx;
 		}
 
 		txp->fw.token = cpu_to_le16(id);
