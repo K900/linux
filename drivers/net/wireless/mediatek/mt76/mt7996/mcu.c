@@ -6348,6 +6348,18 @@ int mt7996_mcu_set_sr_enable(struct mt7996_phy *phy, u8 action, u64 val, bool se
 		.val = cpu_to_le32((u32) val),
 	};
 
+	if (WARN_ON_ONCE(((unsigned long)(phy)) < 4000)) {
+		pr_err("sr-enable: phy invalid: %p\n", phy);
+		return -EINVAL;
+	}
+
+	if (WARN_ON_ONCE((unsigned long)(phy->mt76) < 4000)) {
+		pr_err("phy->mt76 invalid: %p\n", phy->mt76);
+		return -EINVAL;
+	}
+
+	req.band_idx = phy->mt76->band_idx;
+
 	mtk_dbg(&phy->dev->mt76, CFG, "mcu-set-sr-enable, action: 0x%x val: %d set: %d\n",
 		action, (int)val, set);
 	if (set)

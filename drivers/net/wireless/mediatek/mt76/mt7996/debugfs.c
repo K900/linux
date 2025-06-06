@@ -1810,8 +1810,7 @@ static const struct file_operations mt7996_txpower_path_fops = {
 static int
 mt7996_sr_enable_get(void *data, u64 *val)
 {
-	struct mt7996_dev *dev = data;
-	struct mt7996_phy *phy = &dev->phy;
+	struct mt7996_phy *phy = data;
 
 	*val = phy->sr_enable;
 
@@ -1821,8 +1820,7 @@ mt7996_sr_enable_get(void *data, u64 *val)
 static int
 mt7996_sr_enable_set(void *data, u64 val)
 {
-	struct mt7996_dev *dev = data;
-	struct mt7996_phy *phy = &dev->phy;
+	struct mt7996_phy *phy = data;
 	int ret;
 
 	if (!!val == phy->sr_enable)
@@ -1866,8 +1864,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(fops_adjust_txp_by_loss, mt7996_adjust_txp_by_loss_get,
 static int
 mt7996_sr_enhanced_enable_get(void *data, u64 *val)
 {
-	struct mt7996_dev *dev = data;
-	struct mt7996_phy *phy = &dev->phy;
+	struct mt7996_phy *phy = data;
 
 	*val = phy->enhanced_sr_enable;
 
@@ -1877,8 +1874,7 @@ mt7996_sr_enhanced_enable_get(void *data, u64 *val)
 static int
 mt7996_sr_enhanced_enable_set(void *data, u64 val)
 {
-	struct mt7996_dev *dev = data;
-	struct mt7996_phy *phy = &dev->phy;
+	struct mt7996_phy *phy = data;
 	int ret;
 
 	if (!!val == phy->enhanced_sr_enable)
@@ -1896,8 +1892,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(fops_sr_enhanced_enable, mt7996_sr_enhanced_enable_get,
 static int
 mt7996_sr_stats_show(struct seq_file *file, void *data)
 {
-	struct mt7996_dev *dev = data;
-	struct mt7996_phy *phy = &dev->phy;
+	struct mt7996_phy *phy = data;
 
 	mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_HW_IND, 0, false);
 
@@ -1908,12 +1903,15 @@ DEFINE_SHOW_ATTRIBUTE(mt7996_sr_stats);
 static int
 mt7996_sr_scene_cond_show(struct seq_file *file, void *data)
 {
-	struct mt7996_dev *dev = data;
-	struct mt7996_phy *phy = &dev->phy;
+	struct mt7996_phy *phy = data;
 
-	mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_SW_SD, 0, false);
+	if (WARN_ON_ONCE(((unsigned long)(phy)) < 4000LU)) {
+		pr_err("scene-cond-show: phy invalid: %p\n",
+		       phy);
+		return -EINVAL;
+	}
 
-	return 0;
+	return mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_SW_SD, 0, false);
 }
 DEFINE_SHOW_ATTRIBUTE(mt7996_sr_scene_cond);
 
@@ -1951,6 +1949,11 @@ int mt7996_init_band_debugfs(struct mt7996_phy *phy)
 	debugfs_create_file("sys_recovery", 0600, dir, phy,
 			    &mt7996_sys_recovery_ops);
 	debugfs_create_file("rxfilter", 0400, dir, phy, &mt7996_rxfilter_fops);
+	debugfs_create_file("sr_enable", 0600, dir, phy, &fops_sr_enable);
+	debugfs_create_file("sr_stats", 0400, dir, phy, &mt7996_sr_stats_fops);
+	debugfs_create_file("sr_enhanced_enable", 0600, dir, phy, &fops_sr_enhanced_enable);
+	debugfs_create_file("sr_scene_cond", 0400, dir, phy, &mt7996_sr_scene_cond_fops);
+
 #ifdef CONFIG_MTK_DEBUG
 	mt7996_mtk_init_band_debugfs(phy, dir);
 	mt7996_mtk_init_band_debugfs_internal(phy, dir);
@@ -2000,11 +2003,6 @@ int mt7996_init_dev_debugfs(struct mt7996_phy *phy)
 	debugfs_create_file("txpower_path", 0600, dir, dev, &mt7996_txpower_path_fops);
 	debugfs_create_file("adjust_txp_by_loss", 0600, dir, dev, &fops_adjust_txp_by_loss);
 
-	debugfs_create_file("sr_enable", 0600, dir, dev, &fops_sr_enable);
-	debugfs_create_file("sr_enhanced_enable", 0600, dir, dev, &fops_sr_enhanced_enable);
-	debugfs_create_file("sr_stats", 0400, dir, dev, &mt7996_sr_stats_fops);
-	debugfs_create_file("sr_scene_cond", 0400, dir, dev, &mt7996_sr_scene_cond_fops);
-
 	debugfs_create_bool("mgmt_pwr_enhance", 0600, dir, &dev->mt76.mgmt_pwr_enhance);
 	debugfs_create_file("scs_enable", 0200, dir, phy, &fops_scs_enable);
 
@@ -2022,6 +2020,10 @@ int mt7996_init_dev_debugfs(struct mt7996_phy *phy)
 		mt7996_mtk_init_dev_debugfs_internal(phy, dir);
 #endif
 	}
+#ifdef CONFIG_MTK_DEBUG
+	debugfs_create_u16("wlan_idx", 0600, dir, &dev->wlan_idx);
+	mt7996_mtk_init_dev_debugfs(dev, dir);
+#endif
 
 	return 0;
 }
