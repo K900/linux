@@ -1643,22 +1643,22 @@ int mt7996_init_band_debugfs(struct mt7996_phy *phy)
 	debugfs_create_file("sys_recovery", 0600, dir, phy,
 			    &mt7996_sys_recovery_ops);
 	debugfs_create_file("atf_enable", 0600, dir, phy, &fops_atf_enable);
-	debugfs_create_file("tx_stats", 0400, dir, phy, &mt7996_tx_stats_fops);
-	if (phy->mt76->cap.has_5ghz) {
-		debugfs_create_u32("dfs_hw_pattern", 0400, dir,
-				   &dev->hw_pattern);
-		debugfs_create_file("radar_trigger", 0200, dir, dev,
-				    &fops_radar_trigger);
-		debugfs_create_devm_seqfile(dev->mt76.dev, "rdd_monitor", dir,
-					    mt7996_rdd_monitor);
-	}
++	debugfs_create_file("tx_stats", 0400, dir, phy, &mt7996_tx_stats_fops);
++	if (phy->mt76->cap.has_5ghz) {
++		debugfs_create_u32("dfs_hw_pattern", 0400, dir,
++				   &dev->hw_pattern);
++		debugfs_create_file("radar_trigger", 0200, dir, dev,
++				    &fops_radar_trigger);
++		debugfs_create_devm_seqfile(dev->mt76.dev, "rdd_monitor", dir,
++					    mt7996_rdd_monitor);
++	}
 
-#ifdef CONFIG_MTK_DEBUG
+ #ifdef CONFIG_MTK_DEBUG
 	mt7996_mtk_init_band_debugfs(phy, dir);
 	mt7996_mtk_init_band_debugfs_internal(phy, dir);
-#endif
+ #endif
 	return 0;
-}
+ }
 
  int mt7996_init_dev_debugfs(struct mt7996_phy *phy)
  {
@@ -1689,20 +1689,6 @@ int mt7996_init_band_debugfs(struct mt7996_phy *phy)
 -			    &fops_radar_trigger);
 -	debugfs_create_devm_seqfile(dev->mt76.dev, "rdd_monitor", dir,
 -				    mt7996_rdd_monitor);
-
-	if (phy == &dev->phy) {
-		dev->debugfs_dir = dir;
- #ifdef CONFIG_MTK_DEBUG
-		mt7996_mtk_init_dev_debugfs_internal(phy, dir);
- #endif
-	}
-+#ifdef CONFIG_MTK_DEBUG
-+	debugfs_create_u16("wlan_idx", 0600, dir, &dev->wlan_idx);
-+	mt7996_mtk_init_dev_debugfs(dev, dir);
-+#endif
-
-	return 0;
- }
 
 diff --git a/drivers/net/wireless/mediatek/mt76/mt7996/dma.c b/drivers/net/wireless/mediatek/mt76/mt7996/dma.c
 index fe8cc1d3f738..832c44b4c4fd 100644
