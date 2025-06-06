@@ -1449,13 +1449,24 @@ mt7996_mcu_bss_basic_tlv(struct mt7996_dev *dev,
 	bss->bmc_tx_wlan_idx = cpu_to_le16(wlan_idx);
 	bss->sta_idx = cpu_to_le16(sta_wlan_idx);
 	bss->conn_type = cpu_to_le32(type);
-	bss->omac_idx = mvif->omac_idx;
+
+	if (mvif->omac_idx >= REPEATER_BSSID_START)
+		bss->omac_idx = HW_BSSID_1;
+	else
+		bss->omac_idx = mvif->omac_idx;
+
 	bss->band_idx = mvif->band_idx;
 	bss->wmm_idx = mvif->wmm_idx;
 	bss->conn_state = !enable;
 	bss->active = enable;
 
-	idx = mvif->omac_idx > EXT_BSSID_START ? HW_BSSID_0 : mvif->omac_idx;
+	if (mvif->omac_idx >= REPEATER_BSSID_START)
+		idx = HW_BSSID_1;
+	else if (mvif->omac_idx > EXT_BSSID_START)
+		idx = HW_BSSID_0;
+	else
+		idx = mvif->omac_idx;
+
 	bss->hw_bss_idx = idx;
 
 	if (vif->type == NL80211_IFTYPE_MONITOR) {
