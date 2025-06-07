@@ -1370,6 +1370,35 @@ mt7996_mcu_bss_mld_tlv(struct sk_buff *skb,
 }
 
 static void
+mt7996_mcu_bssinfo_force_cmd_tlv(struct sk_buff *skb, struct ieee80211_vif *vif,
+				 struct mt76_vif_link *mlink)
+{
+	struct bssinfo_force_cmd_tlv *mldinfo;
+	struct tlv *tlv;
+
+	tlv = mt7996_mcu_add_uni_tlv(skb, UNI_BSS_INFO_FORCE_CMD_MLD, sizeof(*mldinfo));
+
+	mldinfo = (struct bssinfo_force_cmd_tlv *)tlv;
+
+	if (vif->type == NL80211_IFTYPE_STATION && mlink->band_idx == 0)
+		mldinfo->own_mld_id = 3;
+	else if (vif->type == NL80211_IFTYPE_STATION && mlink->band_idx == 1)
+		mldinfo->own_mld_id = 4;
+	else if (vif->type == NL80211_IFTYPE_STATION && mlink->band_idx == 2)
+		mldinfo->own_mld_id = 5;
+	else if (vif->type == NL80211_IFTYPE_AP && mlink->band_idx == 0)
+		mldinfo->own_mld_id = 0;
+	else if (vif->type == NL80211_IFTYPE_AP && mlink->band_idx == 1)
+		mldinfo->own_mld_id = 1;
+	else if (vif->type == NL80211_IFTYPE_AP && mlink->band_idx == 2)
+		mldinfo->own_mld_id = 2;
+	else
+		mldinfo->own_mld_id = mlink->idx;
+
+	memcpy(mldinfo->own_mld_addr, vif->addr, ETH_ALEN);
+}
+
+static void
 mt7996_mcu_bss_sec_tlv(struct sk_buff *skb, struct mt76_vif_link *mlink)
 {
 	struct bss_sec_tlv *sec;
@@ -1548,6 +1577,8 @@ int mt7996_mcu_add_bss_info(struct mt7996_phy *phy, struct ieee80211_vif *vif,
 		/* this tag is necessary no matter if the vif is MLD */
 		link = container_of(mlink, struct mt7996_vif_link, mt76);
 		mt7996_mcu_bss_mld_tlv(skb, link_conf, link);
+
+		mt7996_mcu_bssinfo_force_cmd_tlv(skb, vif, mlink);
 	}
 
 	mt7996_mcu_bss_mbssid_tlv(skb, link_conf, enable);
@@ -2426,6 +2457,18 @@ mt7996_mcu_sta_hdrt_tlv(struct mt7996_dev *dev, struct sk_buff *skb)
 }
 
 static void
+mt7996_mcu_starec_muar_idx_tlv(struct sk_buff *skb, struct mt7996_vif_link *link)
+{
+	struct sta_rec_muar_idx *muar;
+	struct tlv *tlv;
+
+	tlv = mt76_connac_mcu_add_tlv(skb, STA_REC_MUAR_IDX, sizeof(*muar));
+
+	muar = (struct sta_rec_muar_idx *)tlv;
+	muar->muar_idx = link->mt76.omac_idx;
+}
+
+static void
 mt7996_mcu_sta_hdr_trans_tlv(struct mt7996_dev *dev, struct sk_buff *skb,
 			     struct ieee80211_vif *vif, struct mt76_wcid *wcid)
 {
@@ -3110,6 +3153,8 @@ int mt7996_mcu_add_sta(struct mt7996_dev *dev,
 		mt7996_mcu_sta_eht_tlv(skb, link_sta);
 		/* starec muru */
 		mt7996_mcu_sta_muru_tlv(dev, skb, link_conf, link_sta);
+		/* starec muar idx*/
+		mt7996_mcu_starec_muar_idx_tlv(skb, link);
 
 		if (sta->mlo) {
 			mt7996_mcu_sta_mld_setup_tlv(dev, skb, link_conf->vif,
