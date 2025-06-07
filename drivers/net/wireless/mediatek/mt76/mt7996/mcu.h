@@ -696,6 +696,21 @@ struct sta_rec_ht_uni {
 	u8 _rsv[3];
 } __packed;
 
+struct bssinfo_force_cmd_tlv {
+	__le16 tag;
+	__le16 len;
+	u8 own_mld_id;
+	u8 own_mld_addr[ETH_ALEN];
+	u8 __rsv[1]; /* Actually a one element array, not a flexible array member. */
+} __packed;
+
+struct sta_rec_muar_idx {
+	__le16 tag;
+	__le16 len;
+	u8 muar_idx;
+	u8 __rsv[3];
+} __packed;
+
 struct sta_rec_ba_uni {
 	__le16 tag;
 	__le16 len;
@@ -1047,7 +1062,8 @@ enum {
 					 sizeof(struct bss_power_save) +	\
 					 sizeof(struct bss_sec_tlv) +		\
 					 sizeof(struct bss_ifs_time_tlv) +	\
-					 sizeof(struct bss_mld_tlv))
+					 sizeof(struct bss_mld_tlv) +           \
+					 sizeof(struct bssinfo_force_cmd_tlv))
 
 #define MT7996_STA_UPDATE_MAX_SIZE	(sizeof(struct sta_req_hdr) +		\
 					 sizeof(struct sta_rec_basic) +		\
@@ -1069,6 +1085,7 @@ enum {
 					 sizeof(struct sta_rec_mld_setup) +	\
 					 sizeof(struct mld_setup_link) * 3 +	\
 					 sizeof(struct sta_rec_eht_mld) +	\
+					 sizeof(struct sta_rec_muar_idx) +	\
 					 sizeof(struct tlv))
 
 #define MT7996_BEACON_UPDATE_SIZE	(sizeof(struct bss_req_hdr) +		\
