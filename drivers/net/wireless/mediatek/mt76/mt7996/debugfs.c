@@ -1892,7 +1892,7 @@ DEFINE_DEBUGFS_ATTRIBUTE(fops_sr_enhanced_enable, mt7996_sr_enhanced_enable_get,
 static int
 mt7996_sr_stats_show(struct seq_file *file, void *data)
 {
-	struct mt7996_phy *phy = data;
+	struct mt7996_phy *phy = file->private;
 
 	mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_HW_IND, 0, false);
 
@@ -1903,13 +1903,7 @@ DEFINE_SHOW_ATTRIBUTE(mt7996_sr_stats);
 static int
 mt7996_sr_scene_cond_show(struct seq_file *file, void *data)
 {
-	struct mt7996_phy *phy = data;
-
-	if (WARN_ON_ONCE(((unsigned long)(phy)) < 4000LU)) {
-		pr_err("scene-cond-show: phy invalid: %p\n",
-		       phy);
-		return -EINVAL;
-	}
+	struct mt7996_phy *phy = file->private;
 
 	return mt7996_mcu_set_sr_enable(phy, UNI_CMD_SR_SW_SD, 0, false);
 }
