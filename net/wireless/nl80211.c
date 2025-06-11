@@ -19440,16 +19440,20 @@ static int nl80211_assoc_ml_reconf(struct sk_buff *skb, struct genl_info *info)
 	u16 add_links;
 	int err;
 
-	if (!wdev->valid_links)
+	if (!wdev->valid_links) {
+		pr_err("assoc_ml_reconf:  ERROR: No valid links.\n");
 		return -EINVAL;
+	}
 
 	if (dev->ieee80211_ptr->conn_owner_nlportid &&
 	    dev->ieee80211_ptr->conn_owner_nlportid != info->snd_portid)
 		return -EPERM;
 
 	if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_STATION &&
-	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_CLIENT)
+	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_CLIENT) {
+		pr_err("assoc_ml_reconf:  ERROR: iftype is not station or p2p.\n");
 		return -EOPNOTSUPP;
+	}
 
 	add_links = 0;
 	if (info->attrs[NL80211_ATTR_MLO_LINKS]) {
@@ -19457,8 +19461,10 @@ static int nl80211_assoc_ml_reconf(struct sk_buff *skb, struct genl_info *info)
 					    /* mark as MLO, but not assoc */
 					    IEEE80211_MLD_MAX_NUM_LINKS,
 					    NULL, 0, info);
-		if (err)
+		if (err) {
+			pr_err("assoc_ml_reconf:  process_links failed\n");
 			return err;
+		}
 
 		for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS;
 		     link_id++) {
@@ -19478,6 +19484,8 @@ static int nl80211_assoc_ml_reconf(struct sk_buff *skb, struct genl_info *info)
 	if ((add_links & req.rem_links) || !(add_links | req.rem_links) ||
 	    (wdev->valid_links & add_links) ||
 	    ((wdev->valid_links & req.rem_links) != req.rem_links)) {
+		pr_err("assoc_ml_reconf:  link add/delete checks failed, add_links: 0x%x  req.rem_links: 0x%x valid_links: 0x%x\n",
+		       add_links, req.rem_links, wdev->valid_links);
 		err = -EINVAL;
 		goto out;
 	}
@@ -19487,6 +19495,9 @@ static int nl80211_assoc_ml_reconf(struct sk_buff *skb, struct genl_info *info)
 			nla_get_u16(info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS]);
 
 	err = cfg80211_assoc_ml_reconf(rdev, dev, &req);
+	if (err)
+		pr_err("assoc_ml_reconf:  cfg80211_assoc_ml_reconf failed: %d\n",
+		       err);
 
 out:
 	for (link_id = 0; link_id < ARRAY_SIZE(req.add_links); link_id++)
