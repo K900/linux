@@ -11462,8 +11462,10 @@ int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 
 	if (!ieee80211_vif_is_mld(&sdata->vif) ||
 	    !(sdata->vif.cfg.mld_capa_op &
-	      IEEE80211_MLD_CAP_OP_LINK_RECONF_SUPPORT))
+	      IEEE80211_MLD_CAP_OP_LINK_RECONF_SUPPORT)) {
+		sdata_info(sdata, "assoc-ml-reconf, IEEE80211_MLD_CAP_OP_LINK_RECONF_SUPPORT not supported or not MLD\n");
 		return -EINVAL;
+	}
 
 	/* No support for concurrent ML reconfiguration operation */
 	if (sdata->u.mgd.reconf.added_links ||
@@ -11479,8 +11481,11 @@ int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 	}
 
 	sta = sta_info_get(sdata, sdata->vif.cfg.ap_addr);
-	if (WARN_ON(!sta))
+	if (WARN_ON(!sta)) {
+		sdata_info(sdata, "assoc-ml-reconf, could not find sta for: %pM\n",
+			   sdata->vif.cfg.ap_addr);
 		return -ENOLINK;
+	}
 
 	/* Adding links to the set of valid link is done only after a successful
 	 * ML reconfiguration frame exchange. Here prepare the data for the ML
@@ -11511,6 +11516,8 @@ int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 			bss = (void *)link_cbss->priv;
 
 			if (!bss->wmm_used) {
+				sdata_info(sdata, "assoc-ml-reconf, wmm_used is false, link_id: %d\n",
+					link_id);
 				err = -EINVAL;
 				goto err_free;
 			}
@@ -11541,6 +11548,8 @@ int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 
 			if (data->link[link_id].conn.mode <
 			    IEEE80211_CONN_MODE_EHT) {
+				sdata_info(sdata, "assoc-ml-reconf, conn.mode < EHT: %d  link_id: %d\n",
+					   data->link[link_id].conn.mode, link_id);
 				err = -EINVAL;
 				goto err_free;
 			}
@@ -11548,6 +11557,8 @@ int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 			err = ieee80211_mgd_get_ap_ht_vht_capa(sdata, data,
 							       link_id);
 			if (err) {
+				sdata_info(sdata, "assoc-ml-reconf, get-ap-ht-vht-capa failed: %d link_id: %d\n",
+					   err, link_id);
 				err = -EINVAL;
 				goto err_free;
 			}
@@ -11572,8 +11583,11 @@ int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 						     true,
 						     &data->link[link_id].conn,
 						     sdata->u.mgd.userspace_selectors);
-			if (err)
+			if (err) {
+				sdata_info(sdata, "assoc-ml-reconf, prep-channel failed: %d  link_id: %d\n",
+					   err, link_id);
 				goto err_free;
+			}
 		}
 	}
 
