@@ -11463,7 +11463,8 @@ int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 	if (!ieee80211_vif_is_mld(&sdata->vif) ||
 	    !(sdata->vif.cfg.mld_capa_op &
 	      IEEE80211_MLD_CAP_OP_LINK_RECONF_SUPPORT)) {
-		sdata_info(sdata, "assoc-ml-reconf, IEEE80211_MLD_CAP_OP_LINK_RECONF_SUPPORT not supported or not MLD\n");
+		sdata_info(sdata, "assoc-ml-reconf, IEEE80211_MLD_CAP_OP_LINK_RECONF_SUPPORT: 0x%hx not supported or not MLD: %d\n",
+			   sdata->vif.cfg.mld_capa_op, ieee80211_vif_is_mld(&sdata->vif));
 		return -EINVAL;
 	}
 
