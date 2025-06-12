@@ -150,6 +150,7 @@
 	sfp = <&sfp1>;
 	managed = "in-band-status";
 	phy-mode = "usxgmii";
+	status = "okay";
 };
 
 &gsw_phy0 {
