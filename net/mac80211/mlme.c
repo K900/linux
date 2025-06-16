@@ -6734,7 +6734,7 @@ ieee80211_determine_our_sta_mode_assoc(struct ieee80211_sub_if_data *sdata,
 				       bool wmm_used, int link_id,
 				       struct ieee80211_conn_settings *conn)
 {
-	struct ieee80211_conn_settings tmp;
+	struct ieee80211_conn_settings tmp = { 0 };
 
 	WARN_ON(!req);
 
@@ -9879,7 +9879,7 @@ int ieee80211_mgd_auth(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
 	struct ieee80211_mgd_auth_data *auth_data;
-	struct ieee80211_conn_settings conn;
+	struct ieee80211_conn_settings conn = { 0 };
 	struct ieee80211_link_data *link;
 	struct ieee80211_supported_band *sband;
 	struct ieee80211_bss *bss;
