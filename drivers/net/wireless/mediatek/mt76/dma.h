@@ -168,6 +168,8 @@ void mt76_dma_attach(struct mt76_dev *dev);
 void mt76_dma_cleanup(struct mt76_dev *dev);
 int mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q,
 		     bool allow_direct);
+int mt76_dma_rx_fill_buf(struct mt76_dev *dev, struct mt76_queue *q,
+			 bool allow_direct);
 void mt76_dma_queue_reset(struct mt76_dev *dev, struct mt76_queue *q,
 			  bool reset_idx);
 
