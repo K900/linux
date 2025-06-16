@@ -3611,8 +3611,18 @@ static int mtk_get_irqs(struct platform_device *pdev, struct mtk_eth *eth)
 	/* future SoCs beginning with MT7988 should use named IRQs in dts */
 	eth->irq_fe[MTK_FE_IRQ_TX] = platform_get_irq_byname(pdev, "fe1");
 	eth->irq_fe[MTK_FE_IRQ_RX] = platform_get_irq_byname(pdev, "fe2");
-	if (eth->irq_fe[MTK_FE_IRQ_TX] >= 0 && eth->irq_fe[MTK_FE_IRQ_RX] >= 0)
+	if (eth->irq_fe[MTK_FE_IRQ_TX] >= 0 && eth->irq_fe[MTK_FE_IRQ_RX] >= 0) {
+		if (MTK_HAS_CAPS(eth->soc->caps, MTK_PDMA_INT)) {
+			char rxring[9];
+			for (i = 0; i < MTK_PDMA_IRQ_NUM; i++)
+			{
+				snprintf(rxring, sizeof(rxring), "pdma%d", i);
+				eth->irq_pdma[i] = platform_get_irq_byname(pdev, rxring);
+			}
+		}
+
 		return 0;
+	}
 
 	/* only use legacy mode if platform_get_irq_byname returned -ENXIO */
 	if (eth->irq_fe[MTK_FE_IRQ_TX] != -ENXIO)
