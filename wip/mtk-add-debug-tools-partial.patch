@@ -429,24 +429,7 @@ diff --git a/drivers/net/wireless/mediatek/mt76/dma.h b/drivers/net/wireless/med
 index e3ddc7a83757..07d67cd0d13e 100644
 --- a/drivers/net/wireless/mediatek/mt76/dma.h
 +++ b/drivers/net/wireless/mediatek/mt76/dma.h
-@@ -81,10 +81,12 @@ void mt76_dma_attach(struct mt76_dev *dev);
- void mt76_dma_cleanup(struct mt76_dev *dev);
- int mt76_dma_rx_fill(struct mt76_dev *dev, struct mt76_queue *q,
-		     bool allow_direct);
-+int mt76_dma_rx_fill_buf(struct mt76_dev *dev, struct mt76_queue *q,
-+			 bool allow_direct);
- void __mt76_dma_queue_reset(struct mt76_dev *dev, struct mt76_queue *q,
-			    bool reset_idx);
- void mt76_dma_queue_reset(struct mt76_dev *dev, struct mt76_queue *q, bool reset);
-
- static inline void
- mt76_dma_reset_tx_queue(struct mt76_dev *dev, struct mt76_queue *q)
- {
-	dev->queue_ops->reset_q(dev, q, true);
-	if (mtk_wed_device_active(&dev->mmio.wed))
-		mt76_wed_dma_setup(dev, q, true);
- }
-
+@@ -81,24 +81,26 @@ void mt76_dma_attach(struct mt76_dev *dev);
 -static inline void
 +static inline int
  mt76_dma_should_drop_buf(bool *drop, u32 ctrl, u32 buf1, u32 info)
