@@ -306,19 +306,19 @@
 #define FC_THRES_MIN		0x4444
 
 /* QDMA Interrupt Status Register */
-#define MTK_RX_DONE_INT_V1(ring_no) \
+#define MTK_RX_DONE_INT_V1(_ring_no) \
 	( \
-		(ring_no) ? \
-		BIT(24 + (ring_no)) : \
+		(_ring_no) ? \
+		BIT(24 + (_ring_no)) : \
 		BIT(30) \
 	)
 
-#define MTK_RX_DONE_INT_V2(ring_no)	BIT(24 + (ring_no))
+#define MTK_RX_DONE_INT_V2(_ring_no)	BIT(24 + (_ring_no))
 
-#define MTK_RX_DONE_INT(ring_no)		\
+#define MTK_RX_DONE_INT(_ring_no)		\
 	(mtk_is_netsys_v3_or_greater(eth) ?  \
-	 MTK_RX_DONE_INT_V2(ring_no) : \
-	 MTK_RX_DONE_INT_V1(ring_no))
+	 MTK_RX_DONE_INT_V2(_ring_no) : \
+	 MTK_RX_DONE_INT_V1(_ring_no))
 
 #define MTK_TX_DONE_DLY		BIT(28)
 #define MTK_RX_DONE_INT3	BIT(19)
