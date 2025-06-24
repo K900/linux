@@ -748,7 +748,7 @@ void mt792x_get_et_strings(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (sset != ETH_SS_STATS)
 		return;
 
-	if (dev->has_eht) {
+	if (dev->could_eht) {
 		memcpy(data, mt792x_gstrings_stats_eht, sizeof(mt792x_gstrings_stats_eht));
 		data += sizeof(mt792x_gstrings_stats_eht);
 	} else {
@@ -769,7 +769,10 @@ int mt792x_get_et_sset_count(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (sset != ETH_SS_STATS)
 		return 0;
 
-	if (dev->has_eht)
+	mt76_dbg(&dev->mt76, MT76_DBG_DEV, "%s: could_eht: %d, has_eht: %d\n",
+		 __func__, dev->could_eht, dev->has_eht);
+
+	if (dev->could_eht)
 		return ARRAY_SIZE(mt792x_gstrings_stats_eht) +
 			page_pool_ethtool_stats_get_count();
 
@@ -806,7 +809,7 @@ void mt792x_get_et_stats(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	};
 	int i, ei = 0;
 
-	if (dev->has_eht)
+	if (dev->could_eht)
 		stats_size = ARRAY_SIZE(mt792x_gstrings_stats_eht);
 	else
 		stats_size = ARRAY_SIZE(mt792x_gstrings_stats_ax);
