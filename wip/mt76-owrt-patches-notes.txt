@@ -21,7 +21,6 @@ mtk: mt76: mt7996: add listmode support
 mtk: mt76: mt7996: parse nvmem partition name & offset for flash write back
 mtk: mt76: mt7996: add testmode support for single wiphy
 mtk: mt76: use compile flag to disable some wed change for kernel 6.6
-mtk: mt76: mt7996: fix and refactor air monitor
 mtk: mt76: mt7990: add mt7987 wed hw path support
 mtk: mt76: mt7996: fix testmode issues
 mtk: mt76: mt7996: fix adie efuse merge support
@@ -35,7 +34,6 @@ mtk: mt76: mt7996: fix testmode RX frame issue
 mtk: mt76: mt7996: fix testmode rx stats issue
 mtk: mt76: mt7996: rework testmode dump stats
 mtk: mt76: mt7996: Add sw path hwrro3.1 support
-mtk: mt76: mt7996: get color bitmap on link's bss_conf according link_id
 
 
 TODOS:
