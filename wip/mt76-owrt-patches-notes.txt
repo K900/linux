@@ -35,6 +35,17 @@ mtk: mt76: mt7996: fix testmode rx stats issue
 mtk: mt76: mt7996: rework testmode dump stats
 mtk: mt76: mt7996: Add sw path hwrro3.1 support
 
+mac80211 subsys patches skipped:
+
+0001 - 0008 'sync' patches.
+0016-mtk-mac80211-add-fill-receive-path-ops-to-get-wed-id.patch
+0020-mtk-mac80211-add-sta-assisted-DFS-state-update-mecha.patch  #  Difficult to apply, upstream has changed in this area.
+0029-mtk-mac80211-export-ieee80211_tpt_led_trig_tx-rx-for.patch
+0058-mtk-mac80211-rework-radar-notify-for-MLO.patch
+0062-mtk-mac80211-add-link-information-when-dump-station.patch  # Appears to be nice to have, merge problem in ethtool
+0070-mtk-mac80211-add-A-TTLM-support.patch  # Big merge problems, maybe useful though.
+0084-mtk-mac80211-add-per-link-txpower-config.patch
+
 
 TODOS:
   Bring in more of the mtk-add-debug-tools-partial.patch
