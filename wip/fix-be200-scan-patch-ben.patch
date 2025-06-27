@@ -1,0 +1,113 @@
+From ffdbaf8c4328c81ecfbaec223082bbf3f5f70bef Mon Sep 17 00:00:00 2001
+From: Ben Greear <greearb@candelatech.com>
+Date: Fri, 27 Jun 2025 10:55:45 -0700
+Subject: [PATCH 1211/1306] mac80211: Fix scan regression for be200 radios.
+
+Recent mtk/felix patches from mtk owrt tree broke scanning
+for drivers that do not set n_radio > 0.  Assume that if it is
+zero, then there is one radio.  This allows scanning to
+work for be200, though perhaps it is too simplistic of a fix.
+
+Add logging around scan failures.
+
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ net/mac80211/cfg.c  |  4 +++-
+ net/mac80211/scan.c | 31 ++++++++++++++++++++++++++-----
+ 2 files changed, 29 insertions(+), 6 deletions(-)
+
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index 5698038360f2..5dc0967eb5d9 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -3029,8 +3029,10 @@ static int ieee80211_scan(struct wiphy *wiphy,
+		 */
+		if (ieee80211_num_beaconing_links(sdata) &&
+		    (!(wiphy->features & NL80211_FEATURE_AP_SCAN) ||
+-		     !(req->flags & NL80211_SCAN_FLAG_AP)))
++		     !(req->flags & NL80211_SCAN_FLAG_AP))) {
++			sdata_info(sdata, "Scan failed, beaconing links and not FEATURE_AP_SCAN | not SCAN_FLAG_AP\n");
+			return -EOPNOTSUPP;
++		}
+		break;
+	case NL80211_IFTYPE_NAN:
+	default:
+diff --git a/net/mac80211/scan.c b/net/mac80211/scan.c
+index eeaeab2c64b1..b634592c437c 100644
+--- a/net/mac80211/scan.c
++++ b/net/mac80211/scan.c
+@@ -612,6 +612,10 @@ u32 ieee80211_scan_req_radio_mask(struct ieee80211_local *local,
+	u32 mask = 0;
+	int i, r;
+
++	/* Deal with drivers that don't configure n_radio. */
++	if (local->hw.wiphy->n_radio == 0)
++		return 0x1;
++
+	for (r = 0; r < local->hw.wiphy->n_radio; r++) {
+		radio = &local->hw.wiphy->radio[r];
+
+@@ -666,21 +670,31 @@ u32 ieee80211_can_leave_ch(struct ieee80211_sub_if_data *sdata,
+	struct ieee80211_link_data *link;
+	unsigned int link_id;
+	u32 radar_mask, mask = radio_mask;
++	u32 rv;
+
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	radar_mask = ieee80211_is_radar_required(local, radio_mask);
+	if (radar_mask && !regulatory_pre_cac_allowed(local->hw.wiphy) &&
+-	    !wiphy->dfs_relax)
+-		return radio_mask & ~radar_mask;
++	    !wiphy->dfs_relax) {
++		rv = radio_mask & ~radar_mask;
++		if (!rv) {
++			sdata_info(sdata, "can-leave-ch failed, radar_mask: 0x%x dfs_relax: %d\n",
++				   radar_mask, wiphy->dfs_relax);
++		}
++		return rv;
++	}
++
+
+	list_for_each_entry(sdata_iter, &local->interfaces, list) {
+		for_each_valid_link(&sdata_iter->wdev, link_id) {
+			if (!sdata_iter->wdev.links[link_id].cac_started)
+				continue;
+
+-			if (!wiphy->n_radio)
++			if (!wiphy->n_radio) {
++				sdata_info(sdata, "can-leave-ch failed, no wiphy->n_radio\n");
+				return false;
++			}
+
+			link = sdata_dereference(sdata->link[link_id], sdata);
+			if (!link)
+@@ -836,8 +850,11 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
+
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+-	if (local->scan_req)
++	if (local->scan_req) {
++		sdata_info(sdata, "start-scan failed, local->scan_req exists: %p\n",
++			   local->scan_req);
+		return -EBUSY;
++	}
+
+	/* For an MLO connection, if a link ID was specified, validate that it
+	 * is indeed active.
+@@ -851,8 +868,12 @@ static int __ieee80211_start_scan(struct ieee80211_sub_if_data *sdata,
+
+	radio_mask = ieee80211_scan_req_radio_mask(local, req);
+	allowed_radios = ieee80211_can_leave_ch(sdata, radio_mask);
+-	if (!allowed_radios)
++	if (!allowed_radios) {
++		sdata_info(sdata, "start-scan failed, can_leave_ch says no allowed radios, radio_mask: 0x%x n_radio: %d  req->n_channels: %d\n",
++			   radio_mask, local->hw.wiphy->n_radio, req->n_channels);
+		return -EBUSY;
++	}
++
+	if (allowed_radios != radio_mask)
+		ieee80211_scan_req_update(local, req, allowed_radios);
+
+--
+2.42.0
