@@ -7,7 +7,6 @@ txpower changes (mostly already done in earlier patches pulled from mtk)
 stas-count feature flag (skip this I think)
 rro (related to WED)
 debug.[ch]
-channel_switch_beacon re-add when it can compile
 mt7996_sta_statistics changes
 mt7996_sta_link_statistics
 background_radar_handle_7975
@@ -3637,40 +3636,6 @@ static inline int get_free_idx(u64 mask, u8 start, u8 end)
 
  out:
 	mutex_unlock(&dev->mt76.mutex);
-@@ -865,8 +1031,28 @@ mt7996_channel_switch_beacon(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
-			     struct cfg80211_chan_def *chandef)
- {
-+#if 0
-+	//Buggy, won't compile, subsequent patch fixes it I guess. --Ben
-	struct mt7996_dev *dev = mt7996_hw_dev(hw);
-+	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
-+	struct mt7996_phy *phy = mt7996_band_phy(dev, chandef->chan->band);
-+	struct ieee80211_bss_conf *conf;
-+	struct mt7996_vif_link *mconf;
-+	u16 valid_links = vif->valid_links ?: BIT(0);
-+	unsigned int link_id;
-
-	mutex_lock(&dev->mt76.mutex);
--	mt7996_mcu_add_beacon(hw, vif, &vif->bss_conf);
-+	for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
-+		struct mt7996_vif_link *mconf =
-+			mt7996_vif_link(dev, vif, link_id);
-+		struct ieee80211_bss_conf *conf =
-+			link_conf_dereference_protected(vif, link_id);
-+
-+		if (!mconf || phy != mconf->phy)
-+			continue;
-+
-+		mt7996_mcu_add_beacon(hw, vif, conf, true);
-+	}
-	mutex_unlock(&dev->mt76.mutex);
-+#endif
-+}
-
-static int
-mt7996_post_channel_switch(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
-			   struct ieee80211_bss_conf *link_conf)
 @@ -1190,4 +1391,4 @@ mt7996_sta_state(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
  static void mt7996_tx(struct ieee80211_hw *hw,
 		      struct ieee80211_tx_control *control,
