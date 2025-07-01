@@ -150,6 +150,7 @@ void mt76_connac_tx_complete_skb(struct mt76_dev *mdev,
 				 struct mt76_queue_entry *e)
 {
 	if (!e->txwi) {
+		mtk_dbg(mdev, TXV, "mt76-connac-tx-complete-skb, txwi is NULL, freeing skb\n");
 		dev_kfree_skb_any(e->skb);
 		return;
 	}
