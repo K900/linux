@@ -655,6 +655,13 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			}
 		}
 
+		memset(&sinfo, 0, sizeof(sinfo));
+		/* sta_set_sinfo cannot hold rcu read lock since it can block
+		 * calling into firmware for stats.
+		 */
+		if (sta)
+			sta_set_sinfo(sta, &sinfo, false);
+
 		/* For each of the first 3 links */
 		for (li = 0; li<ETHTOOL_LINK_COUNT; li++) {
 			rcu_read_lock();
@@ -674,12 +681,6 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				i += PER_LINK_STATS_LEN;
 				continue;
 			}
-
-			memset(&sinfo, 0, sizeof(sinfo));
-			/* sta_set_sinfo cannot hold rcu read lock since it can block
-			 * calling into firmware for stats.
-			 */
-			sta_set_sinfo(sta, &sinfo, false);
 
 			if (mld) {
 				last_rxstats = link_sta_get_last_rx_stats(link_sta);
