@@ -311,6 +311,9 @@ void __mt76_tx_complete_skb(struct mt76_dev *dev, u16 wcid_idx, struct sk_buff *
 		status_rate.rate_idx = wcid->rate;
 		status_rate.try_count = 1;
 		status.sta = wcid_to_sta(wcid);
+
+		mtk_dbg(dev, TXV, "mt76-tx-complete-skb, wcid phy-idx: %d link_id: %d link-valid: %d\n",
+			wcid->phy_idx, wcid->link_id, wcid->link_valid);
 	}
 
 	mt76_tx_check_non_aql(dev, wcid, skb);
