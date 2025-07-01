@@ -659,12 +659,6 @@ mt7996_tx_stats_show(struct seq_file *file, void *data)
 	mutex_lock(&dev->mt76.mutex);
 
 	mt7996_tx_stats_show_phy(file, phy);
-	phy = mt7996_phy2(dev);
-	if (phy)
-		mt7996_tx_stats_show_phy(file, phy);
-	phy = mt7996_phy3(dev);
-	if (phy)
-		mt7996_tx_stats_show_phy(file, phy);
 
 	mutex_unlock(&dev->mt76.mutex);
 
