@@ -410,6 +410,7 @@ mt7996_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 	u32 val;
 	int ret;
 	u8 seq;
+	int i, j;
 
 	if (dev->recovery.l1_reset_last != dev->recovery.l1_reset) {
 		dev_info(dev->mt76.dev,"\n%s L1 SER recovery overlap, drop message %08x.",
@@ -498,6 +499,32 @@ mt7996_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 		mcu_txd->s2d_index = MCU_S2D_H2N;
 
 exit:
+	if ((dev->mt76.debug_lvl & MT76_DBG_MCU_VERBOSE) &&
+	    cmd != MCU_CMD(FW_SCATTER)) {
+		bool well_formed = (skb->len % 4 == 0);
+		if (WARN_ON_ONCE(!well_formed)) {
+			pr_err("MCU_MSG: skb->len not 4-byte aligned for cmd: %08x, len: %d txd_len: %d\n",
+			       mcu_cmd, skb->len, txd_len);
+		}
+
+		/* 3-char bytes (space + val), 16 bytes per line, + 1 space */
+		for (i = 0; i < skb->len; i += 16) {
+			char skb_out_buf[(3 * 16) + 1];
+			for (j = 0; j < 16 && i + j < skb->len; j++) {
+				snprintf(skb_out_buf + (3 * j), 4, " %02hhx",
+					 skb->data[i + j]);
+			}
+			skb_out_buf[j * 3] = '\0';
+			mt76_dbg(&dev->mt76, MT76_DBG_MCU_VERBOSE,
+				 "MCU_MSG (hex, le) %s(cmd: %08x)[%d, %d]:%s%s\n",
+				 well_formed ? "" : "x",
+				 cmd, i,
+				 ((i + 15) >= skb->len ? skb->len : (i + 15)),
+				 skb_out_buf,
+				 ((i + 16) >= skb->len ? " __DONE_MCU" : ""));
+		}
+	}
+
 	if (wait_seq)
 		*wait_seq = seq;
 

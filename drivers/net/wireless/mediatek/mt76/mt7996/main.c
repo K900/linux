@@ -26,6 +26,7 @@ MODULE_PARM_DESC(debug_lvl,
 		 "0x01000       DEV related\n"
 		 "0x02000       Scan related\n"
 		 "0x04000       Channel related\n"
+		 "0x08000	Verbose MCU debugging\n"
 		 "0xffffffff	any/all\n"
 	);
 
