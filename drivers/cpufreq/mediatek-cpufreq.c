@@ -743,7 +743,11 @@ static const struct mtk_cpufreq_platform_data mt8516_platform_data = {
 	.ccifreq_supported = false,
 };
 
-/* List of machines supported by this driver */
+/*
+ * List of machines supported by this driver
+ *
+ * Make sure to add any new entries to the blocklist in cpufreq-dt-platdev.c
+ */
 static const struct of_device_id mtk_cpufreq_machines[] __initconst __maybe_unused = {
 	{ .compatible = "mediatek,mt2701", .data = &mt2701_platform_data },
 	{ .compatible = "mediatek,mt2712", .data = &mt2701_platform_data },
