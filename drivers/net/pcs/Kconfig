@@ -27,6 +27,7 @@ config PCS_LYNX
 config PCS_MTK_LYNXI
 	tristate
 	select REGMAP
+	depends on FWNODE_PCS || !FWNODE_PCS
 	help
 	  This module provides helpers to phylink for managing the LynxI PCS
 	  which is part of MediaTek's SoC and Ethernet switch ICs.
