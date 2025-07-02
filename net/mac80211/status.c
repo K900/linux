@@ -1347,7 +1347,7 @@ void ieee80211_tx_status_ext(struct ieee80211_hw *hw,
 			ieee80211s_update_metric(local, sta, status);
 	}
 
-	if (skb && !(info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP))
+	if (skb)
 		return __ieee80211_tx_status(hw, status, rates_idx,
 					     retry_count);
 
