@@ -7,6 +7,7 @@ config PHYLINK
 	tristate
 	select PHYLIB
 	select SWPHY
+	depends on FWNODE_PCS || !FWNODE_PCS
 	help
 	  PHYlink models the link between the PHY and MAC, allowing fixed
 	  configuration links, PHYs, and Serdes links with MAC level
