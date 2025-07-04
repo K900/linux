@@ -764,7 +764,6 @@ static const struct of_device_id mtk_cpufreq_machines[] __initconst __maybe_unus
 	{ .compatible = "mediatek,mt8516", .data = &mt8516_platform_data },
 	{ }
 };
-MODULE_DEVICE_TABLE(of, mtk_cpufreq_machines);
 
 static int __init mtk_cpufreq_driver_init(void)
 {
