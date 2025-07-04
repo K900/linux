@@ -13,6 +13,7 @@
 		ethernet0 = &gmac0;
 		ethernet1 = &gmac1;
 		ethernet2 = &gmac2;
+		serial0 = &serial0;
 	};
 
 	chosen {
