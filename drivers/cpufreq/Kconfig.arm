@@ -122,7 +122,7 @@ config ARM_KIRKWOOD_CPUFREQ
 	  SoCs.
 
 config ARM_MEDIATEK_CPUFREQ
-	tristate "CPU Frequency scaling support for MediaTek SoCs"
+	bool "CPU Frequency scaling support for MediaTek SoCs"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 	depends on REGULATOR
 	select PM_OPP
