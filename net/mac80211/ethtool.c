@@ -880,6 +880,10 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		} /* for first 3 links */
 	} else {
 		/* else not type STATION, ie AP or something */
+		bool mld = ieee80211_vif_is_mld(&sdata->vif);
+		struct ieee80211_sta_rx_stats link_rx_stats;
+		struct ieee80211_sta_rx_stats *last_rxstats;
+		int li;
 		struct per_link_accum {
 			int amt_tx;
 			int amt_rx;
@@ -893,9 +897,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			s64 sig_accum_chain[8];
 			s64 sig_accum_chain_avg[8];
 		};
-
 		struct per_link_accum accums[ETHTOOL_LINK_COUNT] = {};
-		int li = 0;
 
 		list_for_each_entry(sta, &local->sta_list, list) {
 			/* Make sure this station belongs to the proper dev */
@@ -905,79 +907,110 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			memset(&sinfo, 0, sizeof(sinfo));
 			sta_set_sinfo(sta, &sinfo, false);
 
-			/* TODO:  Support multi-link */
-			ADD_STA_STATS((&(data->link_stats[li])), sinfo, &sta->deflink);
-			data->link_stats[li].tx_handlers_drop = sdata->tx_handlers_drop;
+			/* For each of the first 3 links */
+			for (li = 0; li<ETHTOOL_LINK_COUNT; li++) {
+				struct link_sta_info *link_sta;
 
-			if (sinfo.filled & BIT(NL80211_STA_INFO_TX_BITRATE)) {
-				accums[li].tx_accum += 100000ULL *
-					cfg80211_calculate_bitrate(&sinfo.txrate);
-				accums[li].amt_tx++;
-			}
-
-			if (sinfo.filled & BIT(NL80211_STA_INFO_RX_BITRATE)) {
-				accums[li].rx_accum += 100000ULL *
-					cfg80211_calculate_bitrate(&sinfo.rxrate);
-				accums[li].amt_rx++;
-			}
-
-			if (sinfo.filled & BIT(NL80211_STA_INFO_SIGNAL_AVG)) {
-				accums[li].sig_accum += sinfo.signal_avg;
-				accums[li].sig_accum_beacon += sinfo.rx_beacon_signal_avg;
-				accums[li].amt_sig++;
-			}
-
-			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
-				int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
-
-				mn = min_t(int, mn, sinfo.chains);
-				for (z = 0; z < mn; z++) {
-					accums[li].sig_accum_chain[z] += sinfo.chain_signal[z];
-					accums[li].amt_accum_chain[z]++;
+				rcu_read_lock();
+				link = sdata_dereference(sdata->link[li], sdata);
+				if (!link) {
+					rcu_read_unlock();
+					continue;
 				}
-			}
+				if (sta)
+					link_sta = rcu_dereference_protected(sta->link[li],
+									     lockdep_is_held(&local->hw.wiphy->mtx));
+				rcu_read_unlock();
 
-			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
-				int mn;
-
-				mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
-				mn = min_t(int, mn, sinfo.chains);
-				for (z = 0; z < mn; z++) {
-					accums[li].sig_accum_chain_avg[z] += sinfo.chain_signal_avg[z];
-					accums[li].amt_accum_chain_avg[z]++;
+				if (!(sta && link_sta && !WARN_ON(sta->sdata->dev != dev))) {
+					continue;
 				}
-			}
+
+				if (mld) {
+					last_rxstats = link_sta_get_last_rx_stats(link_sta);
+
+					link_sta_accum_rx_stats(&link_sta->rx_stats, link_sta->pcpu_rx_stats,
+								&link_rx_stats);
+					ADD_LINK_STA_STATS(li, link_sta, link_rx_stats,
+							   sdata->vif.active_links & (1<<li));
+				} else {
+					ADD_STA_STATS(&(data->link_stats[li]), sinfo, link_sta);
+				}
+
+				if (sinfo.filled & BIT(NL80211_STA_INFO_TX_BITRATE)) {
+					accums[li].tx_accum += 100000ULL *
+						cfg80211_calculate_bitrate(&sinfo.txrate);
+					accums[li].amt_tx++;
+				}
+
+				if (sinfo.filled & BIT(NL80211_STA_INFO_RX_BITRATE)) {
+					accums[li].rx_accum += 100000ULL *
+						cfg80211_calculate_bitrate(&sinfo.rxrate);
+					accums[li].amt_rx++;
+				}
+
+				if (sinfo.filled & BIT(NL80211_STA_INFO_SIGNAL_AVG)) {
+					accums[li].sig_accum += sinfo.signal_avg;
+					accums[li].sig_accum_beacon += sinfo.rx_beacon_signal_avg;
+					accums[li].amt_sig++;
+				}
+
+				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
+					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
+
+					mn = min_t(int, mn, sinfo.chains);
+					for (z = 0; z < mn; z++) {
+						accums[li].sig_accum_chain[z] += sinfo.chain_signal[z];
+						accums[li].amt_accum_chain[z]++;
+					}
+				}
+
+				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
+					int mn;
+
+					mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
+					mn = min_t(int, mn, sinfo.chains);
+					for (z = 0; z < mn; z++) {
+						accums[li].sig_accum_chain_avg[z] += sinfo.chain_signal_avg[z];
+						accums[li].amt_accum_chain_avg[z]++;
+					}
+				}
+				
+				data->link_stats[li].tx_handlers_drop = sdata->tx_handlers_drop;
+			} /* for each of 3 links */
 		} /* for each stations associated to AP */
 
+
 		/* Do averaging */
-		if (accums[li].amt_tx)
-			data->link_stats[li].txrate = mac_div(accums[li].tx_accum, accums[li].amt_tx);
+		for (li = 0; li<ETHTOOL_LINK_COUNT; li++) {
+			if (accums[li].amt_tx)
+				data->link_stats[li].txrate = mac_div(accums[li].tx_accum, accums[li].amt_tx);
 
-		if (accums[li].amt_rx)
-			data->link_stats[li].rxrate = mac_div(accums[li].rx_accum, accums[li].amt_rx);
+			if (accums[li].amt_rx)
+				data->link_stats[li].rxrate = mac_div(accums[li].rx_accum, accums[li].amt_rx);
 
-		if (accums[li].amt_sig) {
-			data->link_stats[li].signal = (mac_div(accums[li].sig_accum, accums[li].amt_sig) & 0xFF);
-			data->link_stats[li].signal_beacon = (mac_div(accums[li].sig_accum_beacon, accums[li].amt_sig) & 0xFF);
-		}
-
-		for (z = 0; z < sizeof(u64); z++) {
-			if (accums[li].amt_accum_chain[z]) {
-				u64 val = mac_div(accums[li].sig_accum_chain[z], accums[li].amt_accum_chain[z]);
-
-				val &= 0xFF;
-				data->link_stats[li].signal_chains |= (val << (z * 8));
+			if (accums[li].amt_sig) {
+				data->link_stats[li].signal = (mac_div(accums[li].sig_accum, accums[li].amt_sig) & 0xFF);
+				data->link_stats[li].signal_beacon = (mac_div(accums[li].sig_accum_beacon, accums[li].amt_sig) & 0xFF);
 			}
-			if (accums[li].amt_accum_chain_avg[z]) {
-				u64 val = mac_div(accums[li].sig_accum_chain_avg[z], accums[li].amt_accum_chain_avg[z]);
 
-				val &= 0xFF;
-				data->link_stats[li].signal_chains_avg |= (val << (z * 8));
+			for (z = 0; z < sizeof(u64); z++) {
+				if (accums[li].amt_accum_chain[z]) {
+					u64 val = mac_div(accums[li].sig_accum_chain[z], accums[li].amt_accum_chain[z]);
+
+					val &= 0xFF;
+					data->link_stats[li].signal_chains |= (val << (z * 8));
+				}
+				if (accums[li].amt_accum_chain_avg[z]) {
+					u64 val = mac_div(accums[li].sig_accum_chain_avg[z], accums[li].amt_accum_chain_avg[z]);
+
+					val &= 0xFF;
+					data->link_stats[li].signal_chains_avg |= (val << (z * 8));
+				}
 			}
-		}
 
-		/* TODO: AP doesn't support per-link stats yet */
-		ADD_SURVEY_STATS(sdata, (&(data->link_stats[li])), local);
+			ADD_SURVEY_STATS(sdata, (&(data->link_stats[li])), local);
+		} /* for each of 3 links */
 	} /* else if not STA */
 
 	if (WARN_ON(sizeof(*data) != STA_STATS_LEN*8)) {
