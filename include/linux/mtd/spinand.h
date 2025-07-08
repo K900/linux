@@ -645,6 +645,7 @@ struct spinand_device {
 	u8 *oobbuf;
 	u8 *scratchbuf;
 	const struct spinand_manufacturer *manufacturer;
+	const struct spinand_info *device;
 	void *priv;
 
 	bool cont_read_possible;
