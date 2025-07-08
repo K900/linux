@@ -134,5 +134,21 @@ int __mt76_worker_fn(void *ptr)
 }
 EXPORT_SYMBOL_GPL(__mt76_worker_fn);
 
+void mt76_copy_rate_overrides(struct mt76_testmode_data *dest, struct mt76_testmode_data *src)
+{
+	dest->tx_power[0]   = src->tx_power[0];
+	dest->tx_rate_sgi   = src->tx_rate_sgi;
+	dest->tx_rate_idx   = src->tx_rate_idx;
+	dest->tx_rate_nss   = src->tx_rate_nss;
+	dest->tx_rate_mode  = src->tx_rate_mode;
+	dest->tx_xmit_count = src->tx_xmit_count;
+	dest->tx_dynbw      = src->tx_dynbw;
+	dest->tx_rate_ldpc  = src->tx_rate_ldpc;
+	dest->tx_rate_stbc  = src->tx_rate_stbc;
+	dest->txbw          = src->txbw;
+	dest->txo_active    = src->txo_active;
+}
+EXPORT_SYMBOL_GPL(mt76_copy_rate_overrides);
+
 MODULE_DESCRIPTION("MediaTek MT76x helpers");
 MODULE_LICENSE("Dual BSD/GPL");
