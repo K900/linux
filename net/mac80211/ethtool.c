@@ -62,6 +62,48 @@ static void ieee80211_get_ringparam(struct net_device *dev,
 			  &rp->rx_pending, &rp->rx_max_pending);
 }
 
+#define ETHTOOL_LINK_COUNT 3 /* we will show stats for first 3 links */
+struct ieee80211_ethtool_data_link_stats {
+	u64 rx_packets;
+	u64 rx_bytes;
+	u64 rx_duplicates;
+	u64 rx_fragments;
+	u64 rx_dropped;
+	u64 tx_packets;
+	u64 tx_bytes;
+	u64 tx_filtered;
+	u64 tx_retry_failed;
+	u64 tx_retries;
+	u64 tx_handlers_drop;
+	u64 sta_state;
+	u64 txrate;
+	u64 rxrate;
+	u64 signal;
+	u64 signal_beacon;
+	u64 signal_chains;
+	u64 signal_chains_avg;
+
+	/* Add new stats here, channel and others go below */
+	u64 channel;
+	u64 ch_center;
+	u64 noise;
+	u64 ch_time;
+	u64 ch_time_busy;
+	u64 ch_time_ext_busy;
+	u64 ch_time_rx;
+	u64 ch_time_tx;
+} __attribute__((__packed__));
+
+struct ieee80211_ethtool_data_sta_stats {
+	u64 bss_color;
+	u64 valid_links;
+	u64 active_links;
+	u64 dormant_links;
+
+	/* Link stats */
+	struct ieee80211_ethtool_data_link_stats link_stats[ETHTOOL_LINK_COUNT];
+} __attribute__((__packed__));
+
 static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	/* per sdata stats len */
 	"bss_color",
@@ -158,8 +200,70 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 };
 #define STA_STATS_LEN	ARRAY_SIZE(ieee80211_gstrings_sta_stats)
 #define SDATA_STATS_LEN 4 /* bss color, active_links ... */
-#define ETHTOOL_LINK_COUNT 3 /* we will show stats for first 3 links */
 #define PER_LINK_STATS_LEN ((STA_STATS_LEN - SDATA_STATS_LEN) / ETHTOOL_LINK_COUNT)
+
+struct ieee80211_ethtool_data_vdev_stats {
+	u64 rx_packets;
+	u64 rx_bytes;
+	u64 rx_duplicates;
+	u64 rx_fragments;
+	u64 rx_dropped;
+	u64 tx_packets;
+	u64 tx_bytes;
+	u64 tx_filtered;
+	u64 tx_retry_failed;
+	u64 tx_retries;
+	u64 tx_handlers_drop;
+	u64 sta_state;
+	u64 txrate;
+	u64 rxrate;
+	u64 signal;
+	u64 signal_beacon;
+	u64 signal_chains;
+	u64 signal_chains_avg;
+
+	/* Histogram stats */
+	u64 v_tx_bw_20;
+	u64 v_tx_bw_40;
+	u64 v_tx_bw_80;
+	u64 v_tx_bw_160;
+	u64 v_tx_mcs_0;
+	u64 v_tx_mcs_1;
+	u64 v_tx_mcs_2;
+	u64 v_tx_mcs_3;
+	u64 v_tx_mcs_4;
+	u64 v_tx_mcs_5;
+	u64 v_tx_mcs_6;
+	u64 v_tx_mcs_7;
+	u64 v_tx_mcs_8;
+	u64 v_tx_mcs_9;
+
+	u64 v_rx_bw_20;
+	u64 v_rx_bw_40;
+	u64 v_rx_bw_80;
+	u64 v_rx_bw_160;
+	u64 v_rx_mcs_0;
+	u64 v_rx_mcs_1;
+	u64 v_rx_mcs_2;
+	u64 v_rx_mcs_3;
+	u64 v_rx_mcs_4;
+	u64 v_rx_mcs_5;
+	u64 v_rx_mcs_6;
+	u64 v_rx_mcs_7;
+	u64 v_rx_mcs_8;
+	u64 v_rx_mcs_9;
+
+	/* Add new stats here, channel and others go below */
+	u64 channel;
+	u64 ch_center;
+	u64 noise;
+	u64 ch_time;
+	u64 ch_time_busy;
+	u64 ch_time_ext_busy;
+	u64 ch_time_rx;
+	u64 ch_time_tx;
+} __attribute__((__packed__));
+
 
 #ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
 /* Stations can use this by setting the NL80211_EXT_FEATURE_ETHTOOL_VDEV_STATS
@@ -297,92 +401,92 @@ static int ieee80211_get_sset_count(struct net_device *dev, int sset)
 		}							\
 									\
 		if (_channel) {						\
-			(data)[i++] = _channel->center_freq;		\
+			(data)->channel = _channel->center_freq;	\
 		} else {						\
 			if ((local)->dflt_chandef.chan)			\
-				(data)[i++] = (local)->dflt_chandef.chan->center_freq; \
-			else						\
-				(data)[i++] = 0;			\
+				(data)->channel = (local)->dflt_chandef.chan->center_freq; \
 		}							\
 		if (_chan_def)						\
-			(data)[i++] = _chan_def->center_freq1;		\
+			(data)->ch_center = _chan_def->center_freq1;	\
 		else							\
 			if ((local))					\
-				(data)[i++] = (local)->dflt_chandef.center_freq1; \
-			else						\
-				(data)[i++] = 0;			\
+				(data)->ch_center = (local)->dflt_chandef.center_freq1; \
 		if (_survey.filled & SURVEY_INFO_NOISE_DBM)		\
-			(data)[i++] = (u8)_survey.noise;		\
+			(data)->noise = (u8)_survey.noise;		\
 		else							\
-			(data)[i++] = -1LL;				\
+			(data)->noise = -1LL;				\
 		if (_survey.filled & SURVEY_INFO_TIME)			\
-			(data)[i++] = _survey.time;			\
+			(data)->ch_time = _survey.time;			\
 		else							\
-			(data)[i++] = -1LL;				\
+			(data)->ch_time = -1LL;				\
 		if (_survey.filled & SURVEY_INFO_TIME_BUSY)		\
-			(data)[i++] = _survey.time_busy;		\
+			(data)->ch_time_busy = _survey.time_busy;	\
 		else							\
-			(data)[i++] = -1LL;				\
+			(data)->ch_time_busy = -1LL;			\
 		if (_survey.filled & SURVEY_INFO_TIME_EXT_BUSY)	\
-			(data)[i++] = _survey.time_ext_busy;		\
+			(data)->ch_time_ext_busy = _survey.time_ext_busy; \
 		else							\
-			(data)[i++] = -1LL;				\
+			(data)->ch_time_ext_busy = -1LL;		\
 		if (_survey.filled & SURVEY_INFO_TIME_RX)		\
-			(data)[i++] = _survey.time_rx;			\
+			(data)->ch_time_rx = _survey.time_rx;		\
 		else							\
-			(data)[i++] = -1LL;				\
+			(data)->ch_time_rx = -1LL;			\
 		if (_survey.filled & SURVEY_INFO_TIME_TX)		\
-			(data)[i++] = _survey.time_tx;			\
+			(data)->ch_time_tx = _survey.time_tx;		\
 		else							\
-			(data)[i++] = -1LL;				\
+			(data)->ch_time_tx = -1LL;			\
 	} while (0)
 #define STA_STATS_SURVEY_LEN 8
 
-#define ADD_STA_STATS(data, sinfo, sta)				\
-	do {							\
-		(data)[i++] += (sinfo).rx_packets;		\
-		(data)[i++] += (sinfo).rx_bytes;		\
-		(data)[i++] += (sta)->rx_stats.num_duplicates;	\
-		(data)[i++] += (sta)->rx_stats.fragments;	\
-		(data)[i++] += (sinfo).rx_dropped_misc;		\
-								\
-		(data)[i++] += (sinfo).tx_packets;		\
-		(data)[i++] += (sinfo).tx_bytes;		\
-		(data)[i++] += (sta)->status_stats.filtered;	\
-		(data)[i++] += (sinfo).tx_failed;		\
-		(data)[i++] += (sinfo).tx_retries;		\
+#define ADD_STA_STATS(data, sinfo, sta)					\
+	do {								\
+		(data)->rx_packets += (sinfo).rx_packets;		\
+		(data)->rx_bytes += (sinfo).rx_bytes;			\
+		(data)->rx_duplicates += (sta)->rx_stats.num_duplicates; \
+		(data)->rx_fragments += (sta)->rx_stats.fragments;	\
+		(data)->rx_dropped += (sinfo).rx_dropped_misc;		\
+									\
+		(data)->tx_packets += (sinfo).tx_packets;		\
+		(data)->tx_bytes += (sinfo).tx_bytes;			\
+		(data)->tx_filtered += (sta)->status_stats.filtered;	\
+		(data)->tx_retry_failed += (sinfo).tx_failed;		\
+		(data)->tx_retries += (sinfo).tx_retries;		\
 	} while (0)
 #define STA_STATS_COUNT 10
 
 #ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
 static void ieee80211_get_stats2_vdev(struct net_device *dev,
 				      struct ethtool_stats *stats,
-				      u64 *data, u32 level)
+				      u64 *_data, u32 level)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct sta_info *sta;
 	struct ieee80211_local *local = sdata->local;
 	struct station_info sinfo;
 	struct ieee80211_link_data *link = NULL;
-	int i = 0;
+	u64 *tmp_data;
 	int z;
+	struct ieee80211_ethtool_data_vdev_stats *data =
+		(struct ieee80211_ethtool_data_vdev_stats*)(_data);
 
-	memset(data, 0, sizeof(u64) * STA_VDEV_STATS_LEN);
+	memset(data, 0, sizeof(*data));
 
 #define ADD_VDEV_STATS							\
 	do {								\
-		data[i++] += sta->deflink.tx_stats.msdu_20;		\
-		data[i++] += sta->deflink.tx_stats.msdu_40;		\
-		data[i++] += sta->deflink.tx_stats.msdu_80;		\
-		data[i++] += sta->deflink.tx_stats.msdu_160;		\
+		data->v_tx_bw_20 += sta->deflink.tx_stats.msdu_20;	\
+		data->v_tx_bw_40 += sta->deflink.tx_stats.msdu_40;	\
+		data->v_tx_bw_80 += sta->deflink.tx_stats.msdu_80;	\
+		data->v_tx_bw_160 += sta->deflink.tx_stats.msdu_160;	\
+		tmp_data = &(data->v_tx_mcs_0);				\
 		for (z = 0; z < 10; z++)				\
-			data[i++] += sta->deflink.tx_stats.msdu_rate_idx[z]; \
-		data[i++] += sta->deflink.rx_stats.msdu_20;		\
-		data[i++] += sta->deflink.rx_stats.msdu_40;		\
-		data[i++] += sta->deflink.rx_stats.msdu_80;		\
-		data[i++] += sta->deflink.rx_stats.msdu_160;		\
+			tmp_data[z] += sta->deflink.tx_stats.msdu_rate_idx[z]; \
+		data->v_rx_bw_20 += sta->deflink.rx_stats.msdu_20;	\
+		data->v_rx_bw_40 += sta->deflink.rx_stats.msdu_40;	\
+		data->v_rx_bw_80 += sta->deflink.rx_stats.msdu_80;	\
+		data->v_rx_bw_160 += sta->deflink.rx_stats.msdu_160;	\
+		tmp_data = &(data->v_rx_mcs_0);				\
 		for (z = 0; z < 10; z++)				\
-			data[i++] += sta->deflink.rx_stats.msdu_rate_idx[z]; \
+			tmp_data[z] += sta->deflink.rx_stats.msdu_rate_idx[z]; \
 	} while (0)
 
 	/* For Managed stations, find the single station based on BSSID
@@ -407,28 +511,23 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 		 */
 		sta_set_sinfo(sta, &sinfo, false);
 
-		i = 0;
 		ADD_STA_STATS(data, sinfo, &sta->deflink);
 
-		data[i++] = sdata->tx_handlers_drop;
-		data[i++] = sta->sta_state;
+		data->tx_handlers_drop = sdata->tx_handlers_drop;
+		data->sta_state = sta->sta_state;
 
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
-			data[i] = 100000ULL *
+			data->txrate = 100000ULL *
 				cfg80211_calculate_bitrate(&sinfo.txrate);
-		i++;
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_RX_BITRATE))
-			data[i] = 100000ULL *
+			data->rxrate = 100000ULL *
 				cfg80211_calculate_bitrate(&sinfo.rxrate);
-		i++;
 
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
-			data[i] = (u8)sinfo.signal_avg;
-		i++;
+			data->signal = (u8)sinfo.signal_avg;
 
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
-			data[i] = (u8)sinfo.rx_beacon_signal_avg;
-		i++;
+			data->signal_beacon = (u8)sinfo.rx_beacon_signal_avg;
 
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
 			int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
@@ -441,9 +540,8 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 
 				accum |= cs;
 			}
-			data[i] = accum;
+			data->signal_chains = accum;
 		}
-		i++;
 
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
 			int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
@@ -455,9 +553,8 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 
 				accum |= cs;
 			}
-			data[i] = accum;
+			data->signal_chains_avg = accum;
 		}
-		i++;
 
 		ADD_VDEV_STATS;
 	} else {
@@ -472,7 +569,6 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 		s64 sig_accum_beacon = 0;
 		s64 sig_accum_chain[8] = {0};
 		s64 sig_accum_chain_avg[8] = {0};
-		int start_accum_idx = 0;
 
 		list_for_each_entry(sta, &local->sta_list, list) {
 			/* Make sure this station belongs to the proper dev */
@@ -481,10 +577,9 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 
 			memset(&sinfo, 0, sizeof(sinfo));
 			sta_set_sinfo(sta, &sinfo, false);
-			i = 0;
+
 			ADD_STA_STATS(data, sinfo, &sta->deflink);
 
-			i++; /* skip sta state */
 			if (sinfo.filled & BIT(NL80211_STA_INFO_TX_BITRATE)) {
 				tx_accum += 100000ULL *
 					cfg80211_calculate_bitrate(&sinfo.txrate);
@@ -526,95 +621,87 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 		} /* for each stations associated to AP */
 
 		/* Do averaging */
-		i = start_accum_idx;
-
 		if (amt_tx)
-			data[i] = mac_div(tx_accum, amt_tx);
-		i++;
+			data->txrate = mac_div(tx_accum, amt_tx);
 
 		if (amt_rx)
-			data[i] = mac_div(rx_accum, amt_rx);
-		i++;
+			data->rxrate = mac_div(rx_accum, amt_rx);
 
 		if (amt_sig) {
-			data[i] = (mac_div(sig_accum, amt_sig) & 0xFF);
-			data[i + 1] = (mac_div(sig_accum_beacon, amt_sig) & 0xFF);
+			data->signal = (mac_div(sig_accum, amt_sig) & 0xFF);
+			data->signal_beacon = (mac_div(sig_accum_beacon, amt_sig) & 0xFF);
 		}
-		i += 2;
 
 		for (z = 0; z < sizeof(u64); z++) {
 			if (amt_accum_chain[z]) {
 				u64 val = mac_div(sig_accum_chain[z], amt_accum_chain[z]);
 
-				val |= 0xFF;
-				data[i] |= (val << (z * 8));
+				val &= 0xFF;
+				data->signal_chains |= (val << (z * 8));
 			}
 			if (amt_accum_chain_avg[z]) {
 				u64 val = mac_div(sig_accum_chain_avg[z], amt_accum_chain_avg[z]);
 
-				val |= 0xFF;
-				data[i + 1] |= (val << (z * 8));
+				val &= 0xFF;
+				data->signal_chains_avg |= (val << (z * 8));
 			}
 		}
-		i += 2;
 		ADD_VDEV_STATS;
 	} /* else if not STA */
 
 do_survey:
-	i = STA_VDEV_STATS_LEN - STA_STATS_SURVEY_LEN;
 	ADD_SURVEY_STATS(sdata, data, local);
 
-	if (WARN_ON(i != STA_VDEV_STATS_LEN)) {
-		pr_err("mac80211 ethtool stats, i: %d  != STA_STATS_LEN: %lu\n",
-		       i, STA_VDEV_STATS_LEN);
+	if (WARN_ON(sizeof(*data) != STA_VDEV_STATS_LEN*8)) {
+		pr_err("mac80211 ethtool stats, data-size: %lu  != STA_STATS_LENx8: %lu\n",
+		       sizeof(*data), STA_VDEV_STATS_LEN*8);
 		wiphy_unlock(local->hw.wiphy);
 		return;
 	}
 
-	drv_get_et_stats(sdata, stats, &data[STA_VDEV_STATS_LEN], level);
+	drv_get_et_stats(sdata, stats, &_data[STA_VDEV_STATS_LEN], level);
 	wiphy_unlock(local->hw.wiphy);
 }
 #endif
 
 static void ieee80211_get_stats2(struct net_device *dev,
 				 struct ethtool_stats *stats,
-				 u64 *data, u32 level)
+				 u64 *_data, u32 level)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct sta_info *sta;
 	struct ieee80211_local *local = sdata->local;
 	struct station_info sinfo;
 	struct ieee80211_link_data *link = NULL;
-	int i = 0, start_link_i;
 	int z;
+	struct ieee80211_ethtool_data_sta_stats *data;
 
 #ifdef CONFIG_MAC80211_DEBUG_STA_COUNTERS
 	/* If the driver needs to get vdev stats from here...*/
 	if (wiphy_ext_feature_isset(sdata->local->hw.wiphy,
 				    NL80211_EXT_FEATURE_ETHTOOL_VDEV_STATS)) {
-		ieee80211_get_stats2_vdev(dev, stats, data, level);
+		ieee80211_get_stats2_vdev(dev, stats, _data, level);
 		return;
 	}
 #endif
 
-	memset(data, 0, sizeof(u64) * STA_STATS_LEN);
+	data = (struct ieee80211_ethtool_data_sta_stats*)(_data);
+	memset(data, 0, sizeof(*data));
 
-#define ADD_LINK_STA_STATS(sta, link_rx_stats, active)		\
-	do {							\
-		data[i++] += link_rx_stats.packets;		\
-		data[i++] += u64_stats_read(&link_rx_stats.bytes); \
-		data[i++] += link_rx_stats.num_duplicates;	\
-		data[i++] += link_rx_stats.fragments;		\
-		data[i++] += link_rx_stats.dropped;		\
-								\
+#define ADD_LINK_STA_STATS(li, sta, link_rx_stats, active)		\
+	do {								\
+		data->link_stats[li].rx_packets += link_rx_stats.packets; \
+		data->link_stats[li].rx_bytes += u64_stats_read(&link_rx_stats.bytes); \
+		data->link_stats[li].rx_duplicates += link_rx_stats.num_duplicates; \
+		data->link_stats[li].rx_fragments += link_rx_stats.fragments; \
+		data->link_stats[li].rx_dropped += link_rx_stats.dropped; \
+									\
 		if (active) {						\
-			data[i++] += (sta)->tx_stats.rep_packets;	\
-			data[i++] += (sta)->tx_stats.rep_bytes;	\
-			data[i++] += (sta)->status_stats.filtered;	\
-			data[i++] += (sta)->status_stats.retry_failed;	\
-			data[i++] += (sta)->status_stats.retry_count;	\
-		} else {						\
-			i += 5;	/* skip non active links */		\
+			data->link_stats[li].tx_packets += (sta)->tx_stats.rep_packets;	\
+			data->link_stats[li].tx_bytes += (sta)->tx_stats.rep_bytes;	\
+			data->link_stats[li].tx_filtered += (sta)->status_stats.filtered;	\
+			data->link_stats[li].tx_retry_failed += (sta)->status_stats.retry_failed;	\
+			data->link_stats[li].tx_retries += (sta)->status_stats.retry_count;	\
 		}							\
 	} while (0)
 
@@ -627,14 +714,11 @@ static void ieee80211_get_stats2(struct net_device *dev,
 	guard(wiphy)(local->hw.wiphy);
 
 	if (sdata->vif.bss_conf.he_bss_color.enabled)
-		data[i++] = sdata->vif.bss_conf.he_bss_color.color;
-	else
-		data[i++] = 0;
-	data[i++] = sdata->vif.valid_links;
-	data[i++] = sdata->vif.active_links;
-	data[i++] = sdata->vif.dormant_links;
+		data->bss_color = sdata->vif.bss_conf.he_bss_color.color;
+	data->valid_links = sdata->vif.valid_links;
+	data->active_links = sdata->vif.active_links;
+	data->dormant_links = sdata->vif.dormant_links;
 
-	start_link_i = i;
 	if (sdata->vif.type == NL80211_IFTYPE_STATION) {
 		int li;
 		struct link_sta_info *link_sta;
@@ -667,8 +751,6 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			rcu_read_lock();
 			link = sdata_dereference(sdata->link[li], sdata);
 			if (!link) {
-				/* dummy out the stats */
-				i += PER_LINK_STATS_LEN;
 				rcu_read_unlock();
 				continue;
 			}
@@ -678,7 +760,6 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			rcu_read_unlock();
 
 			if (!(sta && link_sta && !WARN_ON(sta->sdata->dev != dev))) {
-				i += PER_LINK_STATS_LEN;
 				continue;
 			}
 
@@ -687,14 +768,14 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 				link_sta_accum_rx_stats(&link_sta->rx_stats, link_sta->pcpu_rx_stats,
 							&link_rx_stats);
-				ADD_LINK_STA_STATS(link_sta, link_rx_stats,
+				ADD_LINK_STA_STATS(li, link_sta, link_rx_stats,
 						   sdata->vif.active_links & (1<<li));
 			} else {
-				ADD_STA_STATS(data, sinfo, link_sta);
+				ADD_STA_STATS(&(data->link_stats[li]), sinfo, link_sta);
 			}
 
-			data[i++] = sdata->tx_handlers_drop;
-			data[i++] = sta->sta_state;
+			data->link_stats[li].tx_handlers_drop = sdata->tx_handlers_drop;
+			data->link_stats[li].sta_state = sta->sta_state;
 
 			if (mld) {
 				struct rate_info txrxrate = {};
@@ -703,28 +784,28 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 				if (sinfo.links[li]->filled &
 				    BIT_ULL(NL80211_STA_INFO_TX_BITRATE)) {
-					data[i] = 100000ULL *
+					data->link_stats[li].txrate = 100000ULL *
 						cfg80211_calculate_bitrate(&sinfo.links[li]->txrate);
 				} else {
 					/* Get it from sinfo then, better than nothing I guess */
 					if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
-						data[i] = 100000ULL *
+						data->link_stats[li].txrate = 100000ULL *
 							cfg80211_calculate_bitrate(&sinfo.txrate);
 				}
-				i++;
 
 				link_sta_set_rate_info_rx(link_sta, &txrxrate, last_rxstats);
-				data[i++] = 100000ULL *
+				data->link_stats[li].rxrate = 100000ULL *
 					cfg80211_calculate_bitrate(&txrxrate);
 
-				data[i++] = (u8)last_rxstats->last_signal;
+				data->link_stats[li].signal = (u8)last_rxstats->last_signal;
 
 				if (sinfo.links[li]->filled &
 				    BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG))
-					data[i++] = (u8)(sinfo.links[li]->rx_beacon_signal_avg);
+					data->link_stats[li].signal_beacon
+						= (u8)(sinfo.links[li]->rx_beacon_signal_avg);
 				else
 					/* No beacon signal in sta_rx_stats, get something from sinfo */
-					data[i++] = (u8)sinfo.rx_beacon_signal_avg;
+					data->link_stats[li].signal_beacon = (u8)sinfo.rx_beacon_signal_avg;
 
 				/* signal chains */
 				mn = min_t(int, sizeof(u64), ARRAY_SIZE(last_rxstats->chain_signal_last));
@@ -737,7 +818,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 					accum |= cs;
 				}
-				data[i++] = accum;
+				data->link_stats[li].signal_chains = accum;
 
 				/* No chain signal avg per link, get from sinfo */
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
@@ -750,27 +831,22 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 						accum |= cs;
 					}
-					data[i] = accum;
+					data->link_stats[li].signal_chains_avg = accum;
 				}
-				i++;
 			} else {
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
-					data[i] = 100000ULL *
+					data->link_stats[li].txrate = 100000ULL *
 						cfg80211_calculate_bitrate(&sinfo.txrate);
-				i++;
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_RX_BITRATE))
-					data[i] = 100000ULL *
+					data->link_stats[li].rxrate = 100000ULL *
 						cfg80211_calculate_bitrate(&sinfo.rxrate);
-				i++;
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
-					data[i] = (u8)sinfo.signal_avg;
-				i++;
+					data->link_stats[li].signal = (u8)sinfo.signal_avg;
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
-					data[i] = (u8)sinfo.rx_beacon_signal_avg;
-				i++;
+					data->link_stats[li].signal_beacon = (u8)sinfo.rx_beacon_signal_avg;
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
 					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
@@ -783,9 +859,8 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 						accum |= cs;
 					}
-					data[i] = accum;
+					data->link_stats[li].signal_chains = accum;
 				}
-				i++;
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
 					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
@@ -797,14 +872,14 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 						accum |= cs;
 					}
-					data[i] = accum;
+					data->link_stats[li].signal_chains_avg = accum;
 				}
-				i++;
 			}
 
-			ADD_SURVEY_STATS(sdata, data, local);
+			ADD_SURVEY_STATS(sdata, &(data->link_stats[li]), local);
 		} /* for first 3 links */
 	} else {
+		/* else not type STATION, ie AP or something */
 		int amt_tx = 0;
 		int amt_rx = 0;
 		int amt_sig = 0;
@@ -816,7 +891,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		s64 sig_accum_beacon = 0;
 		s64 sig_accum_chain[8] = {0};
 		s64 sig_accum_chain_avg[8] = {0};
-		int start_accum_idx = start_link_i + 1 /* sta-state */ + STA_STATS_COUNT;
+		int li = 0;
 
 		list_for_each_entry(sta, &local->sta_list, list) {
 			/* Make sure this station belongs to the proper dev */
@@ -825,11 +900,11 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 			memset(&sinfo, 0, sizeof(sinfo));
 			sta_set_sinfo(sta, &sinfo, false);
-			i = start_link_i;
-			ADD_STA_STATS(data, sinfo, &sta->deflink);
-			data[i++] = sdata->tx_handlers_drop;
 
-			i++; /* skip sta state */
+			/* TODO:  Support multi-link */
+			ADD_STA_STATS((&(data->link_stats[li])), sinfo, &sta->deflink);
+			data->link_stats[li].tx_handlers_drop = sdata->tx_handlers_drop;
+
 			if (sinfo.filled & BIT(NL80211_STA_INFO_TX_BITRATE)) {
 				tx_accum += 100000ULL *
 					cfg80211_calculate_bitrate(&sinfo.txrate);
@@ -871,51 +946,43 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		} /* for each stations associated to AP */
 
 		/* Do averaging */
-		i = start_accum_idx;
-
 		if (amt_tx)
-			data[i] = mac_div(tx_accum, amt_tx);
-		i++;
+			data->link_stats[li].txrate = mac_div(tx_accum, amt_tx);
 
 		if (amt_rx)
-			data[i] = mac_div(rx_accum, amt_rx);
-		i++;
+			data->link_stats[li].rxrate = mac_div(rx_accum, amt_rx);
 
 		if (amt_sig) {
-			data[i] = (mac_div(sig_accum, amt_sig) & 0xFF);
-			data[i + 1] = (mac_div(sig_accum_beacon, amt_sig) & 0xFF);
+			data->link_stats[li].signal = (mac_div(sig_accum, amt_sig) & 0xFF);
+			data->link_stats[li].signal_beacon = (mac_div(sig_accum_beacon, amt_sig) & 0xFF);
 		}
-		i += 2;
 
 		for (z = 0; z < sizeof(u64); z++) {
 			if (amt_accum_chain[z]) {
 				u64 val = mac_div(sig_accum_chain[z], amt_accum_chain[z]);
 
-				val |= 0xFF;
-				data[i] |= (val << (z * 8));
+				val &= 0xFF;
+				data->link_stats[li].signal_chains |= (val << (z * 8));
 			}
 			if (amt_accum_chain_avg[z]) {
 				u64 val = mac_div(sig_accum_chain_avg[z], amt_accum_chain_avg[z]);
 
-				val |= 0xFF;
-				data[i + 1] |= (val << (z * 8));
+				val &= 0xFF;
+				data->link_stats[li].signal_chains_avg |= (val << (z * 8));
 			}
 		}
-		i += 2;
-
-		ADD_SURVEY_STATS(sdata, data, local);
 
 		/* TODO: AP doesn't support per-link stats yet */
-		i += (2 * PER_LINK_STATS_LEN);
+		ADD_SURVEY_STATS(sdata, (&(data->link_stats[li])), local);
 	} /* else if not STA */
 
-	if (WARN_ON(i != STA_STATS_LEN)) {
-		pr_err("mac80211 ethtool stats, i: %d  != STA_STATS_LEN: %lu\n",
-		       i, STA_STATS_LEN);
+	if (WARN_ON(sizeof(*data) != STA_STATS_LEN*8)) {
+		pr_err("mac80211 ethtool stats, data-size: %lu  != STA_STATS_LENx8: %lu\n",
+		       sizeof(*data), STA_STATS_LEN*8);
 		return;
 	}
 
-	drv_get_et_stats(sdata, stats, &(data[STA_STATS_LEN]), level);
+	drv_get_et_stats(sdata, stats, &(_data[STA_STATS_LEN]), level);
 }
 
 static void ieee80211_get_stats(struct net_device *dev,
