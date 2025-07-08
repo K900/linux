@@ -6,7 +6,7 @@
 #include "regd.h"
 #include "mcu.h"
 
-static bool mt7921_disable_clc;
+static bool mt7921_disable_clc = true;
 module_param_named(disable_clc, mt7921_disable_clc, bool, 0644);
 MODULE_PARM_DESC(disable_clc, "disable CLC support");
 
