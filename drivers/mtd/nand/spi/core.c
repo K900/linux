@@ -1600,6 +1600,8 @@ int spinand_match_and_init(struct spinand_device *spinand,
 		if (memcmp(id + 1, info->devid.id, info->devid.len))
 			continue;
 
+		spinand->device = info;
+
 		nand->memorg = table[i].memorg;
 		nanddev_set_ecc_requirements(nand, &table[i].eccreq);
 		spinand->eccinfo = table[i].eccinfo;
@@ -1692,7 +1694,7 @@ static int spinand_detect(struct spinand_device *spinand)
 	}
 
 	dev_info(&spinand->spimem->spi->dev,
-		 "%s SPI NAND was found.\n", spinand->manufacturer->name);
+		 "%s %s SPI NAND was found.\n", spinand->manufacturer->name, spinand->device->model);
 	dev_info(&spinand->spimem->spi->dev,
 		 "%llu MiB, block size: %zu KiB, page size: %zu, OOB size: %u\n",
 		 nanddev_size(nand) >> 20, nanddev_eraseblock_size(nand) >> 10,
