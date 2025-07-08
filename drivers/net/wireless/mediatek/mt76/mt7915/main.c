@@ -914,6 +914,8 @@ int mt7915_mac_sta_add(struct mt76_dev *mdev, struct ieee80211_vif *vif,
 	if (sta->tdls)
 		set_bit(MT_WCID_FLAG_TDLS_PEER, &msta->wcid.flags);
 
+	mt76_copy_rate_overrides(&msta->test, &mvif->sta.test);
+
 	ewma_avg_signal_init(&msta->avg_ack_signal);
 
 	mt7915_mac_wtbl_update(dev, idx,
@@ -2147,6 +2149,7 @@ const struct ieee80211_ops mt7915_ops = {
 	CFG80211_TESTMODE_DUMP(mt76_testmode_dump)
 #ifdef CONFIG_MAC80211_DEBUGFS
 	.sta_add_debugfs = mt7915_sta_add_debugfs,
+	.vif_add_debugfs = mt7915_vif_add_debugfs,
 #endif
 	.set_radar_background = mt7915_set_radar_background,
 #ifdef CONFIG_NET_MEDIATEK_SOC_WED
