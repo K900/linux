@@ -417,6 +417,11 @@ mt7915_hw_dev(struct ieee80211_hw *hw)
 	return container_of(phy->dev, struct mt7915_dev, mt76);
 }
 
+static inline struct ieee80211_vif *
+mt7915_mvif_to_vif(struct mt7915_vif *mvif) {
+	return container_of((void *)mvif, struct ieee80211_vif, drv_priv);
+}
+
 static inline struct mt7915_phy *
 mt7915_ext_phy(struct mt7915_dev *dev)
 {
@@ -650,6 +655,7 @@ bool mt7915_debugfs_rx_log(struct mt7915_dev *dev, const void *data, int len);
 #ifdef CONFIG_MAC80211_DEBUGFS
 void mt7915_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta, struct dentry *dir);
+void mt7915_vif_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif);
 #endif
 int mt7915_mmio_wed_init(struct mt7915_dev *dev, void *pdev_ptr,
 			 bool pci, int *irq);

@@ -1859,6 +1859,8 @@ void __mt76_sta_remove(struct mt76_phy *phy, struct ieee80211_vif *vif,
 void mt76_sta_pre_rcu_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			     struct ieee80211_sta *sta);
 
+void mt76_copy_rate_overrides(struct mt76_testmode_data *dest, struct mt76_testmode_data *src);
+
 int mt76_get_min_avg_rssi(struct mt76_dev *dev, u8 phy_idx);
 
 s8 mt76_get_power_bound(struct mt76_phy *phy, s8 txpower);
