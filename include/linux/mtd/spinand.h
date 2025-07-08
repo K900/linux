@@ -660,6 +660,7 @@ struct spinand_device {
 	u8 *oobbuf;
 	u8 *scratchbuf;
 	const struct spinand_manufacturer *manufacturer;
+	const struct spinand_info *device;
 	void *priv;
 
 	int (*configure_chip)(struct spinand_device *spinand);
