@@ -664,6 +664,48 @@ do_survey:
 }
 #endif
 
+static void ieee80211_add_link_sta_stats(u32 li, struct link_sta_info *link_sta,
+					 struct ieee80211_sta_rx_stats *link_rx_stats,
+					 u32 active, struct station_info *sinfo,
+					 struct ieee80211_ethtool_data_sta_stats *data)
+{
+
+	data->link_stats[li].rx_packets += link_rx_stats->packets;
+	data->link_stats[li].rx_bytes += u64_stats_read(&link_rx_stats->bytes);
+	data->link_stats[li].rx_duplicates += link_rx_stats->num_duplicates;
+	data->link_stats[li].rx_fragments += link_rx_stats->fragments;
+	data->link_stats[li].rx_dropped += link_rx_stats->dropped;
+
+	if (active) {
+		/* Driver reported values take precedence, for cases like
+		 * mtk7996 that cannot properly report tx-link-id on a per
+		 * packet basis. */
+
+		if (sinfo->links[li]->filled &
+		    BIT_ULL(NL80211_STA_INFO_TX_PACKETS))
+			data->link_stats[li].tx_packets += sinfo->links[li]->tx_packets;
+		else
+			data->link_stats[li].tx_packets += link_sta->tx_stats.rep_packets;
+		if (sinfo->links[li]->filled &
+		    BIT_ULL(NL80211_STA_INFO_TX_BYTES64))
+			data->link_stats[li].tx_bytes += sinfo->links[li]->tx_bytes;
+		else
+			data->link_stats[li].tx_bytes += link_sta->tx_stats.rep_bytes;
+		data->link_stats[li].tx_filtered += link_sta->status_stats.filtered;
+		if (sinfo->links[li]->filled &
+		    BIT_ULL(NL80211_STA_INFO_TX_FAILED))
+			data->link_stats[li].tx_retry_failed += sinfo->links[li]->tx_failed;
+		else
+			data->link_stats[li].tx_retry_failed += link_sta->status_stats.retry_failed;
+		if (sinfo->links[li]->filled &
+		    BIT_ULL(NL80211_STA_INFO_TX_RETRIES))
+			data->link_stats[li].tx_retries += sinfo->links[li]->tx_retries;
+		else
+			data->link_stats[li].tx_retries += link_sta->status_stats.retry_count;
+	}
+}
+
+
 static void ieee80211_get_stats2(struct net_device *dev,
 				 struct ethtool_stats *stats,
 				 u64 *_data, u32 level)
@@ -687,23 +729,6 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 	data = (struct ieee80211_ethtool_data_sta_stats*)(_data);
 	memset(data, 0, sizeof(*data));
-
-#define ADD_LINK_STA_STATS(li, sta, link_rx_stats, active)		\
-	do {								\
-		data->link_stats[li].rx_packets += link_rx_stats.packets; \
-		data->link_stats[li].rx_bytes += u64_stats_read(&link_rx_stats.bytes); \
-		data->link_stats[li].rx_duplicates += link_rx_stats.num_duplicates; \
-		data->link_stats[li].rx_fragments += link_rx_stats.fragments; \
-		data->link_stats[li].rx_dropped += link_rx_stats.dropped; \
-									\
-		if (active) {						\
-			data->link_stats[li].tx_packets += (sta)->tx_stats.rep_packets;	\
-			data->link_stats[li].tx_bytes += (sta)->tx_stats.rep_bytes;	\
-			data->link_stats[li].tx_filtered += (sta)->status_stats.filtered;	\
-			data->link_stats[li].tx_retry_failed += (sta)->status_stats.retry_failed;	\
-			data->link_stats[li].tx_retries += (sta)->status_stats.retry_count;	\
-		}							\
-	} while (0)
 
 	/* For Managed stations, find the single station based on BSSID
 	 * and use that.  For interface types, iterate through all available
@@ -768,8 +793,9 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 				link_sta_accum_rx_stats(&link_sta->rx_stats, link_sta->pcpu_rx_stats,
 							&link_rx_stats);
-				ADD_LINK_STA_STATS(li, link_sta, link_rx_stats,
-						   sdata->vif.active_links & (1<<li));
+				ieee80211_add_link_sta_stats(li, link_sta, &link_rx_stats,
+							     sdata->vif.active_links & (1<<li),
+							     &sinfo, data);
 			} else {
 				ADD_STA_STATS(&(data->link_stats[li]), sinfo, link_sta);
 			}
@@ -931,8 +957,9 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 					link_sta_accum_rx_stats(&link_sta->rx_stats, link_sta->pcpu_rx_stats,
 								&link_rx_stats);
-					ADD_LINK_STA_STATS(li, link_sta, link_rx_stats,
-							   sdata->vif.active_links & (1<<li));
+					ieee80211_add_link_sta_stats(li, link_sta, &link_rx_stats,
+								     sdata->vif.active_links & (1<<li),
+								     &sinfo, data);
 				} else {
 					ADD_STA_STATS(&(data->link_stats[li]), sinfo, link_sta);
 				}
