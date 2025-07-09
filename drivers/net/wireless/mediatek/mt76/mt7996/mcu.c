@@ -5789,6 +5789,14 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 {
 #define TX_POWER_LIMIT_TABLE_RATE	0
 #define TX_POWER_LIMIT_TABLE_PATH	1
+	/* This pad is needed to ensure that MCU message is 4-byte aligned.
+	 * The math:
+	 *	sizeof(req) = 11
+	 *	sizeof(struct mt76_power_path_limits) = 494
+	 *	total = 505 (1 byte over 4-byte aligned)
+	 * Verdict: Add 3 byte pad to achieve alignement
+	 */
+	int padded_sku_path_num = MT7996_SKU_PATH_NUM + 3;
 	struct mt7996_dev *dev = phy->dev;
 	struct mt76_phy *mphy = phy->mt76;
 	struct tx_power_limit_table_ctrl {
@@ -5801,7 +5809,7 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 		u8 band_idx;
 	} __packed req = {
 		.tag = cpu_to_le16(UNI_TXPOWER_POWER_LIMIT_TABLE_CTRL),
-		.len = cpu_to_le16(sizeof(req) + MT7996_SKU_PATH_NUM - 4),
+		.len = cpu_to_le16(sizeof(req) + padded_sku_path_num - 4),
 		.power_ctrl_id = UNI_TXPOWER_POWER_LIMIT_TABLE_CTRL,
 		.power_limit_type = TX_POWER_LIMIT_TABLE_RATE,
 		.band_idx = phy->mt76->band_idx,
@@ -5890,7 +5898,7 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 	memset(&la.ofdm, single_nss_txpower, sizeof(la.ofdm));
 
 	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL,
-				 sizeof(req) + MT7996_SKU_PATH_NUM);
+				 sizeof(req) + padded_sku_path_num);
 	if (!skb)
 		return -ENOMEM;
 
@@ -5944,7 +5952,7 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 	skb_put_data(skb, &la.eht[0], sizeof(la.eht));
 
 	/* padding */
-	skb_put_zero(skb, MT7996_SKU_PATH_NUM - MT7996_SKU_RATE_NUM);
+	skb_put_zero(skb, padded_sku_path_num - MT7996_SKU_RATE_NUM);
 
 	ret = mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				    MCU_WM_UNI_CMD(TXPOWER), true);
@@ -5956,7 +5964,7 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 		return 0;
 
 	skb = mt76_mcu_msg_alloc(&dev->mt76, NULL,
-				 sizeof(req) + MT7996_SKU_PATH_NUM);
+				 sizeof(req) + padded_sku_path_num);
 	if (!skb)
 		return -ENOMEM;
 	req.power_limit_type = TX_POWER_LIMIT_TABLE_PATH;
@@ -6006,6 +6014,9 @@ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy)
 
 		skb_put_data(skb, buf, sizeof(la_path.ru[0]));
 	}
+
+	/* This where the +3 bytes padding is needed */
+	skb_put_zero(skb, padded_sku_path_num - MT7996_SKU_PATH_NUM);
 
 	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
 				     MCU_WM_UNI_CMD(TXPOWER), true);
