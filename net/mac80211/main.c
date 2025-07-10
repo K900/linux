@@ -34,6 +34,11 @@
 #include "led.h"
 #include "debugfs.h"
 
+static int no_auto_vif = 0;
+module_param(no_auto_vif, int, 0644);
+MODULE_PARM_DESC(no_auto_vif,
+		 "Do not automatically create wlanX on radio load.");
+
 void ieee80211_configure_filter(struct ieee80211_local *local)
 {
 	u64 mc;
@@ -1653,7 +1658,8 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 
 	/* add one default STA interface if supported */
 	if (local->hw.wiphy->interface_modes & BIT(NL80211_IFTYPE_STATION) &&
-	    !ieee80211_hw_check(hw, NO_AUTO_VIF)) {
+	    !ieee80211_hw_check(hw, NO_AUTO_VIF) &&
+	    !no_auto_vif) {
 		struct vif_params params = {0};
 
 		result = ieee80211_if_add(local, "wlan%d", NET_NAME_ENUM, NULL,
