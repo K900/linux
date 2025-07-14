@@ -7947,6 +7947,11 @@ static bool nl80211_put_signal(struct sk_buff *msg, u8 mask, s8 *signal,
 		if (!(mask & BIT(i)))
 			continue;
 
+		/* Pass in 0xFF for mask means we are doing signal avg, so just
+		 * report any signal that is non-zero */
+		if (mask == 0xFF && !signal[i])
+			continue;
+
 		if (nla_put_u8(msg, i, signal[i]))
 			return false;
 	}
@@ -8220,7 +8225,7 @@ static int nl80211_send_station(struct sk_buff *msg, u32 cmd, u32 portid,
 			goto nla_put_failure;
 	}
 	if (sinfo->filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
-		if (!nl80211_put_signal(msg, sinfo->chains,
+		if (!nl80211_put_signal(msg, 0xFF,
 					sinfo->chain_signal_avg,
 					NL80211_STA_INFO_CHAIN_SIGNAL_AVG))
 			goto nla_put_failure;
