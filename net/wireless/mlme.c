@@ -382,14 +382,15 @@ cfg80211_mlme_check_mlo_compat(const struct ieee80211_multi_link_elem *mle_a,
 	common_b = (const void *)mle_b->variable;
 
 	if (memcmp(common_a->mld_mac_addr, common_b->mld_mac_addr, ETH_ALEN)) {
-		NL_SET_ERR_MSG(extack, "AP MLD address mismatch");
+		NL_SET_ERR_MSG_FMT(extack, "AP MLD address mismatch: %pM %pM",
+				   common_a->mld_mac_addr, common_b->mld_mac_addr);
 		return -EINVAL;
 	}
 
 	tmpa = ieee80211_mle_get_eml_cap((const u8 *)mle_a);
 	tmpb = ieee80211_mle_get_eml_cap((const u8 *)mle_b);
 	if (tmpa != tmpb) {
-		NL_SET_ERR_MSG_FMT(extack, "link EML capabilities mismatch: %d != %d",
+		NL_SET_ERR_MSG_FMT(extack, "link EML capabilities mismatch: %hx != %hx",
 				   tmpa, tmpb);
 		return -EINVAL;
 	}
@@ -397,7 +398,7 @@ cfg80211_mlme_check_mlo_compat(const struct ieee80211_multi_link_elem *mle_a,
 	tmpa = ieee80211_mle_get_mld_capa_op((const u8 *)mle_a);
 	tmpb = ieee80211_mle_get_mld_capa_op((const u8 *)mle_b);
 	if (tmpa != tmpb) {
-		NL_SET_ERR_MSG_FMT(extack, "link MLD capabilities/ops mismatch: %d != %d",
+		NL_SET_ERR_MSG_FMT(extack, "link MLD capabilities/ops mismatch: %hx != %hx",
 				   tmpa, tmpb);
 		return -EINVAL;
 	}
