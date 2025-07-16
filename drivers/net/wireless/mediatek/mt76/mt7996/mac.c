@@ -520,6 +520,8 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 	mib = &phy->mib;
 	mib->rx_d_skb++;
 
+	mtk_dbg(&dev->mt76, RXV, "%s: SKB received, skb=%p skb-len=%d\n", __func__, skb, skb->len);
+
 	if (!test_bit(MT76_STATE_RUNNING, &mphy->state))
 		return -EINVAL;
 
@@ -826,6 +828,9 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 	 */
 	if (!status->wcid_idx || !ieee80211_is_data_qos(fc) || hw_aggr)
 		return 0;
+
+	mtk_dbg(&dev->mt76, RXV, "%s: At end, skb=%p skb-len=%d\n", __func__,
+	        skb, skb->len);
 
 	status->aggr = unicast &&
 		       !ieee80211_is_qos_nullfunc(fc);
