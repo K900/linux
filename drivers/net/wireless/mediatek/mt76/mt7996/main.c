@@ -582,10 +582,12 @@ static void mt7996_phy_set_rxfilter(struct mt7996_phy *phy)
 	 * MT_WF_RFCR_DROP_STBC_MULTI
 	 */
 
+	/* Upstream driver configures DROP_A3_MAC for this case. However, this seems to have issues
+	 * with filtering broadcast frames, and makes ARP fail when sent from the same radio.
+	 */
 	supported_flags |= FIF_OTHER_BSS;
 	if (!(phy->mac80211_rxfilter_flags & FIF_OTHER_BSS))
 		phy->rxfilter.cr |= MT_WF_RFCR_DROP_OTHER_TIM |
-				    MT_WF_RFCR_DROP_A3_MAC |
 				    MT_WF_RFCR_DROP_A3_BSSID;
 
 	supported_flags |= FIF_FCSFAIL;
