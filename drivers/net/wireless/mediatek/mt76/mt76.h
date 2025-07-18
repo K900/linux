@@ -2060,9 +2060,15 @@ mt76_offchannel_chandef(struct mt76_phy *phy, struct ieee80211_channel *chan,
 			struct cfg80211_chan_def *chandef)
 {
 	cfg80211_chandef_create(chandef, chan, NL80211_CHAN_HT20);
-	if (phy->main_chandef.chan != chan)
+	if (phy->main_chandef.chan != chan) {
+		mt76_dbg(phy->dev, MT76_DBG_SCAN, "%s: moving freq: %d for chan_idx: %d\n",
+			 __func__, phy->dev->scan.chan ? phy->dev->scan.chan->center_freq : -1,
+			 phy->dev->scan.chan_idx);
 		return true;
+	}
 
+	mt76_dbg(phy->dev, MT76_DBG_SCAN, "%s: scanning on-channel for freq: %d for chan_idx: %d\n",
+		 __func__, phy->dev->scan.chan->center_freq, phy->dev->scan.chan_idx);
 	*chandef = phy->main_chandef;
 	return false;
 }

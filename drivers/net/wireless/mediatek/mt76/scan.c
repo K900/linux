@@ -135,6 +135,8 @@ void mt76_scan_work(struct work_struct *work)
 	}
 
 	if (dev->scan.chan && phy->num_sta && phy->offchannel) {
+		mt76_dbg(dev, MT76_DBG_SCAN, "%s: moving back to main chandef freq: %d\n",
+			 __func__, phy->main_chandef.chan ? phy->main_chandef.chan->center_freq : -1);
 		dev->scan.chan = NULL;
 		mt76_set_channel(phy, &phy->main_chandef, false);
 		mt76_offchannel_notify(phy, false);
