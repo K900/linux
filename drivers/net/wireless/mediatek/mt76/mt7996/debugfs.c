@@ -671,18 +671,22 @@ static int
 mt7996_rxfilter_show(struct seq_file *file, void *data)
 {
 	struct mt7996_phy *phy = file->private;
+	struct mt7996_dev *dev = phy->dev;
+	u32 cr, cr1;
 
 	mutex_lock(&phy->dev->mt76.mutex);
 
-	seq_printf(file, "CR: 0x%08x\n", phy->rxfilter.cr);
+	cr = mt76_rr(dev, MT_WF_RFCR(phy->mt76->band_idx));
+	cr1 = mt76_rr(dev, MT_WF_RFCR1(phy->mt76->band_idx));
 
 #define __MT7996_RXFILTER_PRINT(reg, flag) do {		\
-		if (phy->rxfilter.reg & (flag))		\
+		if ((reg) & (flag))			\
 			seq_printf(file, #flag "\n");	\
 	} while (0)
 #define MT7996_RFCR_PRINT(flag) __MT7996_RXFILTER_PRINT(cr, MT_WF_RFCR_##flag)
 #define MT7996_RFCR1_PRINT(flag) __MT7996_RXFILTER_PRINT(cr1, MT_WF_RFCR1_##flag)
 
+	seq_printf(file, "CR: 0x%08x (configured: 0x%08x)\n", cr, phy->rxfilter.cr);
 	MT7996_RFCR_PRINT(DROP_STBC_MULTI);
 	MT7996_RFCR_PRINT(DROP_FCSFAIL);
 	MT7996_RFCR_PRINT(DROP_PROBEREQ);
@@ -704,7 +708,7 @@ mt7996_rxfilter_show(struct seq_file *file, void *data)
 	MT7996_RFCR_PRINT(DROP_NDPA);
 	MT7996_RFCR_PRINT(DROP_UNWANTED_CTL);
 
-	seq_printf(file, "\nCR1: 0x%08x\n", phy->rxfilter.cr1);
+	seq_printf(file, "\nCR1: 0x%08x (configured: 0x%08x)\n", cr1, phy->rxfilter.cr1);
 	MT7996_RFCR1_PRINT(DROP_ACK);
 	MT7996_RFCR1_PRINT(DROP_BF_POLL);
 	MT7996_RFCR1_PRINT(DROP_BA);
