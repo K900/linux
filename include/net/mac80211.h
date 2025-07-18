@@ -2673,7 +2673,7 @@ struct ieee80211_conn_settings {
 struct ieee80211_link_sta {
 	struct ieee80211_sta *sta;
 
-	u8 addr[ETH_ALEN];
+	u8 addr[ETH_ALEN] __aligned(2);
 	u8 link_id;
 	enum ieee80211_smps_mode smps_mode;
 
