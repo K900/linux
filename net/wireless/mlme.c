@@ -781,7 +781,8 @@ int cfg80211_mlme_register_mgmt(struct wireless_dev *wdev, u32 snd_portid,
 				reg->multicast_rx = multicast_rx;
 				break;
 			}
-			NL_SET_ERR_MSG(extack, "Match already configured");
+			NL_SET_ERR_MSG_FMT(extack, "Match already configured, type: 0x%hx match-len: %d  reg->match_len: %d",
+					   frame_type, match_len, reg->match_len);
 			err = -EALREADY;
 			break;
 		}
