@@ -414,7 +414,7 @@ static int i801_check_pre(struct i801_priv *priv)
 	int status, result;
 
 	status = ioread8(SMBHSTSTS(priv));
-	if (status & SMBHSTSTS_HOST_BUSY) {
+	if (WARN_ON_ONCE(status & SMBHSTSTS_HOST_BUSY)) {
 		pci_err(priv->pci_dev, "SMBus is busy, can't use it!\n");
 		return -EBUSY;
 	}
