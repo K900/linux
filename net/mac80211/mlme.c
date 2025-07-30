@@ -6709,6 +6709,19 @@ ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 	conn->mode = IEEE80211_CONN_MODE_UHR;
 
 out:
+	if (req && req->flags & ASSOC_REQ_DISABLE_40 &&
+	    conn->bw_limit >= IEEE80211_CONN_BW_LIMIT_40) {
+		mlme_link_id_dbg(sdata, link_id,
+				 "Decreasing local STA bw to 20MHz based on flags.\n");
+		conn->bw_limit = IEEE80211_CONN_BW_LIMIT_20;
+	}
+	else if (req && req->flags & ASSOC_REQ_DISABLE_80 &&
+	    conn->bw_limit >= IEEE80211_CONN_BW_LIMIT_80) {
+		mlme_link_id_dbg(sdata, link_id,
+				 "Decreasing local STA bw to 40MHz based on flags.\n");
+		conn->bw_limit = IEEE80211_CONN_BW_LIMIT_40;
+	}
+
 	mlme_link_id_dbg(sdata, link_id,
 			 "determined local STA to be %s, BW limited to %d MHz\n",
 			 ieee80211_conn_mode_str(conn->mode),
@@ -10511,6 +10524,16 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 					min_t(enum ieee80211_conn_bw_limit,
 					      IEEE80211_CONN_BW_LIMIT_80,
 					      assoc_data->link[i].conn.bw_limit);
+			if (req->flags & ASSOC_REQ_DISABLE_80)
+				assoc_data->link[i].conn.bw_limit =
+					min_t(enum ieee80211_conn_bw_limit,
+					      IEEE80211_CONN_BW_LIMIT_40,
+					      assoc_data->link[i].conn.bw_limit);
+			if (req->flags & ASSOC_REQ_DISABLE_40)
+				assoc_data->link[i].conn.bw_limit =
+					min_t(enum ieee80211_conn_bw_limit,
+					      IEEE80211_CONN_BW_LIMIT_20,
+					      assoc_data->link[i].conn.bw_limit);
 			if (req->flags & ASSOC_REQ_DISABLE_OFDMA)
 				assoc_data->link[i].conn.conn_flags |= IEEE80211_CONN_DISABLE_OFDMA;
 			if (link && req->flags & ASSOC_REQ_IGNORE_EDCA) {
@@ -10581,6 +10604,16 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 			assoc_data->link[0].conn.bw_limit =
 				min_t(enum ieee80211_conn_bw_limit,
 				      IEEE80211_CONN_BW_LIMIT_80,
+				      assoc_data->link[0].conn.bw_limit);
+		if (req->flags & ASSOC_REQ_DISABLE_80)
+			assoc_data->link[0].conn.bw_limit =
+				min_t(enum ieee80211_conn_bw_limit,
+				      IEEE80211_CONN_BW_LIMIT_40,
+				      assoc_data->link[0].conn.bw_limit);
+		if (req->flags & ASSOC_REQ_DISABLE_40)
+			assoc_data->link[0].conn.bw_limit =
+				min_t(enum ieee80211_conn_bw_limit,
+				      IEEE80211_CONN_BW_LIMIT_20,
 				      assoc_data->link[0].conn.bw_limit);
 		if (req->flags & ASSOC_REQ_DISABLE_OFDMA)
 			assoc_data->link[0].conn.conn_flags |= IEEE80211_CONN_DISABLE_OFDMA;

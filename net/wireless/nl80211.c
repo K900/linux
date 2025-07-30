@@ -6872,7 +6872,7 @@ static int nl80211_parse_beacon(struct cfg80211_registered_device *rdev,
 				       data_len);
 				goto skip_ct_priv;
 			}
-			if (cai->flags & CT_DISABLE_OFDMA)
+			if (cai->flags & CT_ASSOC_DISABLE_OFDMA)
 				bcn->he_ofdma_disable = true;
 		}
 	}
@@ -13359,16 +13359,22 @@ static int nl80211_associate(struct sk_buff *skb, struct genl_info *info)
 				       data_len);
 				goto skip_ct_priv;
 			}
-			if (cai->flags & CT_DISABLE_TWT)
+			if (cai->flags & CT_ASSOC_DISABLE_TWT)
 				req.flags |= ASSOC_REQ_DISABLE_TWT;
-			if (cai->flags & CT_DISABLE_160MHZ)
+			if (cai->flags & CT_ASSOC_DISABLE_160MHZ)
 				req.flags |= ASSOC_REQ_DISABLE_160;
-			if (cai->flags & CT_DISABLE_320MHZ)
+			if (cai->flags & CT_ASSOC_DISABLE_320MHZ)
 				req.flags |= ASSOC_REQ_DISABLE_320;
-			if (cai->flags & CT_DISABLE_OFDMA)
+			if (cai->flags & CT_ASSOC_DISABLE_OFDMA)
 				req.flags |= ASSOC_REQ_DISABLE_OFDMA;
-			if (cai->flags & CT_IGNORE_EDCA)
+			if (cai->flags & CT_ASSOC_IGNORE_EDCA)
 				req.flags |= ASSOC_REQ_IGNORE_EDCA;
+			if (cai->flags & CT_ASSOC_DISABLE_40MHZ)
+				req.flags |= ASSOC_REQ_DISABLE_40;
+			if (cai->flags & CT_ASSOC_DISABLE_80MHZ)
+				req.flags |= ASSOC_REQ_DISABLE_80;
+			//pr_info("associate: CT Vendor data, cai flags: 0x%x  req flags: 0x%x\n",
+			//	cai->flags, req.flags);
 		}
 	}
 skip_ct_priv:
@@ -14271,16 +14277,20 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 				       data_len, (int)(sizeof(*cai)));
 				goto skip_ct_priv;
 			}
-			if (cai->flags & CT_DISABLE_TWT)
+			if (cai->flags & CT_ASSOC_DISABLE_TWT)
 				connect.flags |= ASSOC_REQ_DISABLE_TWT;
-			if (cai->flags & CT_DISABLE_160MHZ)
+			if (cai->flags & CT_ASSOC_DISABLE_160MHZ)
 				connect.flags |= ASSOC_REQ_DISABLE_160;
-			if (cai->flags & CT_DISABLE_320MHZ)
+			if (cai->flags & CT_ASSOC_DISABLE_320MHZ)
 				connect.flags |= ASSOC_REQ_DISABLE_320;
-			if (cai->flags & CT_DISABLE_OFDMA)
+			if (cai->flags & CT_ASSOC_DISABLE_OFDMA)
 				connect.flags |= ASSOC_REQ_DISABLE_OFDMA;
-			if (cai->flags & CT_IGNORE_EDCA)
+			if (cai->flags & CT_ASSOC_IGNORE_EDCA)
 				connect.flags |= ASSOC_REQ_IGNORE_EDCA;
+			if (cai->flags & CT_ASSOC_DISABLE_40MHZ)
+				connect.flags |= ASSOC_REQ_DISABLE_40;
+			if (cai->flags & CT_ASSOC_DISABLE_80MHZ)
+				connect.flags |= ASSOC_REQ_DISABLE_80;
 		}
 	}
 	skip_ct_priv:
