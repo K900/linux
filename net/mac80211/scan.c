@@ -736,6 +736,10 @@ static void ieee80211_scan_state_send_probe(struct ieee80211_local *local,
 	if ((sdata->pr_conf.flags & CT_PREQ_DISABLE_EHT))
 		flags |= IEEE80211_PROBE_FLAG_DISABLE_EHT;
 
+	if (sdata->pr_conf.flags & CT_PREQ_DISABLE_40)
+		flags |= IEEE80211_PROBE_FLAG_DISABLE_40;
+	if (sdata->pr_conf.flags & CT_PREQ_DISABLE_80)
+		flags |= IEEE80211_PROBE_FLAG_DISABLE_80;
 	if (sdata->pr_conf.flags & CT_PREQ_DISABLE_160)
 		flags |= IEEE80211_PROBE_FLAG_DISABLE_160;
 	if (sdata->pr_conf.flags & CT_PREQ_DISABLE_320)
