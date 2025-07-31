@@ -6586,11 +6586,11 @@ ieee80211_determine_our_sta_mode(struct ieee80211_sub_if_data *sdata,
 	}
 
 	if (vht_cap.vht_supported && is_5ghz) {
-		if (conn->bw_limit == IEEE80211_CONN_BW_LIMIT_20) {
-			mlme_link_id_dbg(sdata, link_id,
-					 "no 40 MHz support on 5 GHz, limiting to HT\n");
-			goto out;
-		}
+		//if (conn->bw_limit == IEEE80211_CONN_BW_LIMIT_20) {
+		//	mlme_link_id_dbg(sdata, link_id,
+		//			 "no 40 MHz support on 5 GHz, limiting to HT\n");
+		//	goto out;
+		//}
 	} else if (is_5ghz) { /* !vht_supported but on 5 GHz */
 		mlme_link_id_dbg(sdata, link_id,
 				 "no VHT support on 5 GHz, limiting to HT\n");
