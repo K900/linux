@@ -784,7 +784,8 @@ mt792x_ethtool_worker(void *wi_data, struct ieee80211_sta *sta)
 	struct mt792x_sta *msta = (struct mt792x_sta *)sta->drv_priv;
 	struct mt76_ethtool_worker_info *wi = wi_data;
 
-	if (msta->vif->bss_conf.mt76.idx != wi->idx)
+	/* TODO:  Support additional MLO links. */
+	if (msta->vif->bss_conf.mt76.idx != wi->indices[0])
 		return;
 
 	mt76_ethtool_worker(wi, &msta->deflink.wcid.stats, wi->has_eht);
@@ -800,7 +801,7 @@ void mt792x_get_et_stats(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	struct mt76_mib_stats *mib = &phy->mib;
 	struct mt76_ethtool_worker_info wi = {
 		.data = data,
-		.idx = mvif->bss_conf.mt76.idx,
+		.indices[0] = mvif->bss_conf.mt76.idx,
 		.has_eht = dev->has_eht,
 	};
 	int i, ei = 0;

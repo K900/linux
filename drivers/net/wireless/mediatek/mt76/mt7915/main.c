@@ -1783,7 +1783,7 @@ static void mt7915_ethtool_worker(void *wi_data, struct ieee80211_sta *sta)
 	struct mt76_ethtool_worker_info *wi = wi_data;
 	struct mt7915_sta *msta = (struct mt7915_sta *)sta->drv_priv;
 
-	if (msta->vif->mt76.idx != wi->idx)
+	if (msta->vif->mt76.idx != wi->indices[0])
 		return;
 
 	mt76_ethtool_worker(wi, &msta->wcid.stats, false);
@@ -1800,7 +1800,7 @@ void mt7915_get_et_stats(struct ieee80211_hw *hw,
 	struct mt76_mib_stats *mib = &phy->mib;
 	struct mt76_ethtool_worker_info wi = {
 		.data = data,
-		.idx = mvif->mt76.idx,
+		.indices[0] = mvif->mt76.idx,
 		.has_eht = false,
 	};
 	/* See mt7915_ampdu_stat_read_phy, etc */

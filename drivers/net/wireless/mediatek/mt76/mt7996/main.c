@@ -2679,12 +2679,27 @@ static void mt7996_ethtool_worker(void *wi_data, struct ieee80211_sta *sta)
 {
 	struct mt76_ethtool_worker_info *wi = wi_data;
 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
-	struct mt7996_sta_link *msta_link = &msta->deflink;
+	struct mt7996_vif *mvif = msta->vif;
+	struct mt7996_dev *dev = mt7996_vif_link_phy(&mvif->deflink)->dev;
+	struct mt7996_sta_link *msta_link;
+	struct mt7996_vif_link *mconf;
+	struct ieee80211_vif *vif = container_of((void *)mvif, struct ieee80211_vif, drv_priv);
+	int i;
 
-	if (msta->vif->deflink.mt76.idx != wi->idx)
-		return;
+	for (i = 0; i<IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+		msta_link = mt76_dereference(msta->link[i], &dev->mt76);
+		if (!msta_link)
+			continue;
+		mconf = mt7996_vif_link(dev, vif, i);
+		if (!mconf)
+			continue;
+		if ((mconf->mt76.idx != wi->indices[0]) &&
+		    (mconf->mt76.idx != wi->indices[1]) &&
+		    (mconf->mt76.idx != wi->indices[2]))
+			continue;
 
-	mt76_ethtool_worker(wi, &msta_link->wcid.stats, true);
+		mt76_ethtool_worker(wi, &msta_link->wcid.stats, true);
+	}
 }
 
 static
@@ -2696,15 +2711,29 @@ void mt7996_get_et_stats(struct ieee80211_hw *hw,
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct mt7996_phy *phy = mt7996_vif_link_phy(&mvif->deflink);
 	struct mt76_mib_stats *mib = &phy->mib;
+	struct mt7996_vif_link *mconf;
 	struct mt76_ethtool_worker_info wi = {
 		.data = data,
-		.idx = mvif->deflink.mt76.idx,
+		.indices[0] = mvif->deflink.mt76.idx,
 		.has_eht = true,
 	};
 	/* See mt7996_ampdu_stat_read_phy, etc */
 	int i, j, ei = 0;
 
 	mutex_lock(&dev->mt76.mutex);
+
+	/* mvif may not be set up when this is called */
+	if (((struct mt76_vif_link *)(vif->drv_priv))->mvif) {
+		int q = 0;
+
+		for (i = 0; i<IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+			mconf = mt7996_vif_link(dev, vif, i);
+			if (!mconf)
+				continue;
+
+			wi.indices[q++] = mconf->mt76.idx;
+		}
+	}
 
 	for (i = 0; i < MT7996_MAX_RADIOS; i++) {
 		phy = dev->radio_phy[i];
