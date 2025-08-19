@@ -703,13 +703,15 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 			status->chains |= BIT(i);
 	}
 
+	// TODO:  This histogram logic is broken.  This is counting amsdu sub-frame histogram,
+	// not ampdu frame histogram.
 	amsdu_info = FIELD_GET(MT_RXD4_NORMAL_PAYLOAD_FORMAT, rxd4);
 	status->amsdu = !!amsdu_info;
 	if (status->amsdu) {
 		status->first_amsdu = amsdu_info == MT_RXD4_FIRST_AMSDU_FRAME;
 		status->last_amsdu = amsdu_info == MT_RXD4_LAST_AMSDU_FRAME;
-		//pr_info("fill-rx, wcid: %p first-amsdu: %d  last-amsdu: %d",
-		//	status->wcid, status->first_amsdu, status->last_amsdu);
+		//pr_info("fill-rx, wcid: %p first-amsdu: %d  last-amsdu: %d skb->len: %d",
+		//	status->wcid, status->first_amsdu, status->last_amsdu, skb->len);
 
 		/* Deal with rx ampdu histogram stats */
 		if (status->wcid) {
@@ -727,6 +729,9 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 		if (status->wcid) {
 			status->wcid->ampdu_chain++;
 			mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+			//pr_info("fill-rx, not amsdu, chain-count: %d [0]: %ld  [1]: %ld skb->len: %d",
+			//	status->wcid->ampdu_chain, stats->rx_ampdu_len[0],
+			//	stats->rx_ampdu_len[1], skb->len);
 			status->wcid->ampdu_chain = 0;
 		}
 	}
