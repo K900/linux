@@ -646,14 +646,38 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 		if (!(rxd2 & MT_RXD2_NORMAL_NON_AMPDU)) {
 			status->flag |= RX_FLAG_AMPDU_DETAILS;
 
-			/* all subframes of an A-MPDU have the same timestamp */
-			if (phy->rx_ampdu_ts != status->timestamp) {
+			/* all subframes of an A-MPDU have a similar timestamp, but not
+			 * identical.  Divide by 16k to group correctly much of the time.
+			 */
+			if ((phy->rx_ampdu_ts >> 14) != (status->timestamp >> 14)) {
 				if (!++phy->ampdu_ref)
 					phy->ampdu_ref++;
+				if (status->wcid && status->wcid->ampdu_chain) {
+					mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+					//pr_info("fill-rx, end of ampdu, chain-count: %d [0]: %ld  [1]: %ld skb->len: %d timestamp: %d",
+					//	status->wcid->ampdu_chain, stats->rx_ampdu_len[0],
+					//	stats->rx_ampdu_len[1], skb->len, phy->rx_ampdu_ts);
+					status->wcid->ampdu_chain = 0;
+				}
 			}
+
+			if (status->wcid)
+				status->wcid->ampdu_chain++;
+
 			phy->rx_ampdu_ts = status->timestamp;
 
 			status->ampdu_ref = phy->ampdu_ref;
+		}
+		else if (status->wcid) {
+			if (status->wcid->ampdu_chain) {
+				/* account for previous accumulator */
+				mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+			}
+			mt76_inc_ampdu_bucket(1, stats); /* and one for this single frame */
+			//pr_info("fill-rx, not ampdu, chain-count: %d [0]: %ld  [1]: %ld skb->len: %d",
+			//	status->wcid->ampdu_chain, stats->rx_ampdu_len[0],
+			//	stats->rx_ampdu_len[1], skb->len);
+			status->wcid->ampdu_chain = 0;
 		}
 
 		rxd += 4;
@@ -703,8 +727,6 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 			status->chains |= BIT(i);
 	}
 
-	// TODO:  This histogram logic is broken.  This is counting amsdu sub-frame histogram,
-	// not ampdu frame histogram.
 	amsdu_info = FIELD_GET(MT_RXD4_NORMAL_PAYLOAD_FORMAT, rxd4);
 	status->amsdu = !!amsdu_info;
 	if (status->amsdu) {
@@ -713,26 +735,32 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 		//pr_info("fill-rx, wcid: %p first-amsdu: %d  last-amsdu: %d skb->len: %d",
 		//	status->wcid, status->first_amsdu, status->last_amsdu, skb->len);
 
-		/* Deal with rx ampdu histogram stats */
+		/* Deal with rx amsdu histogram stats */
 		if (status->wcid) {
-			status->wcid->ampdu_chain++;
+			if (status->first_amsdu)
+				status->wcid->amsdu_chain = 0; /* in case we missed a 'last' one */
+			status->wcid->amsdu_chain++;
 			if (status->last_amsdu) {
-				mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+				mt76_inc_amsdu_bucket(status->wcid->amsdu_chain, stats);
 				//pr_info("fill-rx, last-amsdu, chain-count: %d [0]: %ld  [1]: %ld",
-				//	status->wcid->ampdu_chain, stats->rx_ampdu_len[0],
-				//	stats->rx_ampdu_len[1]);
-				status->wcid->ampdu_chain = 0;
+				//	status->wcid->amsdu_chain, stats->rx_amsdu_len[0],
+				//	stats->rx_amsdu_len[1]);
+				status->wcid->amsdu_chain = 0;
 			}
 		}
 	} else {
-		/* Deal with rx ampdu histogram stats */
+		/* Deal with rx amsdu histogram stats */
 		if (status->wcid) {
-			status->wcid->ampdu_chain++;
-			mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+			if (status->wcid->amsdu_chain) {
+				/* For previous accumulator */
+				mt76_inc_amsdu_bucket(status->wcid->amsdu_chain, stats);
+			}
+			/* Count this single frame */
+			mt76_inc_amsdu_bucket(1, stats);
 			//pr_info("fill-rx, not amsdu, chain-count: %d [0]: %ld  [1]: %ld skb->len: %d",
-			//	status->wcid->ampdu_chain, stats->rx_ampdu_len[0],
-			//	stats->rx_ampdu_len[1], skb->len);
-			status->wcid->ampdu_chain = 0;
+			//	status->wcid->amsdu_chain, stats->rx_amsdu_len[0],
+			//	stats->rx_amsdu_len[1], skb->len);
+			status->wcid->amsdu_chain = 0;
 		}
 	}
 

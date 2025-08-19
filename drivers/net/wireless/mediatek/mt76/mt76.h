@@ -376,6 +376,7 @@ struct mt76_sta_stats {
 	unsigned long rx_ru_106;
 	unsigned long rx_rate_idx[14];
 	unsigned long rx_ampdu_len[15];
+	unsigned long rx_amsdu_len[8];
 };
 
 enum mt76_wcid_flags {
@@ -435,6 +436,7 @@ struct mt76_wcid {
 	u32 tx_info;
 	bool sw_iv;
 	u16 ampdu_chain; /* rx ampdu chain count, for stats */
+	u16 amsdu_chain; /* rx amsdu chain count, for stats */
 
 	struct list_head tx_list;
 	struct sk_buff_head tx_pending;
@@ -1394,6 +1396,17 @@ void mt76_inc_ampdu_bucket(int ampdu_len, struct mt76_sta_stats *stats)
 		stats->rx_ampdu_len[13]++;
 	else
 		stats->rx_ampdu_len[14]++;
+}
+
+static inline
+void mt76_inc_amsdu_bucket(int amsdu_len, struct mt76_sta_stats *stats)
+{
+
+	if (amsdu_len > 0)
+		amsdu_len--; /* index 0 means histogram 1 */
+	if (amsdu_len > 7)
+		amsdu_len = 7; /* Larger than 8 goes into bucket 8 */
+	stats->rx_amsdu_len[amsdu_len]++;
 }
 
 struct mt76_ethtool_worker_info {
