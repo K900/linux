@@ -52,6 +52,9 @@ static ssize_t ieee80211_if_read_sdata(
 	};
 	char buf[200];
 
+	if (!sdata || !sdata->local)
+		return -EINVAL;
+
 	return wiphy_locked_debugfs_read(sdata->local->hw.wiphy,
 					 file, buf, sizeof(buf),
 					 userbuf, count, ppos,
