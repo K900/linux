@@ -500,6 +500,7 @@ static int
 iwl_mld_init_link(struct iwl_mld *mld, struct ieee80211_bss_conf *link,
 		  struct iwl_mld_link *mld_link)
 {
+	mld_link->link_id = link->link_id;
 	mld_link->average_beacon_energy = 0;
 
 	iwl_mld_init_internal_sta(&mld_link->bcast_sta);
