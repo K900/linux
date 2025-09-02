@@ -88,6 +88,7 @@ struct iwl_mld_link {
 	struct ieee80211_key_conf *ap_early_keys[6];
 	u32 average_beacon_energy;
 	bool silent_deactivation;
+	u8 link_id;
 	struct iwl_probe_resp_data __rcu *probe_resp_data;
 
 	u32 last_tx_rate_n_flags;
