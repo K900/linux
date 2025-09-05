@@ -62,6 +62,28 @@ static void ieee80211_get_ringparam(struct net_device *dev,
 			  &rp->rx_pending, &rp->rx_max_pending);
 }
 
+struct ieee80211_ethtool_survey_stats {
+	u64 channel;
+	u64 ch_center;
+	u64 noise;
+	u64 ch_time;
+	u64 ch_time_busy;
+	u64 ch_time_ext_busy;
+	u64 ch_time_rx;
+	u64 ch_time_tx;
+
+};
+
+#define IEEE80211_ET_SURVEY_STATS_STRS(prefix) \
+	(prefix "channel"),		    \
+	(prefix "ch_center"),		    \
+	(prefix "noise"),		    \
+	(prefix "ch_time"),		    \
+	(prefix "ch_time_busy"),	    \
+	(prefix "ch_time_ext_busy"),	    \
+	(prefix "ch_time_rx"),		    \
+	(prefix "ch_time_tx")
+
 #define ETHTOOL_LINK_COUNT 4 /* we will show stats for first 4 links */
 struct ieee80211_ethtool_data_link_stats {
 	u64 link_id;
@@ -83,16 +105,9 @@ struct ieee80211_ethtool_data_link_stats {
 	u64 signal_beacon;
 	u64 signal_chains;
 	u64 signal_chains_avg;
-
 	/* Add new stats here, channel and others go below */
-	u64 channel;
-	u64 ch_center;
-	u64 noise;
-	u64 ch_time;
-	u64 ch_time_busy;
-	u64 ch_time_ext_busy;
-	u64 ch_time_rx;
-	u64 ch_time_tx;
+
+	struct ieee80211_ethtool_survey_stats survey_stats;
 } __attribute__((__packed__));
 
 struct ieee80211_ethtool_data_sta_stats {
@@ -133,14 +148,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"signal_chains",
 	"signal_chains_avg",
 	/* Add new stats here, channel and others go below */
-	"channel",
-	"ch_center",
-	"noise",
-	"ch_time",
-	"ch_time_busy",
-	"ch_time_ext_busy",
-	"ch_time_rx",
-	"ch_time_tx",
+	IEEE80211_ET_SURVEY_STATS_STRS(""),
 
 	/* Link 1 stats */
 	"L1:link_id",
@@ -163,14 +171,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"L1:signal_chains",
 	"L1:signal_chains_avg",
 	/* Add new stats here, channel and others go below */
-	"L1:channel",
-	"L1:ch_center",
-	"L1:noise",
-	"L1:ch_time",
-	"L1:ch_time_busy",
-	"L1:ch_time_ext_busy",
-	"L1:ch_time_rx",
-	"L1:ch_time_tx",
+	IEEE80211_ET_SURVEY_STATS_STRS("L1:"),
 
 	/* Link 2 stats */
 	"L2:link_id",
@@ -193,14 +194,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"L2:signal_chains",
 	"L2:signal_chains_avg",
 	/* Add new stats here, channel and others go below */
-	"L2:channel",
-	"L2:ch_center",
-	"L2:noise",
-	"L2:ch_time",
-	"L2:ch_time_busy",
-	"L2:ch_time_ext_busy",
-	"L2:ch_time_rx",
-	"L2:ch_time_tx",
+	IEEE80211_ET_SURVEY_STATS_STRS("L2:"),
 
 	/* Link 3 stats */
 	"L3:link_id",
@@ -223,14 +217,7 @@ static const char ieee80211_gstrings_sta_stats[][ETH_GSTRING_LEN] = {
 	"L3:signal_chains",
 	"L3:signal_chains_avg",
 	/* Add new stats here, channel and others go below */
-	"L3:channel",
-	"L3:ch_center",
-	"L3:noise",
-	"L3:ch_time",
-	"L3:ch_time_busy",
-	"L3:ch_time_ext_busy",
-	"L3:ch_time_rx",
-	"L3:ch_time_tx",
+	IEEE80211_ET_SURVEY_STATS_STRS("L3:"),
 };
 #define STA_STATS_LEN	ARRAY_SIZE(ieee80211_gstrings_sta_stats)
 #define SDATA_STATS_LEN 4 /* bss color, active_links ... */
@@ -286,16 +273,9 @@ struct ieee80211_ethtool_data_vdev_stats {
 	u64 v_rx_mcs_7;
 	u64 v_rx_mcs_8;
 	u64 v_rx_mcs_9;
-
 	/* Add new stats here, channel and others go below */
-	u64 channel;
-	u64 ch_center;
-	u64 noise;
-	u64 ch_time;
-	u64 ch_time_busy;
-	u64 ch_time_ext_busy;
-	u64 ch_time_rx;
-	u64 ch_time_tx;
+
+	struct ieee80211_ethtool_survey_stats survey_stats;
 } __attribute__((__packed__));
 
 
@@ -355,14 +335,8 @@ static const char ieee80211_gstrings_sta_vdev_stats[][ETH_GSTRING_LEN] = {
 	"v_rx_mcs_9",
 
 	/* Add new stats here, channel and others go below */
-	"channel",
-	"ch_center",
-	"noise",
-	"ch_time",
-	"ch_time_busy",
-	"ch_time_ext_busy",
-	"ch_time_rx",
-	"ch_time_tx",
+
+	IEEE80211_ET_SURVEY_STATS_STRS(""),
 };
 #define STA_VDEV_STATS_LEN ARRAY_SIZE(ieee80211_gstrings_sta_vdev_stats)
 #endif
@@ -391,85 +365,97 @@ static int ieee80211_get_sset_count(struct net_device *dev, int sset)
 	return rv;
 }
 
+static void
+ieee80211_et_add_survey_stats(struct ieee80211_ethtool_survey_stats *stats,
+			      struct ieee80211_sub_if_data *sdata,
+			      struct ieee80211_link_data *link)
+{
+	struct ieee80211_local *local = sdata->local;
+	struct ieee80211_chanctx_conf *chanctx_conf;
+	struct cfg80211_chan_def *chan_def;
+	struct ieee80211_channel *channel;
+	struct survey_info survey;
+	int q;
+
+	/* Get survey stats for current channel */
+	survey.filled = 0;
+
+	rcu_read_lock();
+	chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf);
+	if (link) {
+		chan_def = &link->conf->chanreq.oper;
+		channel = chan_def->chan;
+	} else if (chanctx_conf) {
+		chan_def = &chanctx_conf->def;
+		channel = chan_def->chan;
+	} else if (local->open_count > 0 &&
+		 local->open_count == local->monitors &&
+		 sdata->vif.type == NL80211_IFTYPE_MONITOR) {
+		chan_def = &local->monitor_chanreq.oper;
+		channel = chan_def->chan;
+	} else {
+		chan_def = NULL;
+		channel = NULL;
+	}
+	rcu_read_unlock();
+
+	if (channel) {
+		q = 0;
+		do {
+			survey.filled = 0;
+			if (drv_get_survey(local, q, &survey) != 0) {
+				survey.filled = 0;
+				break;
+			}
+			q++;
+		} while (channel != survey.channel);
+	}
+
+	if (channel) {
+		stats->channel = channel->center_freq;
+	} else {
+		if (local->dflt_chandef.chan)
+			stats->channel = local->dflt_chandef.chan->center_freq;
+	}
+
+	if (chan_def)
+		stats->ch_center = chan_def->center_freq1;
+	else
+		if (local)
+			stats->ch_center = local->dflt_chandef.center_freq1;
+
+	if (survey.filled & SURVEY_INFO_NOISE_DBM)
+		stats->noise = (u8)survey.noise;
+	else
+		stats->noise = -1LL;
+
+	if (survey.filled & SURVEY_INFO_TIME)
+		stats->ch_time = survey.time;
+	else
+		stats->ch_time = -1LL;
+
+	if (survey.filled & SURVEY_INFO_TIME_BUSY)
+		stats->ch_time_busy = survey.time_busy;
+	else
+		stats->ch_time_busy = -1LL;
+
+	if (survey.filled & SURVEY_INFO_TIME_EXT_BUSY)
+		stats->ch_time_ext_busy = survey.time_ext_busy;
+	else
+		stats->ch_time_ext_busy = -1LL;
+
+	if (survey.filled & SURVEY_INFO_TIME_RX)
+		stats->ch_time_rx = survey.time_rx;
+	else
+		stats->ch_time_rx = -1LL;
+
+	if (survey.filled & SURVEY_INFO_TIME_TX)
+		stats->ch_time_tx = survey.time_tx;
+	else
+		stats->ch_time_tx = -1LL;
+}
+
 /* The following macros are for the *_get_stats2 functions */
-#define ADD_SURVEY_STATS(sdata, data, local, _link)			\
-	do {								\
-		struct ieee80211_chanctx_conf *_chanctx_conf;		\
-		struct cfg80211_chan_def *_chan_def;			\
-		struct ieee80211_channel *_channel;			\
-		struct survey_info _survey;				\
-		int __q;						\
-									\
-		/* Get survey stats for current channel */		\
-		_survey.filled = 0;					\
-									\
-		rcu_read_lock();					\
-		_chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf); \
-		if ((_link)) {						\
-			_chan_def = &(_link)->conf->chanreq.oper;	\
-			_channel = _chan_def->chan;			\
-		} else if (_chanctx_conf) {				\
-			_chan_def = &_chanctx_conf->def;		\
-			_channel = _chan_def->chan;			\
-		} else if (local->open_count > 0 &&			\
-			 local->open_count == local->monitors &&	\
-			 sdata->vif.type == NL80211_IFTYPE_MONITOR) {	\
-			_chan_def = &(local)->monitor_chanreq.oper;	\
-			_channel = _chan_def->chan;			\
-		} else {						\
-			_chan_def = NULL;				\
-			_channel = NULL;				\
-		}							\
-		rcu_read_unlock();					\
-									\
-		if (_channel) {						\
-			__q = 0;					\
-			do {						\
-				_survey.filled = 0;			\
-				if (drv_get_survey((local), __q, &_survey) != 0) { \
-					_survey.filled = 0;		\
-					break;				\
-				}					\
-				__q++;					\
-			} while (_channel != _survey.channel);		\
-		}							\
-									\
-		if (_channel) {						\
-			(data)->channel = _channel->center_freq;	\
-		} else {						\
-			if ((local)->dflt_chandef.chan)			\
-				(data)->channel = (local)->dflt_chandef.chan->center_freq; \
-		}							\
-		if (_chan_def)						\
-			(data)->ch_center = _chan_def->center_freq1;	\
-		else							\
-			if ((local))					\
-				(data)->ch_center = (local)->dflt_chandef.center_freq1; \
-		if (_survey.filled & SURVEY_INFO_NOISE_DBM)		\
-			(data)->noise = (u8)_survey.noise;		\
-		else							\
-			(data)->noise = -1LL;				\
-		if (_survey.filled & SURVEY_INFO_TIME)			\
-			(data)->ch_time = _survey.time;			\
-		else							\
-			(data)->ch_time = -1LL;				\
-		if (_survey.filled & SURVEY_INFO_TIME_BUSY)		\
-			(data)->ch_time_busy = _survey.time_busy;	\
-		else							\
-			(data)->ch_time_busy = -1LL;			\
-		if (_survey.filled & SURVEY_INFO_TIME_EXT_BUSY)	\
-			(data)->ch_time_ext_busy = _survey.time_ext_busy; \
-		else							\
-			(data)->ch_time_ext_busy = -1LL;		\
-		if (_survey.filled & SURVEY_INFO_TIME_RX)		\
-			(data)->ch_time_rx = _survey.time_rx;		\
-		else							\
-			(data)->ch_time_rx = -1LL;			\
-		if (_survey.filled & SURVEY_INFO_TIME_TX)		\
-			(data)->ch_time_tx = _survey.time_tx;		\
-		else							\
-			(data)->ch_time_tx = -1LL;			\
-	} while (0)
 #define STA_STATS_SURVEY_LEN 8
 
 #define ADD_STA_STATS(data, sinfo, sta)					\
@@ -684,7 +670,7 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 	} /* else if not STA */
 
 do_survey:
-	ADD_SURVEY_STATS(sdata, data, local, link);
+	ieee80211_et_add_survey_stats(&data->survey_stats, sdata, link);
 
 	if (WARN_ON(sizeof(*data) != STA_VDEV_STATS_LEN*8)) {
 		pr_err("mac80211 ethtool, vdev-data-size: %lu  != STA_VDEV_STATS_LENx8: %lu\n",
@@ -953,7 +939,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				if (data->link_stats[z].link_id == link->link_id ||
 				    (data->link_stats[z].link_id == 0xff)) {
 					data->link_stats[z].link_id = link->link_id;
-					ADD_SURVEY_STATS(sdata, &(data->link_stats[z]), local, link);
+					ieee80211_et_add_survey_stats(&data->link_stats[z].survey_stats, sdata, link);
 					break;
 				}
 			}
@@ -1121,7 +1107,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				if (data->link_stats[z].link_id == link->link_id ||
 				    (data->link_stats[z].link_id == 0xff)) {
 					data->link_stats[z].link_id = link->link_id;
-					ADD_SURVEY_STATS(sdata, &(data->link_stats[z]), local, link);
+					ieee80211_et_add_survey_stats(&data->link_stats[z].survey_stats, sdata, link);
 					break;
 				}
 			}
