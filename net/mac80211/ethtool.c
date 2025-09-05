@@ -380,8 +380,7 @@ ieee80211_et_add_survey_stats(struct ieee80211_ethtool_survey_stats *stats,
 	/* Get survey stats for current channel */
 	survey.filled = 0;
 
-	rcu_read_lock();
-	chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf);
+	chanctx_conf = sdata_dereference(sdata->vif.bss_conf.chanctx_conf, sdata);
 	if (link) {
 		chan_def = &link->conf->chanreq.oper;
 		channel = chan_def->chan;
@@ -397,7 +396,6 @@ ieee80211_et_add_survey_stats(struct ieee80211_ethtool_survey_stats *stats,
 		chan_def = NULL;
 		channel = NULL;
 	}
-	rcu_read_unlock();
 
 	if (channel) {
 		q = 0;
@@ -518,17 +516,13 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 	wiphy_lock(local->hw.wiphy);
 
 	if (sdata->vif.type == NL80211_IFTYPE_STATION) {
-		rcu_read_lock();
 		sta = ieee80211_find_best_sta_link(sdata, &link);
-		rcu_read_unlock();
 
 		if (!(sta && !WARN_ON(sta->sdata->dev != dev)))
 			goto do_survey;
 
 		memset(&sinfo, 0, sizeof(sinfo));
-		/* sta_set_sinfo cannot hold rcu read lock since it can block
-		 * calling into firmware for stats.
-		 */
+
 		sta_set_sinfo(sta, &sinfo, false);
 
 		ADD_STA_STATS(data, sinfo, &sta->deflink);
@@ -794,9 +788,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 		}
 
 		memset(&sinfo, 0, sizeof(sinfo));
-		/* sta_set_sinfo cannot hold rcu read lock since it can block
-		 * calling into firmware for stats.
-		 */
+
 		if (sta)
 			sta_set_sinfo(sta, &sinfo, false);
 
@@ -805,20 +797,15 @@ static void ieee80211_get_stats2(struct net_device *dev,
 			if (li > 0 && !mld)
 				break;
 
-			rcu_read_lock();
 			link = sdata_dereference(sdata->link[li], sdata);
-			if (!link) {
-				rcu_read_unlock();
+			if (!link)
 				continue;
-			}
-			if (sta)
-				link_sta = rcu_dereference_protected(sta->link[li],
-								     lockdep_is_held(&local->hw.wiphy->mtx));
-			rcu_read_unlock();
 
-			if (!(sta && link_sta && !WARN_ON(sta->sdata->dev != dev))) {
+			if (sta)
+				link_sta = sdata_dereference(sta->link[li], sdata);
+
+			if (!(sta && link_sta && !WARN_ON(sta->sdata->dev != dev)))
 				continue;
-			}
 
 			if (mld) {
 				last_rxstats = link_sta_get_last_rx_stats(link_sta);
@@ -982,20 +969,15 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				if (lii > 0 && !mld)
 					break;
 
-				rcu_read_lock();
 				link = sdata_dereference(sdata->link[lii], sdata);
-				if (!link) {
-					rcu_read_unlock();
+				if (!link)
 					continue;
-				}
-				if (sta)
-					link_sta = rcu_dereference_protected(sta->link[lii],
-									     lockdep_is_held(&local->hw.wiphy->mtx));
 
-				if (!(sta && link_sta && !WARN_ON(sta->sdata->dev != dev))) {
-					rcu_read_unlock();
+				if (sta)
+					link_sta = sdata_dereference(sta->link[lii], sdata);
+
+				if (!(sta && link_sta && !WARN_ON(sta->sdata->dev != dev)))
 					continue;
-				}
 
 				if (mld) {
 					for (z = 0; z<ETHTOOL_LINK_COUNT; z++) {
@@ -1058,8 +1040,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 					}
 				}
 				
-				data->link_stats[lii].tx_handlers_drop = sdata->tx_handlers_drop;
-				rcu_read_unlock();
+				data->link_stats[q].tx_handlers_drop = sdata->tx_handlers_drop;
 			} /* for each of 3 links */
 		} /* for each stations associated to AP */
 
@@ -1095,12 +1076,9 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 		/* Report up to 4 links, survey should not depend on STA being associated. */
 		for (lii = 0; lii<IEEE80211_MLD_MAX_NUM_LINKS; lii++) {
-			rcu_read_lock();
 			link = sdata_dereference(sdata->link[lii], sdata);
-			if (!link) {
-				rcu_read_unlock();
+			if (!link)
 				continue;
-			}
 
 			for (z = 0; z<ETHTOOL_LINK_COUNT; z++) {
 				/* If link matches, or if nothing was yet filled */
@@ -1111,8 +1089,6 @@ static void ieee80211_get_stats2(struct net_device *dev,
 					break;
 				}
 			}
-
-			rcu_read_unlock();
 		} /* for all links */
 	} /* else if not STA */
 
