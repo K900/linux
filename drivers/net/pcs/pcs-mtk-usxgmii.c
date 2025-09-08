@@ -346,8 +346,6 @@ static unsigned int mtk_usxgmii_pcs_inband_caps(struct phylink_pcs *pcs,
 						phy_interface_t interface)
 {
 	switch (interface) {
-	case PHY_INTERFACE_MODE_5GBASER:
-	case PHY_INTERFACE_MODE_10GBASER:
 	case PHY_INTERFACE_MODE_USXGMII:
 		return LINK_INBAND_ENABLE;
 
