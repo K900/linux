@@ -998,7 +998,17 @@ void sta_set_rate_info_tx(struct sta_info *sta,
 
 		sband = ieee80211_get_sband(sta->sdata);
 		WARN_ON_ONCE(sband && !sband->bitrates);
-		if (sband && sband->bitrates)
+		WARN_ON_ONCE(rate->idx == -1);
+
+		if (WARN_ON_ONCE(sband && rate->idx >= sband->n_bitrates)) {
+			static int warned = 0;
+			if (warned++ < 50) {
+				pr_err("ERROR: STA %pM rate idx %d is larger than band allowed %d, band %d\n",
+				       sta->addr, rate->idx, sband->n_bitrates, sband->band);
+			}
+		}
+
+		if (sband && sband->bitrates && rate->idx != -1 && rate->idx < sband->n_bitrates)
 			rinfo->legacy = sband->bitrates[rate->idx].bitrate;
 	}
 	if (rate->flags & IEEE80211_TX_RC_40_MHZ_WIDTH)
