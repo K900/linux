@@ -60,6 +60,12 @@ u32 linlondp_get_afbc_format_bpp(const struct drm_format_info *info,
  * 2. Tiled RGB always has SC
  */
 u64 linlondp_supported_modifiers[] = {
+	/* For AFBC buffers with a width exceeding 2048,
+	 * only the 32x8 block size is supported.
+	 * So, AFBC 32x8 is set to the highest priority here.
+	*/
+	/* TILED + SC + SPLIT + SPLIT + SPARSE + YTR */
+	AFBC_32x8(_TILED | _SC | _SPLIT | _SPARSE | _YTR),
 	/* AFBC_16x16 + features: YUV+RGB both */
 	AFBC_16x16(0),
 	/* SPARSE */
@@ -83,7 +89,6 @@ u64 linlondp_supported_modifiers[] = {
 	/* split mode is only allowed for sparse mode */
 	AFBC_32x8(_SPLIT | _SPARSE | _YTR),
 	/* TILED + SC + (SPLIT+SPARSE | SPARSE) + YTR */
-	AFBC_32x8(_TILED | _SC | _SPLIT | _SPARSE | _YTR),
 	AFBC_32x8(_TILED | _SC | _SPARSE | _YTR),
 	AFBC_32x8(_TILED | _SC | _YTR), DRM_FORMAT_MOD_LINEAR,
 	DRM_FORMAT_MOD_INVALID
