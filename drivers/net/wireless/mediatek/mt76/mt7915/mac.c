@@ -434,14 +434,36 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		if (!(rxd2 & MT_RXD2_NORMAL_NON_AMPDU)) {
 			status->flag |= RX_FLAG_AMPDU_DETAILS;
 
-			/* all subframes of an A-MPDU have the same timestamp */
-			if (phy->rx_ampdu_ts != status->timestamp) {
+			/* Timestamp is shared by A-MSDU, but not A-MPDU. However, A-MPDUs are
+			 * transmitted very near each other, and have a gap while waiting for a
+			 * block-ack. 200 us seems to be a sweet spot where slower rates (legacy)
+			 * are still under the threshold (roughly 180 us per frame), and faster
+			 * rates (AX) have gaps just above the threshold (roughly 300 us).
+			 */
+
+#define MT7915_TS_ROUGH_MAX_DUR 200
+
+			if ((status->timestamp - phy->rx_ampdu_ts) > MT7915_TS_ROUGH_MAX_DUR) {
 				if (!++phy->ampdu_ref)
 					phy->ampdu_ref++;
+				if (status->wcid && status->wcid->ampdu_chain) {
+					mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+					status->wcid->ampdu_chain = 0;
+				}
 			}
-			phy->rx_ampdu_ts = status->timestamp;
+
+			if (status->wcid)
+				status->wcid->ampdu_chain++;
 
 			status->ampdu_ref = phy->ampdu_ref;
+			phy->rx_ampdu_ts = status->timestamp;
+		} else if (status->wcid) {
+			if (status->wcid->ampdu_chain) {
+				/* account for previous accumulator */
+				mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
+			}
+			mt76_inc_ampdu_bucket(1, stats); /* and one for this single frame */
+			status->wcid->ampdu_chain = 0;
 		}
 
 		rxd += 2;
@@ -510,20 +532,26 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		status->first_amsdu = amsdu_info == MT_RXD4_FIRST_AMSDU_FRAME;
 		status->last_amsdu = amsdu_info == MT_RXD4_LAST_AMSDU_FRAME;
 
-		/* Deal with rx ampdu histogram stats */
+		/* Deal with rx amsdu histogram stats */
 		if (status->wcid) {
-			status->wcid->ampdu_chain++;
+			if (status->first_amsdu)
+				status->wcid->amsdu_chain = 0; /* in case we missed a 'last' one */
+			status->wcid->amsdu_chain++;
 			if (status->last_amsdu) {
-				mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
-				status->wcid->ampdu_chain = 0;
+				mt76_inc_amsdu_bucket(status->wcid->ampdu_chain, stats);
+				status->wcid->amsdu_chain = 0;
 			}
 		}
 	} else {
-		/* Deal with rx ampdu histogram stats */
+		/* Deal with rx amsdu histogram stats */
 		if (status->wcid) {
-			status->wcid->ampdu_chain++;
-			mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
-			status->wcid->ampdu_chain = 0;
+			if (status->wcid->amsdu_chain) {
+				/* For previous accumulator */
+				mt76_inc_amsdu_bucket(status->wcid->amsdu_chain, stats);
+			}
+			/* Count this single frame */
+			mt76_inc_amsdu_bucket(1, stats);
+			status->wcid->amsdu_chain = 0;
 		}
 	}
 
