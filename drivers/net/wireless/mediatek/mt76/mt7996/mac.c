@@ -646,17 +646,12 @@ mt7996_mac_fill_rx(struct mt7996_dev *dev, enum mt76_rxq_id q,
 		if (!(rxd2 & MT_RXD2_NORMAL_NON_AMPDU)) {
 			status->flag |= RX_FLAG_AMPDU_DETAILS;
 
-			/* all subframes of an A-MPDU have a similar timestamp, but not
-			 * identical.  Divide by 16k to group correctly much of the time.
-			 */
-			if ((phy->rx_ampdu_ts >> 14) != (status->timestamp >> 14)) {
+			/* See doc for MT76_TSF_MPDU_DUR_THRESHOLD definition */
+			if ((status->timestamp - phy->rx_ampdu_ts) > MT76_TSF_MPDU_DUR_THRESHOLD) {
 				if (!++phy->ampdu_ref)
 					phy->ampdu_ref++;
 				if (status->wcid && status->wcid->ampdu_chain) {
 					mt76_inc_ampdu_bucket(status->wcid->ampdu_chain, stats);
-					//pr_info("fill-rx, end of ampdu, chain-count: %d [0]: %ld  [1]: %ld skb->len: %d timestamp: %d",
-					//	status->wcid->ampdu_chain, stats->rx_ampdu_len[0],
-					//	stats->rx_ampdu_len[1], skb->len, phy->rx_ampdu_ts);
 					status->wcid->ampdu_chain = 0;
 				}
 			}
