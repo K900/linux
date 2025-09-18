@@ -563,8 +563,8 @@ mt7925_mac_fill_rx(struct mt792x_dev *dev, struct sk_buff *skb)
 		if (!(rxd2 & MT_RXD2_NORMAL_NON_AMPDU)) {
 			status->flag |= RX_FLAG_AMPDU_DETAILS;
 
-			/* all subframes of an A-MPDU have the same timestamp */
-			if (phy->rx_ampdu_ts != status->timestamp) {
+			/* See doc for MT76_TSF_MPDU_DUR_THRESHOLD definition */
+			if ((status->timestamp - phy->rx_ampdu_ts) > MT76_TSF_MPDU_DUR_THRESHOLD) {
 				if (!++phy->ampdu_ref)
 					phy->ampdu_ref++;
 			}
