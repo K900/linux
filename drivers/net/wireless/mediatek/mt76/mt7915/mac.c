@@ -434,16 +434,8 @@ mt7915_mac_fill_rx(struct mt7915_dev *dev, struct sk_buff *skb,
 		if (!(rxd2 & MT_RXD2_NORMAL_NON_AMPDU)) {
 			status->flag |= RX_FLAG_AMPDU_DETAILS;
 
-			/* Timestamp is shared by A-MSDU, but not A-MPDU. However, A-MPDUs are
-			 * transmitted very near each other, and have a gap while waiting for a
-			 * block-ack. 200 us seems to be a sweet spot where slower rates (legacy)
-			 * are still under the threshold (roughly 180 us per frame), and faster
-			 * rates (AX) have gaps just above the threshold (roughly 300 us).
-			 */
-
-#define MT7915_TS_ROUGH_MAX_DUR 200
-
-			if ((status->timestamp - phy->rx_ampdu_ts) > MT7915_TS_ROUGH_MAX_DUR) {
+			/* See doc for MT76_TSF_MPDU_DUR_THRESHOLD definition */
+			if ((status->timestamp - phy->rx_ampdu_ts) > MT76_TSF_MPDU_DUR_THRESHOLD) {
 				if (!++phy->ampdu_ref)
 					phy->ampdu_ref++;
 				if (status->wcid && status->wcid->ampdu_chain) {
