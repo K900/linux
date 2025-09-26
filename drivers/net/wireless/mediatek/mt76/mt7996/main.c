@@ -848,6 +848,8 @@ mt7996_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 {
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
 	struct mt7996_vif_link_info *link_info = &mvif->link_info[link_id];
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	struct mt7996_vif_link *mlink;
 	static const u8 mq_to_aci[] = {
 		[IEEE80211_AC_VO] = 3,
 		[IEEE80211_AC_VI] = 2,
@@ -855,9 +857,18 @@ mt7996_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 		[IEEE80211_AC_BK] = 1,
 	};
 
+	mutex_lock(&dev->mt76.mutex);
+	mlink = mt7996_vif_link(dev, vif, link_id);
+	if (!mlink) {
+		mutex_unlock(&dev->mt76.mutex);
+		return -EINVAL;
+	}
+
 	/* firmware uses access class index */
 	link_info->queue_params[mq_to_aci[queue]] = *params;
 	/* no need to update right away, we'll get BSS_CHANGED_QOS */
+
+	mutex_unlock(&dev->mt76.mutex);
 
 	return 0;
 }
