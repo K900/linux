@@ -1280,6 +1280,11 @@ enum MTK_DEUBG {
 	MTK_DEBUG_RXV		= 0x00000080, /* verbose rx path */
 	MTK_DEBUG_MCU_DUMP	= 0x00000100, /* Last n messages to MCU when something goes wrong */
 	MT76_DBG_MLD	 	= 0x00000200, /* MLD related, upstream format */
+	MT76_DBG_STA            = 0x00000400, /* STA related, upstream format */
+	MT76_DBG_BSS            = 0x00000800, /* BSS related, upstream format */
+	MT76_DBG_DEV            = 0x00001000, /* DEV related, upstream format */
+	MT76_DBG_SCAN           = 0x00002000, /* Scan related, upstream format */
+	MT76_DBG_CHAN           = 0x00004000, /* Channel related, upstream format */
 	MTK_DEBUG_ANY		= 0xffffffff
 };
 
