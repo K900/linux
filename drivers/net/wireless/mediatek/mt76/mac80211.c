@@ -863,7 +863,7 @@ void mt76_reset_device(struct mt76_dev *dev)
 
 	INIT_LIST_HEAD(&dev->wcid_list);
 	INIT_LIST_HEAD(&dev->sta_poll_list);
-	dev->vif_mask = 0;
+	bitmap_zero(dev->vif_mask, MT76_MAX_VIFS);
 	memset(dev->wcid_mask, 0, sizeof(dev->wcid_mask));
 
 	mt76_reset_phy(&dev->phy);

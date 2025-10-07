@@ -301,7 +301,7 @@ mt76x02_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	unsigned int idx = 0;
 
 	/* Allow to change address in HW if we create first interface. */
-	if (!dev->mt76.vif_mask &&
+	if (bitmap_empty(dev->mt76.vif_mask, MT76_MAX_VIFS) &&
 	    (((vif->addr[0] ^ dev->mphy.macaddr[0]) & ~GENMASK(4, 1)) ||
 	     memcmp(vif->addr + 1, dev->mphy.macaddr + 1, ETH_ALEN - 1)))
 		mt76x02_mac_setaddr(dev, vif->addr);
@@ -326,11 +326,11 @@ mt76x02_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 		idx += 8;
 
 	/* vif is already set or idx is 8 for AP/Mesh/... */
-	if (dev->mt76.vif_mask & BIT_ULL(idx) ||
+	if (test_bit(idx, dev->mt76.vif_mask) ||
 	    (vif->type != NL80211_IFTYPE_STATION && idx > 7))
 		return -EBUSY;
 
-	dev->mt76.vif_mask |= BIT_ULL(idx);
+	set_bit(idx, dev->mt76.vif_mask);
 
 	mt76x02_vif_init(dev, vif, idx);
 	return 0;
@@ -343,7 +343,7 @@ void mt76x02_remove_interface(struct ieee80211_hw *hw,
 	struct mt76x02_dev *dev = hw->priv;
 	struct mt76x02_vif *mvif = (struct mt76x02_vif *)vif->drv_priv;
 
-	dev->mt76.vif_mask &= ~BIT_ULL(mvif->idx);
+	clear_bit(mvif->idx, dev->mt76.vif_mask);
 	rcu_assign_pointer(dev->mt76.wcid[mvif->group_wcid.idx], NULL);
 	mt76_wcid_cleanup(&dev->mt76, &mvif->group_wcid);
 }

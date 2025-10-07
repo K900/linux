@@ -372,7 +372,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 		return 0;
 	}
 
-	mlink->idx = __ffs64(~dev->mt76.vif_mask);
+	mlink->idx = find_first_zero_bit(dev->mt76.vif_mask, MT76_MAX_VIFS);
 	if (mlink->idx >= mt7996_max_interface_num(dev))
 		return -ENOSPC;
 
@@ -395,7 +395,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	if (ret)
 		return ret;
 
-	dev->mt76.vif_mask |= BIT_ULL(mlink->idx);
+	set_bit(mlink->idx, dev->mt76.vif_mask);
 	dev->mld_idx_mask |= BIT_ULL(link->mld_idx);
 	phy->omac_mask |= BIT_ULL(mlink->omac_idx);
 
@@ -488,7 +488,7 @@ static void mt7996_vif_link_destroy(struct mt7996_phy *phy,
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 
-	dev->mt76.vif_mask &= ~BIT_ULL(mlink->idx);
+	clear_bit(mlink->idx, dev->mt76.vif_mask);
 	dev->mld_idx_mask &= ~BIT_ULL(link->mld_idx);
 	phy->omac_mask &= ~BIT_ULL(mlink->omac_idx);
 	if (!mlink->wcid->offchannel)
