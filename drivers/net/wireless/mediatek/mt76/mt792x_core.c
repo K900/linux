@@ -183,7 +183,7 @@ void mt792x_mac_link_bss_remove(struct mt792x_dev *dev,
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 
-	dev->mt76.vif_mask &= ~BIT_ULL(mconf->mt76.idx);
+	clear_bit(mconf->mt76.idx, dev->mt76.vif_mask);
 	mconf->vif->phy->omac_mask &= ~BIT_ULL(mconf->mt76.omac_idx);
 
 	spin_lock_bh(&dev->mt76.sta_poll_lock);
