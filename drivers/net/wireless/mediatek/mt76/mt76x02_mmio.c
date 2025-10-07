@@ -426,7 +426,7 @@ static void mt76x02_reset_state(struct mt76x02_dev *dev)
 		memset(msta, 0, sizeof(*msta));
 	}
 
-	dev->mt76.vif_mask = 0;
+	bitmap_zero(dev->mt76.vif_mask, MT76_MAX_VIFS);
 	dev->mt76.beacon_mask = 0;
 }
 
