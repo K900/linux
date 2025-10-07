@@ -1832,7 +1832,7 @@ static void iwl_mvm_rx_tx_cmd_single(struct iwl_mvm *mvm,
 
 	rcu_read_lock();
 	link_sta = rcu_dereference(mvm->fw_id_to_link_sta[sta_id]);
-	if (link_sta)
+	if (link_sta && !IS_ERR(link_sta))
 		link_sta_id = link_sta->link_id;
 	rcu_read_unlock();
 
