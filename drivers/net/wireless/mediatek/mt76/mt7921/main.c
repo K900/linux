@@ -334,7 +334,7 @@ mt7921_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 	mt792x_mutex_acquire(dev);
 
-	mvif->bss_conf.mt76.idx = __ffs64(~dev->mt76.vif_mask);
+	mvif->bss_conf.mt76.idx = find_first_zero_bit(dev->mt76.vif_mask, MT76_MAX_VIFS);
 	if (mvif->bss_conf.mt76.idx >= MT792x_MAX_INTERFACES) {
 		ret = -ENOSPC;
 		goto out;
@@ -352,7 +352,7 @@ mt7921_add_interface(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 	if (ret)
 		goto out;
 
-	dev->mt76.vif_mask |= BIT_ULL(mvif->bss_conf.mt76.idx);
+	set_bit(mvif->bss_conf.mt76.idx, dev->mt76.vif_mask);
 	phy->omac_mask |= BIT_ULL(mvif->bss_conf.mt76.omac_idx);
 
 	idx = MT792x_WTBL_RESERVED - mvif->bss_conf.mt76.idx;

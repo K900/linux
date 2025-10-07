@@ -194,7 +194,7 @@ static int mt7615_add_interface(struct ieee80211_hw *hw,
 	    is_zero_ether_addr(vif->addr))
 		phy->monitor_vif = vif;
 
-	mvif->mt76.idx = __ffs64(~dev->mt76.vif_mask);
+	mvif->mt76.idx = find_first_zero_bit(dev->mt76.vif_mask, MT76_MAX_VIFS);
 	if (mvif->mt76.idx >= MT7615_MAX_INTERFACES) {
 		ret = -ENOSPC;
 		goto out;
@@ -213,7 +213,7 @@ static int mt7615_add_interface(struct ieee80211_hw *hw,
 	if (ext_phy)
 		mvif->mt76.wmm_idx += 2;
 
-	dev->mt76.vif_mask |= BIT_ULL(mvif->mt76.idx);
+	set_bit(mvif->mt76.idx, dev->mt76.vif_mask);
 	dev->omac_mask |= BIT_ULL(mvif->mt76.omac_idx);
 	phy->omac_mask |= BIT_ULL(mvif->mt76.omac_idx);
 
@@ -267,7 +267,7 @@ static void mt7615_remove_interface(struct ieee80211_hw *hw,
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 
-	dev->mt76.vif_mask &= ~BIT_ULL(mvif->mt76.idx);
+	clear_bit(mvif->mt76.idx, dev->mt76.vif_mask);
 	dev->omac_mask &= ~BIT_ULL(mvif->mt76.omac_idx);
 	phy->omac_mask &= ~BIT_ULL(mvif->mt76.omac_idx);
 
