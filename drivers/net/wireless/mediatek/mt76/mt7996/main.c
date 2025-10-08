@@ -185,9 +185,11 @@ static int get_omac_idx(enum nl80211_iftype type, u64 mask)
 		if (i)
 			return i - 1;
 
+#ifdef CONFIG_MT7996E_EXT_BSSID_STAS
 		i = get_free_idx(mask, EXT_BSSID_1, EXT_BSSID_MAX);
 		if (i)
 			return i - 1;
+#endif
 
 		if (~mask & BIT(HW_BSSID_0))
 			return HW_BSSID_0;
