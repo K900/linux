@@ -19,3 +19,13 @@ config MT7996_NPU
 	depends on NET_AIROHA_NPU=y || MT76_CORE=NET_AIROHA_NPU
 	select MT76_NPU
 	default n
+
+config MT7996E_EXT_BSSID_STAS
+	bool "Enable EXT_BSSID stations for mt7996 driver"
+	default n
+	depends on MT7996E
+	help
+	  Since the combined-phy rework of the driver, station links
+	  allocated with these MUAR indices have not worked. Without
+	  this enabled, these links will be disabled, and the interface
+	  configurations will be updated accordingly.
