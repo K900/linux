@@ -808,19 +808,29 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				continue;
 
 			if (mld) {
+				for (z = 0; z < ETHTOOL_LINK_COUNT; z++) {
+					/* If link matches, or if nothing was yet filled */
+					if (data->link_stats[z].link_id == link->link_id ||
+					    data->link_stats[z].link_id == 0xff) {
+						data->link_stats[z].link_id = link->link_id;
+						q = z;
+						break;
+					}
+				}
+
 				last_rxstats = link_sta_get_last_rx_stats(link_sta);
 
 				link_sta_accum_rx_stats(&link_sta->rx_stats, link_sta->pcpu_rx_stats,
 							&link_rx_stats);
-				ieee80211_add_link_sta_stats(q++, li, link_sta, &link_rx_stats,
+				ieee80211_add_link_sta_stats(q, li, link_sta, &link_rx_stats,
 							     sdata->vif.active_links & (1<<li),
 							     &sinfo, data);
 			} else {
-				ADD_STA_STATS(&(data->link_stats[li]), sinfo, link_sta);
+				ADD_STA_STATS(&(data->link_stats[q]), sinfo, link_sta);
 			}
 
-			data->link_stats[li].tx_handlers_drop = sdata->tx_handlers_drop;
-			data->link_stats[li].sta_state = sta->sta_state;
+			data->link_stats[q].tx_handlers_drop = sdata->tx_handlers_drop;
+			data->link_stats[q].sta_state = sta->sta_state;
 
 			if (mld) {
 				struct link_station_info *linfo = sinfo.links[li];
@@ -829,28 +839,29 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				u64 accum;
 
 				if (linfo && linfo->filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE)) {
-					data->link_stats[li].txrate = 100000ULL *
+					data->link_stats[q].txrate = 100000ULL *
 						cfg80211_calculate_bitrate(&linfo->txrate);
 				} else {
 					/* Get it from sinfo then, better than nothing I guess */
 					if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
-						data->link_stats[li].txrate = 100000ULL *
+						data->link_stats[q].txrate = 100000ULL *
 							cfg80211_calculate_bitrate(&sinfo.txrate);
 				}
 
 				link_sta_set_rate_info_rx(link_sta, &txrxrate, last_rxstats);
-				data->link_stats[li].rxrate = 100000ULL *
+				data->link_stats[q].rxrate = 100000ULL *
 					cfg80211_calculate_bitrate(&txrxrate);
 
-				data->link_stats[li].signal = (u8)last_rxstats->last_signal;
+				data->link_stats[q].signal = (u8)last_rxstats->last_signal;
 
 				if (linfo && linfo->filled &
 				    BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG))
-					data->link_stats[li].signal_beacon
+					data->link_stats[q].signal_beacon
 						= (u8)(linfo->rx_beacon_signal_avg);
 				else
 					/* No beacon signal in sta_rx_stats, get something from sinfo */
-					data->link_stats[li].signal_beacon = (u8)sinfo.rx_beacon_signal_avg;
+					data->link_stats[q].signal_beacon =
+						(u8)sinfo.rx_beacon_signal_avg;
 
 				/* signal chains */
 				mn = min_t(int, sizeof(u64), ARRAY_SIZE(last_rxstats->chain_signal_last));
@@ -863,7 +874,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 					accum |= cs;
 				}
-				data->link_stats[li].signal_chains = accum;
+				data->link_stats[q].signal_chains = accum;
 
 				/* No chain signal avg per link, get from sinfo */
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
@@ -876,22 +887,23 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 						accum |= cs;
 					}
-					data->link_stats[li].signal_chains_avg = accum;
+					data->link_stats[q].signal_chains_avg = accum;
 				}
 			} else {
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_TX_BITRATE))
-					data->link_stats[li].txrate = 100000ULL *
+					data->link_stats[q].txrate = 100000ULL *
 						cfg80211_calculate_bitrate(&sinfo.txrate);
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_RX_BITRATE))
-					data->link_stats[li].rxrate = 100000ULL *
+					data->link_stats[q].rxrate = 100000ULL *
 						cfg80211_calculate_bitrate(&sinfo.rxrate);
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
-					data->link_stats[li].signal = (u8)sinfo.signal_avg;
+					data->link_stats[q].signal = (u8)sinfo.signal_avg;
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))
-					data->link_stats[li].signal_beacon = (u8)sinfo.rx_beacon_signal_avg;
+					data->link_stats[q].signal_beacon =
+						(u8)sinfo.rx_beacon_signal_avg;
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
 					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
@@ -904,7 +916,7 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 						accum |= cs;
 					}
-					data->link_stats[li].signal_chains = accum;
+					data->link_stats[q].signal_chains = accum;
 				}
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
@@ -917,19 +929,11 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 						accum |= cs;
 					}
-					data->link_stats[li].signal_chains_avg = accum;
+					data->link_stats[q].signal_chains_avg = accum;
 				}
 			}
-
-			for (z = 0; z<ETHTOOL_LINK_COUNT; z++) {
-				/* If link matches, or if nothing was yet filled */
-				if (data->link_stats[z].link_id == link->link_id ||
-				    (data->link_stats[z].link_id == 0xff)) {
-					data->link_stats[z].link_id = link->link_id;
-					ieee80211_et_add_survey_stats(&data->link_stats[z].survey_stats, sdata, link);
-					break;
-				}
-			}
+			ieee80211_et_add_survey_stats(&data->link_stats[q].survey_stats,
+						      sdata, link);
 		} /* for all links, report on first 4 we find */
 	} else {
 		/* else not type STATION, ie AP or something */
