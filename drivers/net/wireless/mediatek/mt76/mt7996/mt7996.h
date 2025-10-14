@@ -12,7 +12,11 @@
 #include "regs.h"
 
 #define MT7996_MAX_RADIOS		3
-#define MT7996_MAX_INTERFACES		19	/* per-band */
+
+/* per-band */
+#define MT7996_MAX_INTERFACES		(MT76_CONNAC_MAX_HW_WLANS + \
+					 MT76_CONNAC_MAX_EXT_WLANS)
+
 #define MT7996_MAX_WMM_SETS		4
 #define MT7996_WTBL_BMC_SIZE		(is_mt7996(&dev->mt76) ? 64 : 32)
 #define MT7996_WTBL_RESERVED		(mt7996_wtbl_size(dev) - 1)
