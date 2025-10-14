@@ -723,6 +723,37 @@ mt7996_rxfilter_show(struct seq_file *file, void *data)
 DEFINE_SHOW_ATTRIBUTE(mt7996_rxfilter);
 
 static int
+mt7996_rmac_table_show(struct seq_file *s, void *data)
+{
+	struct mt7996_phy *phy = s->private;
+	struct mt7996_dev *dev = phy->dev;
+	unsigned long usage_bitmap[2] = {0};
+	int i, j;
+	u8 band = phy->mt76->band_idx;
+
+	usage_bitmap[0] = (unsigned long)mt76_rr(dev, MT_WF_RMAC_SRAM_BITMAP0(band));
+	usage_bitmap[1] = (unsigned long)mt76_rr(dev, MT_WF_RMAC_SRAM_BITMAP1(band));
+
+	for (i = 0; i < 2; i++) {
+		for_each_set_bit(j, &usage_bitmap[i], 32) {
+			u32 req = MT_WF_RMAC_MEM_CTRL_TRIG |
+				  u32_encode_bits(i * 32 + j, MT_WF_RMAC_MEM_CTRL_TDX);
+			u32 dw[2];
+			u8 *addr = (u8 *)dw;
+
+			mt76_wr(dev, MT_WF_RMAC_MEM_CTRL(band), req);
+			dw[0] = mt76_rr(dev, MT_WF_RMAC_SRAM_DATA0(band));
+			dw[1] = mt76_rr(dev, MT_WF_RMAC_SRAM_DATA1(band));
+
+			seq_printf(s, "omac_idx%d\tAddr: %pM\n", i * 32 + j, addr);
+		}
+	}
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(mt7996_rmac_table);
+
+static int
 mt7996_phy_info_show(struct seq_file *file, void *data)
 {
 	struct mt7996_dev *dev = file->private;
@@ -1947,6 +1978,7 @@ int mt7996_init_band_debugfs(struct mt7996_phy *phy)
 	debugfs_create_file("sr_stats", 0400, dir, phy, &mt7996_sr_stats_fops);
 	debugfs_create_file("sr_enhanced_enable", 0600, dir, phy, &fops_sr_enhanced_enable);
 	debugfs_create_file("sr_scene_cond", 0400, dir, phy, &mt7996_sr_scene_cond_fops);
+	debugfs_create_file("rmac_table", 0400, dir, phy, &mt7996_rmac_table_fops);
 
 #ifdef CONFIG_MTK_DEBUG
 	mt7996_mtk_init_band_debugfs(phy, dir);
