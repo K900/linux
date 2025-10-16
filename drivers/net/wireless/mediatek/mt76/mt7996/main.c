@@ -146,6 +146,18 @@ static void mt7996_stop(struct ieee80211_hw *hw, bool suspend)
 	cancel_delayed_work_sync(&dev->scs_work);
 }
 
+static int
+mt7996_num_repeater_links(struct mt7996_phy *phy)
+{
+	return hweight64(phy->omac_mask & GENMASK_ULL(REPEATER_BSSID_MAX, REPEATER_BSSID_START));
+}
+
+static bool
+mt7996_has_repeater_links(struct mt7996_phy *phy)
+{
+	return mt7996_num_repeater_links(phy) > 0;
+}
+
 static inline int get_free_idx(u64 mask, u8 start, u8 end)
 {
 	if (~mask & GENMASK_ULL(end, start))
@@ -348,6 +360,49 @@ mt7996_key_iter(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	WARN_ON(mt7996_set_hw_key(hw, it->cmd, vif, NULL, it->link_id, key));
 }
 
+static int
+__mt7996_configure_master_omac(struct mt7996_phy *phy, bool enable)
+{
+	struct mt7996_dev *dev = phy->dev;
+	struct mt76_vif_link mlink = {
+		.omac_idx = MT7996_MASTER_OMAC_IDX,
+		.band_idx = phy->mt76->band_idx,
+	};
+	struct ieee80211_bss_conf link_conf = {
+		.addr = { 0 }
+	};
+
+	if (enable) {
+		/* Use the phy address with the local-administered bit set. */
+		ether_addr_copy(link_conf.addr, phy->mt76->macaddr);
+		link_conf.addr[0] |= 0x2;
+	}
+
+	mt76_dbg(&dev->mt76, MT76_DBG_BSS, "%s: enable: %d\n", __func__, enable);
+
+	return mt7996_mcu_add_dev_info(phy, NULL, &link_conf, &mlink, enable);
+}
+
+static int
+mt7996_configure_master_omac(struct mt7996_phy *phy, bool enable)
+{
+	struct mt7996_dev *dev = phy->dev;
+	u8 band = phy->mt76->band_idx;
+	unsigned long usage_bitmap[2];
+
+	usage_bitmap[0] = (unsigned long)mt76_rr(dev, MT_WF_RMAC_SRAM_BITMAP0(band));
+	usage_bitmap[1] = (unsigned long)mt76_rr(dev, MT_WF_RMAC_SRAM_BITMAP1(band));
+
+	/* If we are already have this configured, or there is an actual interface using this omac,
+	 * then don't touch it.
+	 */
+	if (test_bit(MT7996_MASTER_OMAC_IDX, usage_bitmap) == enable ||
+	    (phy->omac_mask & BIT_ULL(MT7996_MASTER_OMAC_IDX)))
+		return 0;
+
+	return __mt7996_configure_master_omac(phy, enable);
+}
+
 int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 			struct ieee80211_bss_conf *link_conf,
 			struct mt76_vif_link *mlink)
@@ -399,8 +454,10 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	mlink->wcid = &msta_link->wcid;
 	mlink->wcid->offchannel = mlink->offchannel;
 
-	if (mlink->omac_idx >= REPEATER_BSSID_START)
+	if (mlink->omac_idx >= REPEATER_BSSID_START) {
 		mlink->bss_idx = MT7996_FIRST_REPEATER_VIF_IDX + band_idx + 1;
+		ret = mt7996_configure_master_omac(phy, true);
+	}
 
 	ret = mt7996_mcu_add_dev_info(phy, vif, link_conf, mlink, true);
 	if (ret)
@@ -495,7 +552,20 @@ static void mt7996_vif_link_destroy(struct mt7996_phy *phy,
 	mt7996_mcu_add_sta(dev, link_conf, NULL, link, NULL,
 			   CONN_STATE_DISCONNECT, false);
 	mt7996_mcu_add_bss_info(phy, vif, link_conf, mlink, msta_link, false);
-	mt7996_mcu_add_dev_info(phy, vif, link_conf, mlink, false);
+	/* If we need to, transition this wlan into the master for repeater stations. */
+	if (mlink->omac_idx == MT7996_MASTER_OMAC_IDX && mt7996_has_repeater_links(phy)) {
+		mt76_dbg(&dev->mt76, MT76_DBG_BSS, "%s: Transitioning to master omac\n", __func__);
+		__mt7996_configure_master_omac(phy, true);
+	} else {
+		if (mlink->omac_idx >= REPEATER_BSSID_START &&
+		    mt7996_num_repeater_links(phy) <= 1) {
+			mt76_dbg(&dev->mt76, MT76_DBG_BSS, "%s: Last repeater link removed\n",
+			         __func__);
+			mt7996_configure_master_omac(phy, false);
+		}
+
+		mt7996_mcu_add_dev_info(phy, vif, link_conf, mlink, false);
+	}
 
 	rcu_assign_pointer(dev->mt76.wcid[idx], NULL);
 
