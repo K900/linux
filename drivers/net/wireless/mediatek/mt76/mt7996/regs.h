@@ -394,6 +394,15 @@ enum offs_rev {
 #define MT_WF_RFCR1_DROP_CFEND			BIT(7)
 #define MT_WF_RFCR1_DROP_CFACK			BIT(8)
 
+#define MT_WF_RMAC_SRAM_DATA0(_band)		MT_WF_RMAC(_band, 0x210)
+#define MT_WF_RMAC_SRAM_DATA1(_band)		MT_WF_RMAC(_band, 0x214)
+#define MT_WF_RMAC_SRAM_BITMAP0(_band)		MT_WF_RMAC(_band, 0x220)
+#define MT_WF_RMAC_SRAM_BITMAP1(_band)		MT_WF_RMAC(_band, 0x224)
+#define MT_WF_RMAC_MEM_CTRL(_band)		MT_WF_RMAC(_band, 0x228)
+
+#define MT_WF_RMAC_MEM_CTRL_TRIG		BIT(31)
+#define MT_WF_RMAC_MEM_CTRL_TDX			GENMASK(7, 0)
+
 #define MT_WF_RMAC_MIB_AIRTIME0(_band)		MT_WF_RMAC(_band, 0x0380)
 #define MT_WF_RMAC_MIB_RXTIME_CLR		BIT(31)
 #define MT_WF_RMAC_MIB_ED_OFFSET		GENMASK(20, 16)
