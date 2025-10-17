@@ -863,7 +863,7 @@ struct mt76_testmode_data {
 	u8 tx_power[4];
 	u8 tx_power_control;
 
-	u8 addr[3][ETH_ALEN];
+	u8 addr[3][ETH_ALEN] __aligned(2);
 
 	u32 tx_pending;
 	u32 tx_queued;
@@ -949,7 +949,7 @@ struct mt76_phy {
 	struct mt76_sband sband_5g;
 	struct mt76_sband sband_6g;
 
-	u8 macaddr[ETH_ALEN];
+	u8 macaddr[ETH_ALEN] __aligned(2);
 
 	int txpower_cur;
 	u8 sku_idx;
