@@ -34,6 +34,23 @@
 #include "led.h"
 #include "debugfs.h"
 
+u32 debug_mask = ~0;
+module_param(debug_mask, uint, 0644);
+MODULE_PARM_DESC(debug_mask, "Debug bitmask, each bit requires its corresponding debug verbosity config option to also be enabled. "
+			     "0x1=OCB "
+			     "0x2=IBSS "
+			     "0x4=PS "
+			     "0x8=HT "
+			     "0x10=MPL "
+			     "0x20=MPATH "
+			     "0x40=MHWMP "
+			     "0x80=MESH_SYNC "
+			     "0x100=MESH_CSA "
+			     "0x200=MESH_PS "
+			     "0x300=TDLS "
+			     "0x400=STA "
+			     "0x1000=MLME");
+
 static int no_auto_vif = 0;
 module_param(no_auto_vif, int, 0644);
 MODULE_PARM_DESC(no_auto_vif,
