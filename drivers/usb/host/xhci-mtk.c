@@ -218,25 +218,30 @@ static int xhci_mtk_host_enable(struct xhci_hcd_mtk *mtk)
 
 	/* power on and enable u3 ports except skipped ones */
 	for (i = 0; i < mtk->num_u3_ports; i++) {
-		if ((0x1 << i) & mtk->u3p_dis_msk) {
+		value = readl(&ippc->u3_ctrl_p[i]);
+
+		if (BIT(i) & mtk->u3p_dis_msk) {
+			value |= CTRL_U3_PORT_PDN | CTRL_U3_PORT_DIS;
 			u3_ports_disabled++;
-			continue;
+		} else {
+			value &= ~(CTRL_U3_PORT_PDN | CTRL_U3_PORT_DIS);
+			value |= CTRL_U3_PORT_HOST_SEL;
 		}
 
-		value = readl(&ippc->u3_ctrl_p[i]);
-		value &= ~(CTRL_U3_PORT_PDN | CTRL_U3_PORT_DIS);
-		value |= CTRL_U3_PORT_HOST_SEL;
 		writel(value, &ippc->u3_ctrl_p[i]);
 	}
 
 	/* power on and enable all u2 ports except skipped ones */
 	for (i = 0; i < mtk->num_u2_ports; i++) {
-		if (BIT(i) & mtk->u2p_dis_msk)
-			continue;
-
 		value = readl(&ippc->u2_ctrl_p[i]);
-		value &= ~(CTRL_U2_PORT_PDN | CTRL_U2_PORT_DIS);
-		value |= CTRL_U2_PORT_HOST_SEL;
+
+		if (BIT(i) & mtk->u2p_dis_msk)
+			value |= CTRL_U2_PORT_PDN | CTRL_U2_PORT_DIS;
+		else {
+			value &= ~(CTRL_U2_PORT_PDN | CTRL_U2_PORT_DIS);
+			value |= CTRL_U2_PORT_HOST_SEL;
+		}
+
 		writel(value, &ippc->u2_ctrl_p[i]);
 	}
 
