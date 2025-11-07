@@ -1842,6 +1842,91 @@ iwl_dbgfs_uapsd_noagg_bssids_read(struct file *file, char __user *user_buf,
 }
 
 static ssize_t
+iwl_dbgfs_ethtool_stats_read(struct file *file, char __user *user_buf,
+			     size_t count, loff_t *ppos)
+{
+	struct iwl_mvm *mvm = file->private_data;
+	unsigned int pos = 0;
+	int bufsz = (sizeof(mvm->ethtool_stats) / 8) * 60; /* roughly 60 bytes of string space per counter */
+	char *buf = kzalloc(bufsz, GFP_KERNEL);
+	int i;
+
+	if (!buf)
+		return -ENOMEM;
+
+	mutex_lock(&mvm->mutex);
+
+#define __MVM_PSTAT(a)							\
+	do {								\
+		pos += scnprintf(buf + pos, bufsz - pos,		\
+				 #a ": %lld\n", mvm->ethtool_stats.a);	\
+	} while (0);
+
+#define __MVM_PSTAT_UL(a)						\
+	do {								\
+		pos += scnprintf(buf + pos, bufsz - pos,		\
+				 #a ": %ld\n", mvm->ethtool_stats.a);	\
+	} while (0);
+
+#define __MVM_PSTAT_I(a, _i)						\
+	do {								\
+		pos += scnprintf(buf + pos, bufsz - pos, #a "[%i]: %lld\n", \
+				 i, mvm->ethtool_stats.a[i]);		\
+	} while (0);
+
+#define __MVM_PSTAT_A(a)						\
+	for (i = 0; i<ARRAY_SIZE(mvm->ethtool_stats.a); i++) {		\
+		__MVM_PSTAT_I(a, i);					\
+	}
+
+	__MVM_PSTAT(tx_bytes_nic);
+	__MVM_PSTAT(tx_mpdu_attempts);
+	__MVM_PSTAT(tx_mpdu_fail);
+	__MVM_PSTAT(tx_mpdu_retry);
+
+	__MVM_PSTAT_UL(txo_tx_mpdu_attempts);
+	__MVM_PSTAT_UL(txo_tx_mpdu_fail);
+	__MVM_PSTAT_UL(txo_tx_mpdu_ok);
+	__MVM_PSTAT_UL(txo_tx_mpdu_retry);
+
+	__MVM_PSTAT_A(tx_status_counts);
+
+	__MVM_PSTAT(tx_cck);
+	__MVM_PSTAT(tx_ofdm);
+	__MVM_PSTAT(tx_ht);
+	__MVM_PSTAT(tx_vht);
+	__MVM_PSTAT(tx_he);
+	__MVM_PSTAT(tx_eht);
+
+	__MVM_PSTAT_A(tx_he_type);
+	__MVM_PSTAT_A(tx_ampdu_len);
+	__MVM_PSTAT_A(tx_bw);
+	__MVM_PSTAT(tx_bw_106_tone);
+	__MVM_PSTAT_A(tx_mcs);
+	__MVM_PSTAT_A(tx_nss);
+
+	__MVM_PSTAT(rx_pkts);
+	__MVM_PSTAT(rx_bytes_nic);
+	__MVM_PSTAT(rx_crc_err);
+	__MVM_PSTAT(rx_fifo_underrun);
+	__MVM_PSTAT(rx_failed_decrypt);
+	__MVM_PSTAT(rx_dup);
+	__MVM_PSTAT(rx_bad_header_len);
+
+	__MVM_PSTAT_A(rx_mode);
+	__MVM_PSTAT_A(rx_he_type);
+	__MVM_PSTAT_A(rx_bw);
+	__MVM_PSTAT(rx_bw_he_ru);
+	__MVM_PSTAT_A(rx_mcs);
+	__MVM_PSTAT_A(rx_ampdu_len);
+	__MVM_PSTAT_A(rx_nss);
+
+	mutex_unlock(&mvm->mutex);
+
+	return simple_read_from_buffer(user_buf, count, ppos, buf, pos);
+}
+
+static ssize_t
 iwl_dbgfs_ltr_config_write(struct iwl_mvm *mvm,
 			   char *buf, size_t count, loff_t *ppos)
 {
@@ -1977,6 +2062,8 @@ MVM_DEBUGFS_READ_FILE_OPS(uapsd_noagg_bssids);
 MVM_DEBUGFS_READ_FILE_OPS(sar_geo_profile);
 MVM_DEBUGFS_READ_FILE_OPS(wifi_6e_enable);
 #endif
+
+MVM_DEBUGFS_READ_FILE_OPS(ethtool_stats);
 
 MVM_DEBUGFS_WRITE_FILE_OPS(iwl_tlc_dhc, 64);
 MVM_DEBUGFS_READ_WRITE_LINK_STA_FILE_OPS(amsdu_len, 16);
@@ -2339,6 +2426,7 @@ void iwl_mvm_dbgfs_register(struct iwl_mvm *mvm)
 	MVM_DEBUGFS_ADD_FILE(wifi_6e_enable, mvm->debugfs_dir, 0400);
 #endif
 	MVM_DEBUGFS_ADD_FILE(he_sniffer_params, mvm->debugfs_dir, 0600);
+	MVM_DEBUGFS_ADD_FILE(ethtool_stats, mvm->debugfs_dir, 0400);
 
 	if (fw_has_capa(&mvm->fw->ucode_capa, IWL_UCODE_TLV_CAPA_SET_LTR_GEN2))
 		MVM_DEBUGFS_ADD_FILE(ltr_config, mvm->debugfs_dir, 0200);

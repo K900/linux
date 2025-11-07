@@ -339,6 +339,94 @@ iwl_dbgfs_he_sniffer_params_write(struct iwl_mld *mld, char *buf,
 }
 
 static ssize_t
+iwl_dbgfs_ethtool_stats_read(struct file *file, char __user *user_buf,
+                            size_t count, loff_t *ppos)
+{
+       struct iwl_mld *mld = file->private_data;
+       unsigned int pos = 0;
+       int bufsz = (sizeof(mld->ethtool_stats) / 8) * 60; /* roughly 60 bytes of string space per counter */
+       char *buf = kzalloc(bufsz, GFP_KERNEL);
+       int i;
+
+       if (!buf)
+               return -ENOMEM;
+
+#define __MLD_PSTAT(a)                                                 \
+       do {                                                            \
+               pos += scnprintf(buf + pos, bufsz - pos,                \
+                                #a ": %lld\n", mld->ethtool_stats.a);  \
+       } while (0);
+
+#define __MLD_PSTAT_UL(a)                                              \
+       do {                                                            \
+               pos += scnprintf(buf + pos, bufsz - pos,                \
+                                #a ": %ld\n", mld->ethtool_stats.a);   \
+       } while (0);
+
+#define __MLD_PSTAT_I(a, _i)                                           \
+       do {                                                            \
+               pos += scnprintf(buf + pos, bufsz - pos, #a "[%i]: %lld\n", \
+                                i, mld->ethtool_stats.a[i]);           \
+       } while (0);
+
+#define __MLD_PSTAT_A(a)                                               \
+       for (i = 0; i<ARRAY_SIZE(mld->ethtool_stats.a); i++) {          \
+               __MLD_PSTAT_I(a, i);                                    \
+       }
+
+       __MLD_PSTAT(tx_bytes_nic);
+       __MLD_PSTAT(tx_mpdu_attempts);
+       __MLD_PSTAT(tx_mpdu_fail);
+       __MLD_PSTAT(tx_mpdu_retry);
+
+       __MLD_PSTAT_UL(txo_tx_mpdu_attempts);
+       __MLD_PSTAT_UL(txo_tx_mpdu_fail);
+       __MLD_PSTAT_UL(txo_tx_mpdu_ok);
+       __MLD_PSTAT_UL(txo_tx_mpdu_retry);
+
+       __MLD_PSTAT_A(tx_status_counts);
+
+       __MLD_PSTAT(tx_cck);
+       __MLD_PSTAT(tx_ofdm);
+       __MLD_PSTAT(tx_ht);
+       __MLD_PSTAT(tx_vht);
+       __MLD_PSTAT(tx_he);
+       __MLD_PSTAT(tx_eht);
+
+       __MLD_PSTAT_A(tx_he_type);
+       __MLD_PSTAT_A(tx_ampdu_len);
+       __MLD_PSTAT_A(tx_bw);
+       __MLD_PSTAT(tx_bw_106_tone);
+       __MLD_PSTAT_A(tx_mcs);
+       __MLD_PSTAT_A(tx_nss);
+
+       __MLD_PSTAT(rx_pkts);
+       __MLD_PSTAT(rx_bytes_nic);
+       __MLD_PSTAT(rx_crc_err);
+       __MLD_PSTAT(rx_fifo_underrun);
+       __MLD_PSTAT(rx_failed_decrypt);
+       __MLD_PSTAT(rx_dup);
+       __MLD_PSTAT(rx_bad_header_len);
+
+       __MLD_PSTAT_A(rx_mode);
+       __MLD_PSTAT_A(rx_he_type);
+       __MLD_PSTAT_A(rx_bw);
+       __MLD_PSTAT(rx_bw_he_ru);
+       __MLD_PSTAT_A(rx_mcs);
+       __MLD_PSTAT_A(rx_ampdu_len);
+       __MLD_PSTAT_A(rx_nss);
+
+       return simple_read_from_buffer(user_buf, count, ppos, buf, pos);
+}
+
+static const struct file_operations iwl_dbgfs_ethtool_stats_ops = {
+	.read = iwl_dbgfs_ethtool_stats_read,
+	.open = simple_open,
+	.owner = THIS_MODULE,
+	.llseek = default_llseek,
+};
+
+static ssize_t
 iwl_dbgfs_he_sniffer_params_read(struct iwl_mld *mld, char *buf, size_t count)
 {
 	return scnprintf(buf, count,
@@ -719,6 +807,7 @@ iwl_mld_add_debugfs_files(struct iwl_mld *mld, struct dentry *debugfs_dir)
 	debugfs_create_bool("rx_ts_ptp", 0600, debugfs_dir,
 			    &mld->monitor.ptp_time);
 	MLD_DEBUGFS_ADD_FILE(set_rate_override, debugfs_dir, 0600);
+	MLD_DEBUGFS_ADD_FILE(ethtool_stats, debugfs_dir, 0400);
 
 	/* Create a symlink with mac80211. It will be removed when mac80211
 	 * exits (before the opmode exits which removes the target.)
