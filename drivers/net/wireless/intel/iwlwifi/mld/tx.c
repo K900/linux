@@ -1507,7 +1507,8 @@ out:
 }
 
 static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
-				   bool in_flush, int fw_sta_id)
+				   bool in_flush, int fw_sta_id,
+				   struct iwl_compressed_ba_notif* ba_res)
 {
 	struct sk_buff_head reclaimed_skbs;
 	struct ieee80211_link_sta *link_sta;
@@ -1518,6 +1519,10 @@ static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
 	if (link_sta)
 		link_sta_id = link_sta->link_id;
 	rcu_read_unlock();
+
+	if (ba_res)
+		iwl_mld_update_tx_ampdu_histogram(mld, ba_res->done);
+	/* TODO:  Count ba_res failures */
 
 	__skb_queue_head_init(&reclaimed_skbs);
 
@@ -1545,6 +1550,9 @@ static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
 				mld->ethtool_stats.txo_tx_mpdu_attempts++;
 				mld->ethtool_stats.txo_tx_mpdu_ok++;
 			}
+
+			if (ba_res)
+				iwl_mld_hwrate_to_tx_rate(mld, ba_res->tx_rate, info);
 		} else {
 			info->flags &= ~IEEE80211_TX_STAT_ACK;
 		}
@@ -1619,7 +1627,7 @@ int iwl_mld_flush_link_sta_txqs(struct iwl_mld *mld, u32 fw_sta_id)
 				    le16_to_cpu(queue_info->read_before_flush),
 				    read_after);
 
-		iwl_mld_tx_reclaim_txq(mld, txq_id, read_after, true, fw_sta_id);
+		iwl_mld_tx_reclaim_txq(mld, txq_id, read_after, true, fw_sta_id, NULL);
 	}
 
 free_rsp:
@@ -1719,7 +1727,7 @@ void iwl_mld_handle_compressed_ba_notif(struct iwl_mld *mld,
 				 "Invalid txq id %d\n", txq_id))
 			continue;
 
-		iwl_mld_tx_reclaim_txq(mld, txq_id, index, false, ba_res->sta_id);
+		iwl_mld_tx_reclaim_txq(mld, txq_id, index, false, ba_res->sta_id, ba_res);
 	}
 
 	if (IWL_FW_CHECK(mld, sta_id >= mld->fw->ucode_capa.num_stations,
