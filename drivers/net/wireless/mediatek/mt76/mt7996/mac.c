@@ -2162,6 +2162,10 @@ void mt7996_queue_rx_skb(struct mt76_dev *mdev, enum mt76_rxq_id q,
 
 	/* drop the skb when rxd is corrupted */
 	len = le32_get_bits(rxd[0], MT_RXD0_LENGTH);
+
+	mtk_dbg(mdev, RXV, "mt7996-queue-rx-skb, len: %d  skb-len: %d\n",
+		len, skb->len);
+
 	if (unlikely(len != skb->len))
 		goto drop;
 
