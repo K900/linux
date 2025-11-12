@@ -1064,6 +1064,9 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 		check_ddone = true;
 	}
 
+	mtk_dbg(dev, RXV, "mt76-dma-rx-process, budget: %d\n",
+		budget);
+
 	while (done < budget) {
 		bool drop = false;
 		u32 info = 0;
@@ -1078,6 +1081,10 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
 
 		data = mt76_dma_dequeue(dev, q, false, &len, &info, &more,
 					&drop);
+
+		mtk_dbg(dev, RXV, "mt76-dma-rx-process, done: %d budget: %d  data: %p\n",
+			done, budget, data);
+
 		if (!data)
 			break;
 
