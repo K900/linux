@@ -1307,14 +1307,14 @@ enum MTK_DEUBG {
 #define mtk_dbg(mt76, dbg_mask, fmt, ...)				\
 	do {								\
 		if ((mt76)->debug_lvl & MTK_DEBUG_##dbg_mask)		\
-			dev_info((mt76)->dev, fmt, ##__VA_ARGS__); \
+			dev_info((mt76)->dev, fmt, ##__VA_ARGS__);	\
 	} while (0)
 
 /* For compat with out-of-tree mtk patches */
 #define mt76_dbg(mt76, dbg_mask, fmt, ...)				\
 	do {								\
-		if ((mt76)->debug_lvl & dbg_mask)		\
-			dev_info((mt76)->dev, fmt, ##__VA_ARGS__); \
+		if ((mt76)->debug_lvl & dbg_mask)			\
+			dev_info((mt76)->dev, fmt, ##__VA_ARGS__);	\
 	} while (0)
 
 
