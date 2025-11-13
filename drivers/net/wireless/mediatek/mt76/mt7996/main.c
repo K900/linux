@@ -1613,9 +1613,12 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 				goto unlock;
 			break;
 		case MT76_STA_EVENT_DISASSOC:
-			for (i = 0; i < ARRAY_SIZE(msta_link->twt.flow); i++)
+			for (i = 0; i < ARRAY_SIZE(msta_link->twt.flow); i++) {
+				mutex_lock(&dev->mt76.mutex);
 				mt7996_mac_twt_teardown_flow(dev, link,
 							     msta_link, i);
+				mutex_unlock(&dev->mt76.mutex);
+			}
 
 			if (!sta->mlo)
 				mt7996_mcu_add_sta(dev, link_conf, link_sta,
