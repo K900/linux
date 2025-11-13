@@ -914,11 +914,19 @@ int mt7996_mcu_set_scs(struct mt7996_phy *phy, u8 enable);
 void mt7996_mcu_scs_sta_poll(struct work_struct *work);
 int mt7996_mcu_set_band_confg(struct mt7996_phy *phy, u16 option, bool enable);
 
+static inline u8 mt7996_num_bands(struct mt7996_dev *dev)
+{
+	return 1 + mt7996_band_valid(dev, MT_BAND1) + mt7996_band_valid(dev, MT_BAND2);
+}
+
 static inline u8 mt7996_max_interface_num(struct mt7996_dev *dev)
 {
-	return min(MT7996_MAX_INTERFACES * (1 + mt7996_band_valid(dev, MT_BAND1) +
-					    mt7996_band_valid(dev, MT_BAND2)),
-		   MT7996_WTBL_BMC_SIZE);
+	/* BMC size limit seems to only apply to HW and EXT BSSID links. Repeater links has allowed
+	 * us to exceed this limit. Do not apply the size limit to those 32 per band links.
+	 */
+	return min((MT7996_MAX_INTERFACES - MT76_CONNAC_MAX_REPEATER_WLANS) * mt7996_num_bands(dev),
+		   MT7996_WTBL_BMC_SIZE) +
+	       MT76_CONNAC_MAX_REPEATER_WLANS * mt7996_num_bands(dev);
 }
 
 static inline u16 mt7996_wtbl_size(struct mt7996_dev *dev)
