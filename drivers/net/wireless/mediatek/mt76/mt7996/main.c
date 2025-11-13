@@ -442,8 +442,11 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	else
 		mlink->idx = find_next_zero_bit(dev->mt76.vif_mask, MT76_MAX_VIFS,
 						MT7996_FIRST_REPEATER_VIF_IDX);
-	if (mlink->idx >= mt7996_max_interface_num(dev))
+	if (mlink->idx >= mt7996_max_interface_num(dev)) {
+		mt76_dbg(&dev->mt76, MT76_DBG_BSS, "%s: IF limit reached: %d/%d\n", __func__,
+			 mlink->idx, mt7996_max_interface_num(dev));
 		return -ENOSPC;
+	}
 
 	if (ieee80211_vif_is_mld(vif)) {
 		if (!dev->mld_idx_mask) { /* first link in the group */
@@ -453,8 +456,11 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 		}
 
 		mld_idx = get_own_mld_idx(dev->mld_idx_mask, false);
-		if (mld_idx < 0)
+		if (mld_idx < 0) {
+			mt76_dbg(&dev->mt76, MT76_DBG_BSS, "%s: No more MLD IDs to alloc\n",
+				 __func__);
 			return -ENOSPC;
+		}
 	} else {
 		mld_idx = -1;
 	}
@@ -472,8 +478,10 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	}
 
 	ret = mt7996_mcu_add_dev_info(phy, vif, link_conf, mlink, true);
-	if (ret)
+	if (ret) {
+		mt76_dbg(&dev->mt76, MT76_DBG_BSS, "%s: Add dev info failed: %d\n", __func__, ret);
 		return ret;
+	}
 
 	if (ieee80211_vif_is_mld(vif)) {
 		if (!dev->mld_idx_mask) {
@@ -544,8 +552,8 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	}
 
 	mt76_dbg(&dev->mt76, MT76_DBG_BSS,
-		 "%s:  vif_link_add end, link_id: %d wcid-idx: %d wcid: %px band-idx: %d\n",
-		 __func__, link_conf->link_id, idx, &msta_link->wcid, band_idx);
+		 "%s:  vif_link_add end, link_id: %d wcid-idx: %d mld-id: %d wcid: %px band-idx: %d\n",
+		 __func__, link_conf->link_id, idx, mld_idx, &msta_link->wcid, band_idx);
 
 	return 0;
 }
