@@ -50,6 +50,12 @@ mt76_scan_send_probe(struct mt76_dev *dev, struct cfg80211_ssid *ssid)
 	struct sk_buff *skb;
 	struct ieee80211_hdr *hdr;
 
+	if (WARN_ON_ONCE(!mvif))
+		return;
+
+	if (WARN_ON_ONCE(!mvif->wcid))
+		return;
+
 	skb = ieee80211_probereq_get(phy->hw, vif->addr, ssid->ssid,
 				     ssid->ssid_len, req->ie_len);
 	if (!skb)
