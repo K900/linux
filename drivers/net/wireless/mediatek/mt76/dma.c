@@ -316,7 +316,7 @@ mt76_dma_add_buf(struct mt76_dev *dev, struct mt76_queue *q,
 	int i, idx = -1;
 	u32 ctrl, next;
 
-	mtk_dbg(dev, TXV, "mt76-dma-add-buf, txwi: %p nbufs: %d q->queued: %d\n",
+	mtk_dbg(dev, TXV, "mt76-dma-add-buf, txwi: %px nbufs: %d q->queued: %d\n",
 		txwi, nbufs, q->queued);
 
 	if (txwi) {
@@ -375,7 +375,7 @@ mt76_dma_add_buf(struct mt76_dev *dev, struct mt76_queue *q,
 	q->entry[idx].skb = skb;
 	q->entry[idx].wcid = 0xffff;
 
-	mtk_dbg(dev, TXV, "mt76-dma-add-buf, at end, q->entry[idx]: %d  skb: %p  txwi: %p  q->queued: %d\n",
+	mtk_dbg(dev, TXV, "mt76-dma-add-buf, at end, q->entry[idx]: %d  skb: %px  txwi: %px  q->queued: %d\n",
 		idx, skb, txwi, q->queued);
 
 	return idx;
@@ -627,6 +627,8 @@ mt76_dma_tx_queue_skb_raw(struct mt76_dev *dev, struct mt76_queue *q,
 	dma_addr_t addr;
 
 	/* control msg path, not data frames */
+	mtk_dbg(dev, TXV, "mt76-dma-tx-queue-skb-raw, control path skb: %px\n",
+		skb);
 
 	if (test_bit(MT76_MCU_RESET, &dev->phy.state))
 		goto error;
@@ -699,11 +701,13 @@ mt76_dma_tx_queue_skb(struct mt76_phy *phy, struct mt76_queue *q,
 	t = mt76_get_txwi(dev);
 
 	if (wcid)
-		mtk_dbg(dev, TXV, "mt76-dma-tx-queue-skb, txwi: %p wcid idx: %d phy_idx: %d  link_id: %d link_valid: %d\n",
-			t, wcid->idx, wcid->phy_idx, wcid->link_id, wcid->link_valid);
+		mtk_dbg(dev, TXV, "mt76-dma-tx-queue-skb, txwi: %px wcid idx: %d phy_idx: %d  link_id: %d addr: %pM"
+			" link_valid: %d skb: %px len: %d sta.addr: %pM\n",
+			t, wcid->idx, wcid->phy_idx, wcid->link_id, wcid->vif_addr,
+			wcid->link_valid, skb, skb->len, sta->addr);
 	else
-		mtk_dbg(dev, TXV, "mt76-dma-tx-queue-skb, txwi: %p wcid NULL\n",
-			t);
+		mtk_dbg(dev, TXV, "mt76-dma-tx-queue-skb, txwi: %px wcid NULL, skb: %px len: %d\n",
+			t, skb, skb->len);
 
 	if (!t)
 		goto free_skb;

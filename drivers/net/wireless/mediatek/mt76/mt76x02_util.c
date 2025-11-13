@@ -287,7 +287,7 @@ mt76x02_vif_init(struct mt76x02_dev *dev, struct ieee80211_vif *vif,
 
 	mvif->idx = idx;
 	mvif->group_wcid.idx = MT_VIF_WCID(idx);
-	mt76_wcid_init(&mvif->group_wcid, 0);
+	mt76_wcid_init(&dev->mt76, &mvif->group_wcid, 0, vif->addr);
 
 	mtxq = (struct mt76_txq *)vif->txq->drv_priv;
 	rcu_assign_pointer(dev->mt76.wcid[MT_VIF_WCID(idx)], &mvif->group_wcid);

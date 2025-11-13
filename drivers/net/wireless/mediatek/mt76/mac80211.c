@@ -757,9 +757,10 @@ int mt76_register_device(struct mt76_dev *dev, bool vht,
 	struct ieee80211_hw *hw = dev->hw;
 	struct mt76_phy *phy = &dev->phy;
 	int ret;
+	u8 gm[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xf0};
 
 	dev_set_drvdata(dev->dev, dev);
-	mt76_wcid_init(&dev->global_wcid, phy->band_idx);
+	mt76_wcid_init(dev, &dev->global_wcid, phy->band_idx, gm);
 	ret = mt76_phy_init(phy, hw);
 	if (ret)
 		return ret;
@@ -1623,7 +1624,7 @@ mt76_sta_add(struct mt76_phy *phy, struct ieee80211_vif *vif,
 		WARN_ON_ONCE(published);
 		ewma_signal_init(&wcid->rssi);
 		rcu_assign_pointer(dev->wcid[wcid->idx], wcid);
-		mt76_wcid_init(wcid, phy->band_idx);
+		mt76_wcid_init(dev, wcid, phy->band_idx, vif->addr);
 	} else {
 		wcid->phy_idx = phy->band_idx;
 	}
@@ -1722,10 +1723,15 @@ void mt76_sta_pre_rcu_remove(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 }
 EXPORT_SYMBOL_GPL(mt76_sta_pre_rcu_remove);
 
-void mt76_wcid_init(struct mt76_wcid *wcid, u8 band_idx)
+void mt76_wcid_init(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 band_idx, u8 *vif_addr)
 {
 	wcid->hw_key_idx = -1;
 	wcid->phy_idx = band_idx;
+	memcpy(wcid->vif_addr, vif_addr, ETH_ALEN);
+
+	mt76_dbg(dev, MT76_DBG_BSS,
+		 "%s:  wcid: %px band_idx: %d  vif_addr: %pM idx: %d link_id: %d\n",
+		 __func__, wcid, band_idx, vif_addr, wcid->idx, wcid->link_id);
 
 	INIT_LIST_HEAD(&wcid->tx_list);
 	skb_queue_head_init(&wcid->tx_pending);
