@@ -436,6 +436,7 @@ struct mt76_wcid {
 
 	u32 tx_info;
 	bool sw_iv;
+	u8 vif_addr[ETH_ALEN]; /* debugging purpose */
 	u16 ampdu_chain; /* rx ampdu chain count, for stats */
 	u16 amsdu_chain; /* rx amsdu chain count, for stats */
 
@@ -2387,7 +2388,7 @@ mt76_token_put(struct mt76_dev *dev, int token)
 	return txwi;
 }
 
-void mt76_wcid_init(struct mt76_wcid *wcid, u8 band_idx);
+void mt76_wcid_init(struct mt76_dev *dev, struct mt76_wcid *wcid, u8 band_idx, u8 *vif_addr);
 void mt76_wcid_cleanup(struct mt76_dev *dev, struct mt76_wcid *wcid);
 void mt76_wcid_add_poll(struct mt76_dev *dev, struct mt76_wcid *wcid);
 
