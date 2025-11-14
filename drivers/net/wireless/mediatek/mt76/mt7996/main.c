@@ -1627,7 +1627,7 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 			err = mt7996_mcu_set_pp_en(&dev->phy, PP_USR_MODE,
 						   dev->phy.mt76->chandef.punctured);
 			if (err)
-				return err;
+				goto unlock;
 
 			err = mt7996_mcu_add_rate_ctrl(dev, msta_link->sta, vif,
 						       link_id, false);
@@ -1644,12 +1644,9 @@ mt7996_mac_sta_event(struct mt7996_dev *dev, struct ieee80211_vif *vif,
 				goto unlock;
 			break;
 		case MT76_STA_EVENT_DISASSOC:
-			for (i = 0; i < ARRAY_SIZE(msta_link->twt.flow); i++) {
-				mutex_lock(&dev->mt76.mutex);
+			for (i = 0; i < ARRAY_SIZE(msta_link->twt.flow); i++)
 				mt7996_mac_twt_teardown_flow(dev, link,
 							     msta_link, i);
-				mutex_unlock(&dev->mt76.mutex);
-			}
 
 			if (!sta->mlo)
 				mt7996_mcu_add_sta(dev, link_conf, link_sta,
