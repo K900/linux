@@ -8,8 +8,1467 @@
 #include "eeprom.h"
 #include "mcu.h"
 #include "mac.h"
+#include "wtbl.h"
 
 #define FW_BIN_LOG_MAGIC	0x44d9c99a
+
+#define NO_SHIFT_DEFINE 0xFFFFFFFF
+#define BITS(m, n)              (~(BIT(m)-1) & ((BIT(n) - 1) | BIT(n)))
+
+#define GET_FIELD(_field, _reg)	\
+	({	\
+		(((_reg) & (_field##_MASK)) >> (_field##_SHIFT));	\
+	})
+
+/* WTBL INFO */
+static int
+mt7996_wtbl_read_raw(struct mt7996_dev *dev, u16 idx,
+		     enum mt7996_wtbl_type type, u16 start_dw,
+		     u16 len, void *buf)
+{
+	u32 *dest_cpy = (u32 *)buf;
+	u32 size_dw = len;
+	u32 src = 0;
+
+	if (!buf)
+		return 0xFF;
+
+	if (type == WTBL_TYPE_LMAC) {
+		mt76_wr(dev, MT_DBG_WTBLON_TOP_WDUCR_ADDR,
+			FIELD_PREP(MT_DBG_WTBLON_TOP_WDUCR_GROUP, (idx >> 7)));
+		src = LWTBL_IDX2BASE(idx, start_dw);
+	} else if (type == WTBL_TYPE_UMAC) {
+		mt76_wr(dev,  MT_DBG_UWTBL_TOP_WDUCR_ADDR,
+			FIELD_PREP(MT_DBG_UWTBL_TOP_WDUCR_GROUP, (idx >> 7)));
+		src = UWTBL_IDX2BASE(idx, start_dw);
+	} else if (type == WTBL_TYPE_KEY) {
+		mt76_wr(dev,  MT_DBG_UWTBL_TOP_WDUCR_ADDR,
+			MT_DBG_UWTBL_TOP_WDUCR_TARGET |
+			FIELD_PREP(MT_DBG_UWTBL_TOP_WDUCR_GROUP, (idx >> 7)));
+		src = KEYTBL_IDX2BASE(idx, start_dw);
+	}
+
+	while (size_dw--) {
+		*dest_cpy++ = mt76_rr(dev, src);
+		src += 4;
+	};
+
+	return 0;
+}
+
+#if 0
+static int
+mt7996_wtbl_write_raw(struct mt7996_dev *dev, u16 idx,
+			  enum mt7996_wtbl_type type, u16 start_dw,
+			  u32 val)
+{
+	u32 addr = 0;
+
+	if (type == WTBL_TYPE_LMAC) {
+		mt76_wr(dev, MT_DBG_WTBLON_TOP_WDUCR_ADDR,
+			FIELD_PREP(MT_DBG_WTBLON_TOP_WDUCR_GROUP, (idx >> 7)));
+		addr = LWTBL_IDX2BASE(idx, start_dw);
+	} else if (type == WTBL_TYPE_UMAC) {
+		mt76_wr(dev, MT_DBG_UWTBL_TOP_WDUCR_ADDR,
+			FIELD_PREP(MT_DBG_UWTBL_TOP_WDUCR_GROUP, (idx >> 7)));
+		addr = UWTBL_IDX2BASE(idx, start_dw);
+	} else if (type == WTBL_TYPE_KEY) {
+		mt76_wr(dev, MT_DBG_UWTBL_TOP_WDUCR_ADDR,
+			MT_DBG_UWTBL_TOP_WDUCR_TARGET |
+			FIELD_PREP(MT_DBG_UWTBL_TOP_WDUCR_GROUP, (idx >> 7)));
+		addr = KEYTBL_IDX2BASE(idx, start_dw);
+	}
+
+	mt76_wr(dev, addr, val);
+
+	return 0;
+}
+#endif
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW0[] = {
+	{"MUAR_IDX",	WF_LWTBL_MUAR_MASK,	WF_LWTBL_MUAR_SHIFT,	false},
+	{"RCA1",	WF_LWTBL_RCA1_MASK,	NO_SHIFT_DEFINE,	false},
+	{"KID",		WF_LWTBL_KID_MASK,	WF_LWTBL_KID_SHIFT,	false},
+	{"RCID",	WF_LWTBL_RCID_MASK,	NO_SHIFT_DEFINE,	false},
+	{"BAND",	WF_LWTBL_BAND_MASK,	WF_LWTBL_BAND_SHIFT,	false},
+	{"RV",		WF_LWTBL_RV_MASK,	NO_SHIFT_DEFINE,	false},
+	{"RCA2",	WF_LWTBL_RCA2_MASK,	NO_SHIFT_DEFINE,	false},
+	{"WPI_FLAG",	WF_LWTBL_WPI_FLAG_MASK,	NO_SHIFT_DEFINE,	true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw0_1(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LinkAddr: %02x:%02x:%02x:%02x:%02x:%02x(D0[B0~15], D1[B0~31])\n",
+		lwtbl[4], lwtbl[5], lwtbl[6], lwtbl[7], lwtbl[0], lwtbl[1]);
+
+	/* LMAC WTBL DW 0 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 0/1\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_PEER_INFO_DW_0*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW0[i].name) {
+
+		if (WTBL_LMAC_DW0[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW0[i].name,
+					 (dw_value & WTBL_LMAC_DW0[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW0[i].name,
+					  (dw_value & WTBL_LMAC_DW0[i].mask) >> WTBL_LMAC_DW0[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW2_7996[] = {
+	{"AID",			WF_LWTBL_AID_MASK,		WF_LWTBL_AID_SHIFT,			false},
+	{"GID_SU",		WF_LWTBL_GID_SU_MASK,		NO_SHIFT_DEFINE,			false},
+	{"SPP_EN",		WF_LWTBL_SPP_EN_MASK,		NO_SHIFT_DEFINE,			false},
+	{"WPI_EVEN",		WF_LWTBL_WPI_EVEN_MASK,		NO_SHIFT_DEFINE,			false},
+	{"AAD_OM",		WF_LWTBL_AAD_OM_MASK,		NO_SHIFT_DEFINE,			false},
+	{"CIPHER_PGTK",		WF_LWTBL_CIPHER_SUIT_PGTK_MASK,	WF_LWTBL_CIPHER_SUIT_PGTK_SHIFT,	true},
+	{"FROM_DS",		WF_LWTBL_FD_MASK,		NO_SHIFT_DEFINE,			false},
+	{"TO_DS",		WF_LWTBL_TD_MASK,		NO_SHIFT_DEFINE,			false},
+	{"SW",			WF_LWTBL_SW_MASK,		NO_SHIFT_DEFINE,			false},
+	{"UL",			WF_LWTBL_UL_MASK,		NO_SHIFT_DEFINE,			false},
+	{"TX_POWER_SAVE",	WF_LWTBL_TX_PS_MASK,		NO_SHIFT_DEFINE,			true},
+	{"QOS",			WF_LWTBL_QOS_MASK,		NO_SHIFT_DEFINE,			false},
+	{"HT",			WF_LWTBL_HT_MASK,		NO_SHIFT_DEFINE,			false},
+	{"VHT",			WF_LWTBL_VHT_MASK,		NO_SHIFT_DEFINE,			false},
+	{"HE",			WF_LWTBL_HE_MASK,		NO_SHIFT_DEFINE,			false},
+	{"EHT",			WF_LWTBL_EHT_MASK,		NO_SHIFT_DEFINE,			false},
+	{"MESH",		WF_LWTBL_MESH_MASK,		NO_SHIFT_DEFINE,			true},
+	{NULL,}
+};
+static const struct berse_wtbl_parse *WTBL_LMAC_DW2 = WTBL_LMAC_DW2_7996;
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW2_7992[] = {
+	{"AID",			WF_LWTBL_AID_MASK,		WF_LWTBL_AID_SHIFT,			false},
+	{"GID_SU",		WF_LWTBL_GID_SU_MASK,		NO_SHIFT_DEFINE,			false},
+	{"DUAL_PTEC_EN",	WF_LWTBL_DUAL_PTEC_EN_MASK,	NO_SHIFT_DEFINE,			false},
+	{"DUAL_CTS_CAP",	WF_LWTBL_DUAL_CTS_CAP_MASK,	NO_SHIFT_DEFINE,			false},
+	{"CIPHER_PGTK",		WF_LWTBL_CIPHER_SUIT_PGTK_MASK,	WF_LWTBL_CIPHER_SUIT_PGTK_SHIFT,	true},
+	{"FROM_DS",		WF_LWTBL_FD_MASK,		NO_SHIFT_DEFINE,			false},
+	{"TO_DS",		WF_LWTBL_TD_MASK,		NO_SHIFT_DEFINE,			false},
+	{"SW",			WF_LWTBL_SW_MASK,		NO_SHIFT_DEFINE,			false},
+	{"UL",			WF_LWTBL_UL_MASK,		NO_SHIFT_DEFINE,			false},
+	{"TX_POWER_SAVE",	WF_LWTBL_TX_PS_MASK,		NO_SHIFT_DEFINE,			true},
+	{"QOS",			WF_LWTBL_QOS_MASK,		NO_SHIFT_DEFINE,			false},
+	{"HT",			WF_LWTBL_HT_MASK,		NO_SHIFT_DEFINE,			false},
+	{"VHT",			WF_LWTBL_VHT_MASK,		NO_SHIFT_DEFINE,			false},
+	{"HE",			WF_LWTBL_HE_MASK,		NO_SHIFT_DEFINE,			false},
+	{"EHT",			WF_LWTBL_EHT_MASK,		NO_SHIFT_DEFINE,			false},
+	{"MESH",		WF_LWTBL_MESH_MASK,		NO_SHIFT_DEFINE,			true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw2(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 2 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 2\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_TRX_CAP_DW_2*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW2[i].name) {
+
+		if (WTBL_LMAC_DW2[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW2[i].name,
+					 (dw_value & WTBL_LMAC_DW2[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW2[i].name,
+					  (dw_value & WTBL_LMAC_DW2[i].mask) >> WTBL_LMAC_DW2[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW3[] = {
+	{"WMM_Q",		WF_LWTBL_WMM_Q_MASK,			WF_LWTBL_WMM_Q_SHIFT,			false},
+	{"EHT_SIG_MCS",		WF_LWTBL_EHT_SIG_MCS_MASK,		WF_LWTBL_EHT_SIG_MCS_SHIFT,		false},
+	{"HDRT_MODE",		WF_LWTBL_HDRT_MODE_MASK,		NO_SHIFT_DEFINE,			false},
+	{"BEAM_CHG",		WF_LWTBL_BEAM_CHG_MASK,			NO_SHIFT_DEFINE,			false},
+	{"EHT_LTF_SYM_NUM",	WF_LWTBL_EHT_LTF_SYM_NUM_OPT_MASK,	WF_LWTBL_EHT_LTF_SYM_NUM_OPT_SHIFT,	true},
+	{"PFMU_IDX",		WF_LWTBL_PFMU_IDX_MASK,			WF_LWTBL_PFMU_IDX_SHIFT,		false},
+	{"ULPF_IDX",		WF_LWTBL_ULPF_IDX_MASK,			WF_LWTBL_ULPF_IDX_SHIFT,		false},
+	{"RIBF",		WF_LWTBL_RIBF_MASK,			NO_SHIFT_DEFINE,			false},
+	{"ULPF",		WF_LWTBL_ULPF_MASK,			NO_SHIFT_DEFINE,			false},
+	{"BYPASS_TXSMM",	WF_LWTBL_BYPASS_TXSMM_MASK,		NO_SHIFT_DEFINE,			true},
+	{"TBF_HT",		WF_LWTBL_TBF_HT_MASK,			NO_SHIFT_DEFINE,			false},
+	{"TBF_VHT",		WF_LWTBL_TBF_VHT_MASK,			NO_SHIFT_DEFINE,			false},
+	{"TBF_HE",		WF_LWTBL_TBF_HE_MASK,			NO_SHIFT_DEFINE,			false},
+	{"TBF_EHT",		WF_LWTBL_TBF_EHT_MASK,			NO_SHIFT_DEFINE,			false},
+	{"IGN_FBK",		WF_LWTBL_IGN_FBK_MASK,			NO_SHIFT_DEFINE,			true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw3(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 3 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 3\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_TRX_CAP_DW_3*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW3[i].name) {
+
+		if (WTBL_LMAC_DW3[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW3[i].name,
+					 (dw_value & WTBL_LMAC_DW3[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW3[i].name,
+					  (dw_value & WTBL_LMAC_DW3[i].mask) >> WTBL_LMAC_DW3[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW4[] = {
+	{"NEGOTIATED_WINSIZE0",	WF_LWTBL_NEGOTIATED_WINSIZE0_MASK,	WF_LWTBL_NEGOTIATED_WINSIZE0_SHIFT,	false},
+	{"WINSIZE1",		WF_LWTBL_NEGOTIATED_WINSIZE1_MASK,	WF_LWTBL_NEGOTIATED_WINSIZE1_SHIFT,	false},
+	{"WINSIZE2",		WF_LWTBL_NEGOTIATED_WINSIZE2_MASK,	WF_LWTBL_NEGOTIATED_WINSIZE2_SHIFT,	false},
+	{"WINSIZE3",		WF_LWTBL_NEGOTIATED_WINSIZE3_MASK,	WF_LWTBL_NEGOTIATED_WINSIZE3_SHIFT,	true},
+	{"WINSIZE4",		WF_LWTBL_NEGOTIATED_WINSIZE4_MASK,	WF_LWTBL_NEGOTIATED_WINSIZE4_SHIFT,	false},
+	{"WINSIZE5",		WF_LWTBL_NEGOTIATED_WINSIZE5_MASK,	WF_LWTBL_NEGOTIATED_WINSIZE5_SHIFT,	false},
+	{"WINSIZE6",		WF_LWTBL_NEGOTIATED_WINSIZE6_MASK,	WF_LWTBL_NEGOTIATED_WINSIZE6_SHIFT,	false},
+	{"WINSIZE7",		WF_LWTBL_NEGOTIATED_WINSIZE7_MASK,	WF_LWTBL_NEGOTIATED_WINSIZE7_SHIFT,	true},
+	{"PE",			WF_LWTBL_PE_MASK,			WF_LWTBL_PE_SHIFT,			false},
+	{"DIS_RHTR",		WF_LWTBL_DIS_RHTR_MASK,			NO_SHIFT_DEFINE,			false},
+	{"LDPC_HT",		WF_LWTBL_LDPC_HT_MASK,			NO_SHIFT_DEFINE,			false},
+	{"LDPC_VHT",		WF_LWTBL_LDPC_VHT_MASK,			NO_SHIFT_DEFINE,			false},
+	{"LDPC_HE",		WF_LWTBL_LDPC_HE_MASK,			NO_SHIFT_DEFINE,			false},
+	{"LDPC_EHT",		WF_LWTBL_LDPC_EHT_MASK,			NO_SHIFT_DEFINE,			true},
+	{"BA_MODE",		WF_LWTBL_BA_MODE_MASK,			NO_SHIFT_DEFINE,			true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw4(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 4 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 4\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_TRX_CAP_DW_4*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW4[i].name) {
+		if (WTBL_LMAC_DW4[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW4[i].name,
+					 (dw_value & WTBL_LMAC_DW4[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW4[i].name,
+					  (dw_value & WTBL_LMAC_DW4[i].mask) >> WTBL_LMAC_DW4[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW5_7996[] = {
+	{"AF",			WF_LWTBL_AF_MASK,		WF_LWTBL_AF_SHIFT,		false},
+	{"AF_HE",		WF_LWTBL_AF_HE_MASK,		WF_LWTBL_AF_HE_SHIFT,		false},
+	{"RTS",			WF_LWTBL_RTS_MASK,		NO_SHIFT_DEFINE,		false},
+	{"SMPS",		WF_LWTBL_SMPS_MASK,		NO_SHIFT_DEFINE,		false},
+	{"DYN_BW",		WF_LWTBL_DYN_BW_MASK,		NO_SHIFT_DEFINE,		true},
+	{"MMSS",		WF_LWTBL_MMSS_MASK,		WF_LWTBL_MMSS_SHIFT,		false},
+	{"USR",			WF_LWTBL_USR_MASK,		NO_SHIFT_DEFINE,		false},
+	{"SR_RATE",		WF_LWTBL_SR_R_MASK,		WF_LWTBL_SR_R_SHIFT,		false},
+	{"SR_ABORT",		WF_LWTBL_SR_ABORT_MASK,		NO_SHIFT_DEFINE,		true},
+	{"TX_POWER_OFFSET",	WF_LWTBL_TX_POWER_OFFSET_MASK,  WF_LWTBL_TX_POWER_OFFSET_SHIFT,	false},
+	{"LTF_EHT",		WF_LWTBL_LTF_EHT_MASK,		WF_LWTBL_LTF_EHT_SHIFT, 	false},
+	{"GI_EHT",		WF_LWTBL_GI_EHT_MASK,		WF_LWTBL_GI_EHT_SHIFT,		false},
+	{"DOPPL",		WF_LWTBL_DOPPL_MASK,		NO_SHIFT_DEFINE,		false},
+	{"TXOP_PS_CAP",		WF_LWTBL_TXOP_PS_CAP_MASK,	NO_SHIFT_DEFINE,		false},
+	{"DONOT_UPDATE_I_PSM",	WF_LWTBL_DU_I_PSM_MASK,		NO_SHIFT_DEFINE,		true},
+	{"I_PSM",		WF_LWTBL_I_PSM_MASK,		NO_SHIFT_DEFINE,		false},
+	{"PSM",			WF_LWTBL_PSM_MASK,		NO_SHIFT_DEFINE,		false},
+	{"SKIP_TX",		WF_LWTBL_SKIP_TX_MASK,		NO_SHIFT_DEFINE,		true},
+	{NULL,}
+};
+static const struct berse_wtbl_parse *WTBL_LMAC_DW5 = WTBL_LMAC_DW5_7996;
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW5_7992[] = {
+	{"AF",			WF_LWTBL_AF_MASK_7992,		WF_LWTBL_AF_SHIFT,		false},
+	{"RTS",			WF_LWTBL_RTS_MASK,		NO_SHIFT_DEFINE,		false},
+	{"SMPS",		WF_LWTBL_SMPS_MASK,		NO_SHIFT_DEFINE,		false},
+	{"DYN_BW",		WF_LWTBL_DYN_BW_MASK,		NO_SHIFT_DEFINE,		true},
+	{"MMSS",		WF_LWTBL_MMSS_MASK,		WF_LWTBL_MMSS_SHIFT,		false},
+	{"USR",			WF_LWTBL_USR_MASK,		NO_SHIFT_DEFINE,		false},
+	{"SR_RATE",		WF_LWTBL_SR_R_MASK,		WF_LWTBL_SR_R_SHIFT,		false},
+	{"SR_ABORT",		WF_LWTBL_SR_ABORT_MASK,		NO_SHIFT_DEFINE,		true},
+	{"TX_POWER_OFFSET",	WF_LWTBL_TX_POWER_OFFSET_MASK,	WF_LWTBL_TX_POWER_OFFSET_SHIFT,	false},
+	{"LTF_EHT",		WF_LWTBL_LTF_EHT_MASK,		WF_LWTBL_LTF_EHT_SHIFT,		false},
+	{"GI_EHT",		WF_LWTBL_GI_EHT_MASK,		WF_LWTBL_GI_EHT_SHIFT,		false},
+	{"DOPPL",		WF_LWTBL_DOPPL_MASK,		NO_SHIFT_DEFINE,		false},
+	{"TXOP_PS_CAP",		WF_LWTBL_TXOP_PS_CAP_MASK,	NO_SHIFT_DEFINE,		false},
+	{"DONOT_UPDATE_I_PSM",	WF_LWTBL_DU_I_PSM_MASK,		NO_SHIFT_DEFINE,		true},
+	{"I_PSM",		WF_LWTBL_I_PSM_MASK,		NO_SHIFT_DEFINE,		false},
+	{"PSM",			WF_LWTBL_PSM_MASK,		NO_SHIFT_DEFINE,		false},
+	{"SKIP_TX",		WF_LWTBL_SKIP_TX_MASK,		NO_SHIFT_DEFINE,		true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw5(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 5 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 5\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_TRX_CAP_DW_5*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW5[i].name) {
+		if (WTBL_LMAC_DW5[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW5[i].name,
+					 (dw_value & WTBL_LMAC_DW5[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW5[i].name,
+					  (dw_value & WTBL_LMAC_DW5[i].mask) >> WTBL_LMAC_DW5[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW6[] = {
+	{"CBRN",	WF_LWTBL_CBRN_MASK,	WF_LWTBL_CBRN_SHIFT,	false},
+	{"DBNSS_EN",	WF_LWTBL_DBNSS_EN_MASK,	NO_SHIFT_DEFINE,	false},
+	{"BAF_EN",	WF_LWTBL_BAF_EN_MASK,	NO_SHIFT_DEFINE,	false},
+	{"RDGBA",	WF_LWTBL_RDGBA_MASK,	NO_SHIFT_DEFINE,	false},
+	{"RDG",		WF_LWTBL_R_MASK,	NO_SHIFT_DEFINE,	false},
+	{"SPE_IDX",	WF_LWTBL_SPE_IDX_MASK,	WF_LWTBL_SPE_IDX_SHIFT,	true},
+	{"G2",		WF_LWTBL_G2_MASK,	NO_SHIFT_DEFINE,	false},
+	{"G4",		WF_LWTBL_G4_MASK,	NO_SHIFT_DEFINE,	false},
+	{"G8",		WF_LWTBL_G8_MASK,	NO_SHIFT_DEFINE,	false},
+	{"G16",		WF_LWTBL_G16_MASK,	NO_SHIFT_DEFINE,	true},
+	{"G2_LTF",	WF_LWTBL_G2_LTF_MASK,	WF_LWTBL_G2_LTF_SHIFT,	false},
+	{"G4_LTF",	WF_LWTBL_G4_LTF_MASK,	WF_LWTBL_G4_LTF_SHIFT,	false},
+	{"G8_LTF",	WF_LWTBL_G8_LTF_MASK,	WF_LWTBL_G8_LTF_SHIFT,	false},
+	{"G16_LTF",	WF_LWTBL_G16_LTF_MASK,	WF_LWTBL_G16_LTF_SHIFT,	true},
+	{"G2_HE",	WF_LWTBL_G2_HE_MASK,	WF_LWTBL_G2_HE_SHIFT,	false},
+	{"G4_HE",	WF_LWTBL_G4_HE_MASK,	WF_LWTBL_G4_HE_SHIFT,	false},
+	{"G8_HE",	WF_LWTBL_G8_HE_MASK,	WF_LWTBL_G8_HE_SHIFT,	false},
+	{"G16_HE",	WF_LWTBL_G16_HE_MASK,	WF_LWTBL_G16_HE_SHIFT,	true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw6(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 6 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 6\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_TRX_CAP_DW_6*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW6[i].name) {
+		if (WTBL_LMAC_DW6[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW6[i].name,
+					 (dw_value & WTBL_LMAC_DW6[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW6[i].name,
+					  (dw_value & WTBL_LMAC_DW6[i].mask) >> WTBL_LMAC_DW6[i].shift);
+		i++;
+	}
+}
+
+static void parse_fmac_lwtbl_dw7(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	int i = 0;
+
+	/* LMAC WTBL DW 7 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 7\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_TRX_CAP_DW_7*4]);
+	dw_value = *addr;
+
+	for (i = 0; i < 8; i++) {
+		seq_printf(s, "\tBA_WIN_SIZE%u:%lu\n", i, ((dw_value & BITS(i*4, i*4+3)) >> i*4));
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW8[] = {
+	{"RTS_FAIL_CNT_AC0",	WF_LWTBL_AC0_RTS_FAIL_CNT_MASK,	WF_LWTBL_AC0_RTS_FAIL_CNT_SHIFT,	false},
+	{"AC1",			WF_LWTBL_AC1_RTS_FAIL_CNT_MASK,	WF_LWTBL_AC1_RTS_FAIL_CNT_SHIFT,	false},
+	{"AC2",			WF_LWTBL_AC2_RTS_FAIL_CNT_MASK,	WF_LWTBL_AC2_RTS_FAIL_CNT_SHIFT,	false},
+	{"AC3",			WF_LWTBL_AC3_RTS_FAIL_CNT_MASK,	WF_LWTBL_AC3_RTS_FAIL_CNT_SHIFT,	true},
+	{"PARTIAL_AID",		WF_LWTBL_PARTIAL_AID_MASK,	WF_LWTBL_PARTIAL_AID_SHIFT,		false},
+	{"CHK_PER",		WF_LWTBL_CHK_PER_MASK,		NO_SHIFT_DEFINE,			true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw8(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 8 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 8\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_TRX_CAP_DW_8*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW8[i].name) {
+		if (WTBL_LMAC_DW8[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW8[i].name,
+					 (dw_value & WTBL_LMAC_DW8[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW8[i].name,
+					  (dw_value & WTBL_LMAC_DW8[i].mask) >> WTBL_LMAC_DW8[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW9_7996[] = {
+	{"RX_AVG_MPDU_SIZE",	WF_LWTBL_RX_AVG_MPDU_SIZE_MASK,	WF_LWTBL_RX_AVG_MPDU_SIZE_SHIFT,	false},
+	{"PRITX_SW_MODE",	WF_LWTBL_PRITX_SW_MODE_MASK,	NO_SHIFT_DEFINE,			false},
+	{"PRITX_ERSU",		WF_LWTBL_PRITX_ERSU_MASK,	NO_SHIFT_DEFINE,			false},
+	{"PRITX_PLR",		WF_LWTBL_PRITX_PLR_MASK,	NO_SHIFT_DEFINE,			true},
+	{"PRITX_DCM",		WF_LWTBL_PRITX_DCM_MASK,	NO_SHIFT_DEFINE,			false},
+	{"PRITX_ER106T",	WF_LWTBL_PRITX_ER106T_MASK,	NO_SHIFT_DEFINE,			true},
+	/* {"FCAP(0:20 1:~40)",	WTBL_FCAP_20_TO_160_MHZ,	WTBL_FCAP_20_TO_160_MHZ_OFFSET}, */
+	{"MPDU_FAIL_CNT",	WF_LWTBL_MPDU_FAIL_CNT_MASK,	WF_LWTBL_MPDU_FAIL_CNT_SHIFT,		false},
+	{"MPDU_OK_CNT",		WF_LWTBL_MPDU_OK_CNT_MASK,	WF_LWTBL_MPDU_OK_CNT_SHIFT,		false},
+	{"RATE_IDX",		WF_LWTBL_RATE_IDX_MASK,		WF_LWTBL_RATE_IDX_SHIFT,		true},
+	{NULL,}
+};
+static const struct berse_wtbl_parse *WTBL_LMAC_DW9 = WTBL_LMAC_DW9_7996;
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW9_7992[] = {
+	{"RX_AVG_MPDU_SIZE",	WF_LWTBL_RX_AVG_MPDU_SIZE_MASK,		WF_LWTBL_RX_AVG_MPDU_SIZE_SHIFT,	false},
+	{"PRITX_SW_MODE",	WF_LWTBL_PRITX_SW_MODE_MASK_7992,	NO_SHIFT_DEFINE,			false},
+	{"PRITX_ERSU",		WF_LWTBL_PRITX_ERSU_MASK_7992,		NO_SHIFT_DEFINE,			false},
+	{"PRITX_PLR",		WF_LWTBL_PRITX_PLR_MASK_7992,		NO_SHIFT_DEFINE,			true},
+	{"PRITX_DCM",		WF_LWTBL_PRITX_DCM_MASK,		NO_SHIFT_DEFINE,			false},
+	{"PRITX_ER106T",	WF_LWTBL_PRITX_ER106T_MASK,		NO_SHIFT_DEFINE,			true},
+	/* {"FCAP(0:20 1:~40)",	WTBL_FCAP_20_TO_160_MHZ,		WTBL_FCAP_20_TO_160_MHZ_OFFSET}, */
+	{"MPDU_FAIL_CNT",	WF_LWTBL_MPDU_FAIL_CNT_MASK,		WF_LWTBL_MPDU_FAIL_CNT_SHIFT,		false},
+	{"MPDU_OK_CNT",		WF_LWTBL_MPDU_OK_CNT_MASK,		WF_LWTBL_MPDU_OK_CNT_SHIFT,		false},
+	{"RATE_IDX",		WF_LWTBL_RATE_IDX_MASK,			WF_LWTBL_RATE_IDX_SHIFT,		true},
+	{NULL,}
+};
+
+char *fcap_name[] = {"20MHz", "20/40MHz", "20/40/80MHz", "20/40/80/160/80+80MHz", "20/40/80/160/80+80/320MHz"};
+
+static void parse_fmac_lwtbl_dw9(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 9 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 9\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_TRX_CAP_DW_9*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW9[i].name) {
+		if (WTBL_LMAC_DW9[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW9[i].name,
+					 (dw_value & WTBL_LMAC_DW9[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW9[i].name,
+					  (dw_value & WTBL_LMAC_DW9[i].mask) >> WTBL_LMAC_DW9[i].shift);
+		i++;
+	}
+
+	/* FCAP parser */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "FCAP:%s\n", fcap_name[(dw_value & WF_LWTBL_FCAP_MASK) >> WF_LWTBL_FCAP_SHIFT]);
+}
+
+#define HW_TX_RATE_TO_MODE(_x)			(((_x) & WTBL_RATE_TX_MODE_MASK) >> WTBL_RATE_TX_MODE_OFFSET)
+#define HW_TX_RATE_TO_MCS(_x, _mode)		((_x) & WTBL_RATE_TX_RATE_MASK >> WTBL_RATE_TX_RATE_OFFSET)
+#define HW_TX_RATE_TO_NSS(_x)			(((_x) & WTBL_RATE_NSTS_MASK) >> WTBL_RATE_NSTS_OFFSET)
+#define HW_TX_RATE_TO_STBC(_x)			(((_x) & WTBL_RATE_STBC_MASK) >> WTBL_RATE_STBC_OFFSET)
+
+static char *HW_TX_MODE_STR[] = {"CCK", "OFDM", "HT-Mix", "HT-GF", "VHT",
+				 "N/A", "N/A", "N/A",
+				 "HE_SU", "HE_EXT_SU", "HE_TRIG", "HE_MU",
+				 "N/A",
+				 "EHT_EXT_SU", "EHT_TRIG", "EHT_MU"};
+static char *HW_TX_RATE_CCK_STR[] = {"1M", "2Mlong", "5.5Mlong", "11Mlong", "N/A", "2Mshort", "5.5Mshort", "11Mshort", "N/A"};
+static char *HW_TX_RATE_OFDM_STR[] = {"6M", "9M", "12M", "18M", "24M", "36M", "48M", "54M", "N/A"};
+
+static char *hw_rate_ofdm_str(uint16_t ofdm_idx)
+{
+	switch (ofdm_idx) {
+	case 11: /* 6M */
+		return HW_TX_RATE_OFDM_STR[0];
+
+	case 15: /* 9M */
+		return HW_TX_RATE_OFDM_STR[1];
+
+	case 10: /* 12M */
+		return HW_TX_RATE_OFDM_STR[2];
+
+	case 14: /* 18M */
+		return HW_TX_RATE_OFDM_STR[3];
+
+	case 9: /* 24M */
+		return HW_TX_RATE_OFDM_STR[4];
+
+	case 13: /* 36M */
+		return HW_TX_RATE_OFDM_STR[5];
+
+	case 8: /* 48M */
+		return HW_TX_RATE_OFDM_STR[6];
+
+	case 12: /* 54M */
+		return HW_TX_RATE_OFDM_STR[7];
+
+	default:
+		return HW_TX_RATE_OFDM_STR[8];
+	}
+}
+
+static char *hw_rate_str(u8 mode, uint16_t rate_idx)
+{
+	if (mode == 0)
+		return rate_idx < 8 ? HW_TX_RATE_CCK_STR[rate_idx] : HW_TX_RATE_CCK_STR[8];
+	else if (mode == 1)
+		return hw_rate_ofdm_str(rate_idx);
+	else
+		return "MCS";
+}
+
+static void
+parse_rate(struct seq_file *s, uint16_t rate_idx, uint16_t txrate)
+{
+	uint16_t txmode, mcs, nss, stbc;
+
+	txmode = HW_TX_RATE_TO_MODE(txrate);
+	mcs = HW_TX_RATE_TO_MCS(txrate, txmode);
+	nss = HW_TX_RATE_TO_NSS(txrate);
+	stbc = HW_TX_RATE_TO_STBC(txrate);
+
+	seq_printf(s, "\tRate%d(0x%x):TxMode=%d(%s), TxRate=%d(%s), Nsts=%d, STBC=%d\n",
+			  rate_idx + 1, txrate,
+			  txmode, HW_TX_MODE_STR[txmode],
+			  mcs, hw_rate_str(txmode, mcs), nss, stbc);
+}
+
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW10[] = {
+	{"RATE1",	WF_LWTBL_RATE1_MASK,	WF_LWTBL_RATE1_SHIFT},
+	{"RATE2",	WF_LWTBL_RATE2_MASK,	WF_LWTBL_RATE2_SHIFT},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw10(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 10 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 10\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_AUTO_RATE_1_2*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW10[i].name) {
+		parse_rate(s, i, (dw_value & WTBL_LMAC_DW10[i].mask) >> WTBL_LMAC_DW10[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW11[] = {
+	{"RATE3",	WF_LWTBL_RATE3_MASK,	WF_LWTBL_RATE3_SHIFT},
+	{"RATE4",	WF_LWTBL_RATE4_MASK,	WF_LWTBL_RATE4_SHIFT},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw11(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 11 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 11\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_AUTO_RATE_3_4*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW11[i].name) {
+		parse_rate(s, i+2, (dw_value & WTBL_LMAC_DW11[i].mask) >> WTBL_LMAC_DW11[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW12[] = {
+	{"RATE5",	WF_LWTBL_RATE5_MASK,	WF_LWTBL_RATE5_SHIFT},
+	{"RATE6",	WF_LWTBL_RATE6_MASK,	WF_LWTBL_RATE6_SHIFT},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw12(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 12 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 12\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_AUTO_RATE_5_6*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW12[i].name) {
+		parse_rate(s, i+4, (dw_value & WTBL_LMAC_DW12[i].mask) >> WTBL_LMAC_DW12[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW13[] = {
+	{"RATE7",	WF_LWTBL_RATE7_MASK,	WF_LWTBL_RATE7_SHIFT},
+	{"RATE8",	WF_LWTBL_RATE8_MASK,	WF_LWTBL_RATE8_SHIFT},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw13(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 13 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 13\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_AUTO_RATE_7_8*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW13[i].name) {
+		parse_rate(s, i+6, (dw_value & WTBL_LMAC_DW13[i].mask) >> WTBL_LMAC_DW13[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW14_BMC[] = {
+	{"CIPHER_IGTK",		WF_LWTBL_CIPHER_SUIT_IGTK_MASK,		WF_LWTBL_CIPHER_SUIT_IGTK_SHIFT,	false},
+	{"CIPHER_BIGTK",	WF_LWTBL_CIPHER_SUIT_BIGTK_MASK,	WF_LWTBL_CIPHER_SUIT_BIGTK_SHIFT,	true},
+	{NULL,}
+};
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW14[] = {
+	{"RATE1_TX_CNT",	WF_LWTBL_RATE1_TX_CNT_MASK,	WF_LWTBL_RATE1_TX_CNT_SHIFT,	false},
+	{"RATE1_FAIL_CNT",	WF_LWTBL_RATE1_FAIL_CNT_MASK,	WF_LWTBL_RATE1_FAIL_CNT_SHIFT,	true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw14(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr, *muar_addr = 0;
+	u32 dw_value, muar_dw_value = 0;
+	u16 i = 0;
+
+	/* DUMP DW14 for BMC entry only */
+	muar_addr = (u32 *)&(lwtbl[WF_LWTBL_MUAR_DW*4]);
+	muar_dw_value = *muar_addr;
+	if (((muar_dw_value & WF_LWTBL_MUAR_MASK) >> WF_LWTBL_MUAR_SHIFT)
+		== MUAR_INDEX_OWN_MAC_ADDR_BC_MC) {
+		/* LMAC WTBL DW 14 */
+		seq_printf(s, "\t\n");
+		seq_printf(s, "LWTBL DW 14\n");
+		addr = (u32 *)&(lwtbl[WF_LWTBL_CIPHER_SUIT_IGTK_DW*4]);
+		dw_value = *addr;
+
+		while (WTBL_LMAC_DW14_BMC[i].name) {
+			if (WTBL_LMAC_DW14_BMC[i].shift == NO_SHIFT_DEFINE)
+				seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW14_BMC[i].name,
+					(dw_value & WTBL_LMAC_DW14_BMC[i].mask) ? 1 : 0);
+			else
+				seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW14_BMC[i].name,
+					(dw_value & WTBL_LMAC_DW14_BMC[i].mask) >> WTBL_LMAC_DW14_BMC[i].shift);
+			i++;
+		}
+	} else {
+		seq_printf(s, "\t\n");
+		seq_printf(s, "LWTBL DW 14\n");
+		addr = (u32 *)&(lwtbl[WF_LWTBL_CIPHER_SUIT_IGTK_DW*4]);
+		dw_value = *addr;
+
+		while (WTBL_LMAC_DW14[i].name) {
+			if (WTBL_LMAC_DW14[i].shift == NO_SHIFT_DEFINE)
+				seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW14[i].name,
+					(dw_value & WTBL_LMAC_DW14[i].mask) ? 1 : 0);
+			else
+				seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW14[i].name,
+					(dw_value & WTBL_LMAC_DW14[i].mask) >> WTBL_LMAC_DW14[i].shift);
+			i++;
+		}
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW28[] = {
+	{"RELATED_IDX0",	WF_LWTBL_RELATED_IDX0_MASK,		WF_LWTBL_RELATED_IDX0_SHIFT,		false},
+	{"RELATED_BAND0",	WF_LWTBL_RELATED_BAND0_MASK,		WF_LWTBL_RELATED_BAND0_SHIFT,		false},
+	{"PRI_MLD_BAND",	WF_LWTBL_PRIMARY_MLD_BAND_MASK,		WF_LWTBL_PRIMARY_MLD_BAND_SHIFT,	true},
+	{"RELATED_IDX1",	WF_LWTBL_RELATED_IDX1_MASK,		WF_LWTBL_RELATED_IDX1_SHIFT,		false},
+	{"RELATED_BAND1",	WF_LWTBL_RELATED_BAND1_MASK,		WF_LWTBL_RELATED_BAND1_SHIFT,		false},
+	{"SEC_MLD_BAND",	WF_LWTBL_SECONDARY_MLD_BAND_MASK,	WF_LWTBL_SECONDARY_MLD_BAND_SHIFT,	true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw28(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 28 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 28\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_MLO_INFO_LINE_1*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW28[i].name) {
+		if (WTBL_LMAC_DW28[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW28[i].name,
+				(dw_value & WTBL_LMAC_DW28[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW28[i].name,
+				(dw_value & WTBL_LMAC_DW28[i].mask) >>
+					WTBL_LMAC_DW28[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW29[] = {
+	{"DISPATCH_POLICY_MLD_TID0",	WF_LWTBL_DISPATCH_POLICY0_MASK,		WF_LWTBL_DISPATCH_POLICY0_SHIFT,	false},
+	{"MLD_TID1",			WF_LWTBL_DISPATCH_POLICY1_MASK,		WF_LWTBL_DISPATCH_POLICY1_SHIFT,	false},
+	{"MLD_TID2",			WF_LWTBL_DISPATCH_POLICY2_MASK,		WF_LWTBL_DISPATCH_POLICY2_SHIFT,	false},
+	{"MLD_TID3",			WF_LWTBL_DISPATCH_POLICY3_MASK,		WF_LWTBL_DISPATCH_POLICY3_SHIFT,	true},
+	{"MLD_TID4",			WF_LWTBL_DISPATCH_POLICY4_MASK,		WF_LWTBL_DISPATCH_POLICY4_SHIFT,	false},
+	{"MLD_TID5",			WF_LWTBL_DISPATCH_POLICY5_MASK,		WF_LWTBL_DISPATCH_POLICY5_SHIFT,	false},
+	{"MLD_TID6",			WF_LWTBL_DISPATCH_POLICY6_MASK,		WF_LWTBL_DISPATCH_POLICY6_SHIFT,	false},
+	{"MLD_TID7",			WF_LWTBL_DISPATCH_POLICY7_MASK,		WF_LWTBL_DISPATCH_POLICY7_SHIFT,	true},
+	{"OMLD_ID",			WF_LWTBL_OWN_MLD_ID_MASK,		WF_LWTBL_OWN_MLD_ID_SHIFT,		false},
+	{"EMLSR0",			WF_LWTBL_EMLSR0_MASK,			NO_SHIFT_DEFINE,			false},
+	{"EMLMR0",			WF_LWTBL_EMLMR0_MASK,			NO_SHIFT_DEFINE,			false},
+	{"EMLSR1",			WF_LWTBL_EMLSR1_MASK,			NO_SHIFT_DEFINE,			false},
+	{"EMLMR1",			WF_LWTBL_EMLMR1_MASK,			NO_SHIFT_DEFINE,			true},
+	{"EMLSR2",			WF_LWTBL_EMLSR2_MASK,			NO_SHIFT_DEFINE,			false},
+	{"EMLMR2",			WF_LWTBL_EMLMR2_MASK,			NO_SHIFT_DEFINE,			false},
+	{"STR_BITMAP",			WF_LWTBL_STR_BITMAP_MASK,		WF_LWTBL_STR_BITMAP_SHIFT,		true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw29(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 29 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 29\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_MLO_INFO_LINE_2*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW29[i].name) {
+		if (WTBL_LMAC_DW29[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW29[i].name,
+				(dw_value & WTBL_LMAC_DW29[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW29[i].name,
+				(dw_value & WTBL_LMAC_DW29[i].mask) >>
+					WTBL_LMAC_DW29[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW30[] = {
+	{"DISPATCH_ORDER",	WF_LWTBL_DISPATCH_ORDER_MASK,	WF_LWTBL_DISPATCH_ORDER_SHIFT,	false},
+	{"DISPATCH_RATIO",	WF_LWTBL_DISPATCH_RATIO_MASK,	WF_LWTBL_DISPATCH_RATIO_SHIFT,	false},
+	{"LINK_MGF",		WF_LWTBL_LINK_MGF_MASK,		WF_LWTBL_LINK_MGF_SHIFT,	true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw30(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 30 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 30\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_MLO_INFO_LINE_3*4]);
+	dw_value = *addr;
+
+
+	while (WTBL_LMAC_DW30[i].name) {
+		if (WTBL_LMAC_DW30[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW30[i].name,
+				(dw_value & WTBL_LMAC_DW30[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW30[i].name,
+				(dw_value & WTBL_LMAC_DW30[i].mask) >> WTBL_LMAC_DW30[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW31[] = {
+	{"BFTX_TB",		WF_LWTBL_BFTX_TB_MASK,		NO_SHIFT_DEFINE,		false},
+	{"DROP",		WF_LWTBL_DROP_MASK,		NO_SHIFT_DEFINE,		false},
+	{"CASCAD",		WF_LWTBL_CASCAD_MASK,		NO_SHIFT_DEFINE,		false},
+	{"ALL_ACK",		WF_LWTBL_ALL_ACK_MASK,		NO_SHIFT_DEFINE,		false},
+	{"MPDU_SIZE",		WF_LWTBL_MPDU_SIZE_MASK,	WF_LWTBL_MPDU_SIZE_SHIFT,	false},
+	{"RXD_DUP_MODE",	WF_LWTBL_RXD_DUP_MODE_MASK,	WF_LWTBL_RXD_DUP_MODE_SHIFT,	true},
+	{"ACK_EN",		WF_LWTBL_ACK_EN_MASK,		NO_SHIFT_DEFINE,		true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw31(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 31 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 31\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_RESP_INFO_DW_31*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW31[i].name) {
+		if (WTBL_LMAC_DW31[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW31[i].name,
+				(dw_value & WTBL_LMAC_DW31[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW31[i].name,
+				(dw_value & WTBL_LMAC_DW31[i].mask) >>
+					WTBL_LMAC_DW31[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW32[] = {
+	{"OM_INFO",			WF_LWTBL_OM_INFO_MASK,			WF_LWTBL_OM_INFO_SHIFT,		false},
+	{"OM_INFO_EHT",         WF_LWTBL_OM_INFO_EHT_MASK,         WF_LWTBL_OM_INFO_EHT_SHIFT,  false},
+	{"RXD_DUP_FOR_OM_CHG",		WF_LWTBL_RXD_DUP_FOR_OM_CHG_MASK,	NO_SHIFT_DEFINE,		false},
+	{"RXD_DUP_WHITE_LIST",	WF_LWTBL_RXD_DUP_WHITE_LIST_MASK,	WF_LWTBL_RXD_DUP_WHITE_LIST_SHIFT,	false},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw32(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 32 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 32\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_RX_DUP_INFO_DW_32*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW32[i].name) {
+		if (WTBL_LMAC_DW32[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW32[i].name,
+				(dw_value & WTBL_LMAC_DW32[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW32[i].name,
+				(dw_value & WTBL_LMAC_DW32[i].mask) >>
+					WTBL_LMAC_DW32[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW33[] = {
+	{"USER_RSSI",			WF_LWTBL_USER_RSSI_MASK,		WF_LWTBL_USER_RSSI_SHIFT,		false},
+	{"USER_SNR",			WF_LWTBL_USER_SNR_MASK,			WF_LWTBL_USER_SNR_SHIFT,		false},
+	{"RAPID_REACTION_RATE",		WF_LWTBL_RAPID_REACTION_RATE_MASK,	WF_LWTBL_RAPID_REACTION_RATE_SHIFT,	true},
+	{"HT_AMSDU(Read Only)",		WF_LWTBL_HT_AMSDU_MASK,			NO_SHIFT_DEFINE,			false},
+	{"AMSDU_CROSS_LG(Read Only)",	WF_LWTBL_AMSDU_CROSS_LG_MASK,		NO_SHIFT_DEFINE,			true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw33(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 33 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 33\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_RX_STAT_CNT_LINE_1*4]);
+	dw_value = *addr;
+
+	while (WTBL_LMAC_DW33[i].name) {
+		if (WTBL_LMAC_DW33[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW33[i].name,
+				(dw_value & WTBL_LMAC_DW33[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW33[i].name,
+				(dw_value & WTBL_LMAC_DW33[i].mask) >>
+					WTBL_LMAC_DW33[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW34[] = {
+	{"RESP_RCPI0",	WF_LWTBL_RESP_RCPI0_MASK,	WF_LWTBL_RESP_RCPI0_SHIFT,	false},
+	{"RCPI1",	WF_LWTBL_RESP_RCPI1_MASK,	WF_LWTBL_RESP_RCPI1_SHIFT,	false},
+	{"RCPI2",	WF_LWTBL_RESP_RCPI2_MASK,	WF_LWTBL_RESP_RCPI2_SHIFT,	false},
+	{"RCPI3",	WF_LWTBL_RESP_RCPI3_MASK,	WF_LWTBL_RESP_RCPI3_SHIFT,	true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw34(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 34 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 34\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_RX_STAT_CNT_LINE_2*4]);
+	dw_value = *addr;
+
+
+	while (WTBL_LMAC_DW34[i].name) {
+		if (WTBL_LMAC_DW34[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW34[i].name,
+				(dw_value & WTBL_LMAC_DW34[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW34[i].name,
+				(dw_value & WTBL_LMAC_DW34[i].mask) >>
+					WTBL_LMAC_DW34[i].shift);
+		i++;
+	}
+}
+
+static const struct berse_wtbl_parse WTBL_LMAC_DW35[] = {
+	{"SNR 0",	WF_LWTBL_SNR_RX0_MASK,		WF_LWTBL_SNR_RX0_SHIFT,		false},
+	{"SNR 1",	WF_LWTBL_SNR_RX1_MASK,		WF_LWTBL_SNR_RX1_SHIFT,		false},
+	{"SNR 2",	WF_LWTBL_SNR_RX2_MASK,		WF_LWTBL_SNR_RX2_SHIFT,		false},
+	{"SNR 3",	WF_LWTBL_SNR_RX3_MASK,		WF_LWTBL_SNR_RX3_SHIFT,		true},
+	{NULL,}
+};
+
+static void parse_fmac_lwtbl_dw35(struct seq_file *s, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	/* LMAC WTBL DW 35 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "LWTBL DW 35\n");
+	addr = (u32 *)&(lwtbl[WTBL_GROUP_RX_STAT_CNT_LINE_3*4]);
+	dw_value = *addr;
+
+
+	while (WTBL_LMAC_DW35[i].name) {
+		if (WTBL_LMAC_DW35[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_LMAC_DW35[i].name,
+				(dw_value & WTBL_LMAC_DW35[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_LMAC_DW35[i].name,
+				(dw_value & WTBL_LMAC_DW35[i].mask) >>
+					WTBL_LMAC_DW35[i].shift);
+		i++;
+	}
+}
+
+static void parse_fmac_lwtbl_rx_stats(struct seq_file *s, u8 *lwtbl)
+{
+	parse_fmac_lwtbl_dw33(s, lwtbl);
+	parse_fmac_lwtbl_dw34(s, lwtbl);
+	parse_fmac_lwtbl_dw35(s, lwtbl);
+}
+
+static void parse_fmac_lwtbl_mlo_info(struct seq_file *s, u8 *lwtbl)
+{
+	parse_fmac_lwtbl_dw28(s, lwtbl);
+	parse_fmac_lwtbl_dw29(s, lwtbl);
+	parse_fmac_lwtbl_dw30(s, lwtbl);
+}
+
+static const struct berse_wtbl_parse WTBL_UMAC_DW9[] = {
+	{"RELATED_IDX0",	WF_UWTBL_RELATED_IDX0_MASK,		WF_UWTBL_RELATED_IDX0_SHIFT,		false},
+	{"RELATED_BAND0",	WF_UWTBL_RELATED_BAND0_MASK,		WF_UWTBL_RELATED_BAND0_SHIFT,		false},
+	{"PRI_MLD_BAND",	WF_UWTBL_PRIMARY_MLD_BAND_MASK,		WF_UWTBL_PRIMARY_MLD_BAND_SHIFT,	true},
+	{"RELATED_IDX1",	WF_UWTBL_RELATED_IDX1_MASK,		WF_UWTBL_RELATED_IDX1_SHIFT,		false},
+	{"RELATED_BAND1",	WF_UWTBL_RELATED_BAND1_MASK,		WF_UWTBL_RELATED_BAND1_SHIFT,		false},
+	{"SEC_MLD_BAND",	WF_UWTBL_SECONDARY_MLD_BAND_MASK,	WF_UWTBL_SECONDARY_MLD_BAND_SHIFT,	true},
+	{NULL,}
+};
+
+static void parse_fmac_uwtbl_mlo_info(struct seq_file *s, u8 *uwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	seq_printf(s, "\t\n");
+	seq_printf(s, "MldAddr: %02x:%02x:%02x:%02x:%02x:%02x(D0[B0~15], D1[B0~31])\n",
+		uwtbl[4], uwtbl[5], uwtbl[6], uwtbl[7], uwtbl[0], uwtbl[1]);
+
+	/* UMAC WTBL DW 0 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "UWTBL DW 0\n");
+	addr = (u32 *)&(uwtbl[WF_UWTBL_OWN_MLD_ID_DW*4]);
+	dw_value = *addr;
+
+	seq_printf(s, "\t%s:%u\n", "OMLD_ID",
+		(dw_value & WF_UWTBL_OWN_MLD_ID_MASK) >> WF_UWTBL_OWN_MLD_ID_SHIFT);
+
+	/* UMAC WTBL DW 9 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "UWTBL DW 9\n");
+	addr = (u32 *)&(uwtbl[WF_UWTBL_RELATED_IDX0_DW*4]);
+	dw_value = *addr;
+
+	while (WTBL_UMAC_DW9[i].name) {
+
+		if (WTBL_UMAC_DW9[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_UMAC_DW9[i].name,
+				(dw_value & WTBL_UMAC_DW9[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_UMAC_DW9[i].name,
+				 (dw_value & WTBL_UMAC_DW9[i].mask) >>
+					WTBL_UMAC_DW9[i].shift);
+		i++;
+	}
+}
+
+static bool
+is_wtbl_bigtk_exist(u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+
+	addr = (u32 *)&(lwtbl[WF_LWTBL_MUAR_DW*4]);
+	dw_value = *addr;
+	if (((dw_value & WF_LWTBL_MUAR_MASK) >> WF_LWTBL_MUAR_SHIFT) ==
+					MUAR_INDEX_OWN_MAC_ADDR_BC_MC) {
+		addr = (u32 *)&(lwtbl[WF_LWTBL_CIPHER_SUIT_BIGTK_DW*4]);
+		dw_value = *addr;
+		if (((dw_value & WF_LWTBL_CIPHER_SUIT_BIGTK_MASK) >>
+			WF_LWTBL_CIPHER_SUIT_BIGTK_SHIFT) != IGTK_CIPHER_SUIT_NONE)
+			return true;
+	}
+
+	return false;
+}
+
+static const struct berse_wtbl_parse WTBL_UMAC_DW2[] = {
+	{"PN0",		WTBL_PN0_MASK,		WTBL_PN0_OFFSET,	false},
+	{"PN1",		WTBL_PN1_MASK,		WTBL_PN1_OFFSET,	false},
+	{"PN2",		WTBL_PN2_MASK,		WTBL_PN2_OFFSET,	true},
+	{"PN3",		WTBL_PN3_MASK,		WTBL_PN3_OFFSET,	false},
+	{NULL,}
+};
+
+static const struct berse_wtbl_parse WTBL_UMAC_DW3[] = {
+	{"PN4",		WTBL_PN4_MASK,		WTBL_PN4_OFFSET,	false},
+	{"PN5",		WTBL_PN5_MASK,		WTBL_PN5_OFFSET,	true},
+	{"COM_SN",	WF_UWTBL_COM_SN_MASK,	WF_UWTBL_COM_SN_SHIFT,	true},
+	{NULL,}
+};
+
+static const struct berse_wtbl_parse WTBL_UMAC_DW4_BIPN[] = {
+	{"BIPN0",	WTBL_BIPN0_MASK,	WTBL_BIPN0_OFFSET,	false},
+	{"BIPN1",	WTBL_BIPN1_MASK,	WTBL_BIPN1_OFFSET,	false},
+	{"BIPN2",	WTBL_BIPN2_MASK,	WTBL_BIPN2_OFFSET,	true},
+	{"BIPN3",	WTBL_BIPN3_MASK,	WTBL_BIPN3_OFFSET,	false},
+	{NULL,}
+};
+
+static const struct berse_wtbl_parse WTBL_UMAC_DW5_BIPN[] = {
+	{"BIPN4",	WTBL_BIPN4_MASK,	WTBL_BIPN4_OFFSET,	false},
+	{"BIPN5",	WTBL_BIPN5_MASK,	WTBL_BIPN5_OFFSET,	true},
+	{NULL,}
+};
+
+static void parse_fmac_uwtbl_pn(struct seq_file *s, u8 *uwtbl, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u16 i = 0;
+
+	seq_printf(s, "\t\n");
+	seq_printf(s, "UWTBL PN\n");
+
+	/* UMAC WTBL DW 2/3 */
+	addr = (u32 *)&(uwtbl[WF_UWTBL_PN_31_0__DW*4]);
+	dw_value = *addr;
+
+	while (WTBL_UMAC_DW2[i].name) {
+		seq_printf(s, "\t%s:%u\n", WTBL_UMAC_DW2[i].name,
+			(dw_value & WTBL_UMAC_DW2[i].mask) >>
+				WTBL_UMAC_DW2[i].shift);
+		i++;
+	}
+
+	i = 0;
+	addr = (u32 *)&(uwtbl[WF_UWTBL_PN_47_32__DW*4]);
+	dw_value = *addr;
+
+	while (WTBL_UMAC_DW3[i].name) {
+		seq_printf(s, "\t%s:%u\n", WTBL_UMAC_DW3[i].name,
+			 (dw_value & WTBL_UMAC_DW3[i].mask) >>
+			WTBL_UMAC_DW3[i].shift);
+		i++;
+	}
+
+
+	/* UMAC WTBL DW 4/5 for BIGTK */
+	if (is_wtbl_bigtk_exist(lwtbl) == true) {
+		i = 0;
+		addr = (u32 *)&(uwtbl[WF_UWTBL_RX_BIPN_31_0__DW*4]);
+		dw_value = *addr;
+
+		while (WTBL_UMAC_DW4_BIPN[i].name) {
+			seq_printf(s, "\t%s:%u\n", WTBL_UMAC_DW4_BIPN[i].name,
+				(dw_value & WTBL_UMAC_DW4_BIPN[i].mask) >>
+					WTBL_UMAC_DW4_BIPN[i].shift);
+			i++;
+		}
+
+		i = 0;
+		addr = (u32 *)&(uwtbl[WF_UWTBL_RX_BIPN_47_32__DW*4]);
+		dw_value = *addr;
+
+		while (WTBL_UMAC_DW5_BIPN[i].name) {
+			seq_printf(s, "\t%s:%u\n", WTBL_UMAC_DW5_BIPN[i].name,
+				(dw_value & WTBL_UMAC_DW5_BIPN[i].mask) >>
+				WTBL_UMAC_DW5_BIPN[i].shift);
+			i++;
+		}
+	}
+}
+
+static void parse_fmac_uwtbl_sn(struct seq_file *s, u8 *uwtbl)
+{
+	u32 *addr = 0;
+	u32 u2SN = 0;
+
+	/* UMAC WTBL DW SN part */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "UWTBL SN\n");
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID0_SN_DW*4]);
+	u2SN = ((*addr) & WF_UWTBL_TID0_SN_MASK) >> WF_UWTBL_TID0_SN_SHIFT;
+	seq_printf(s, "\t%s:%u\n", "TID0_AC0_SN", u2SN);
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID1_SN_DW*4]);
+	u2SN = ((*addr) & WF_UWTBL_TID1_SN_MASK) >> WF_UWTBL_TID1_SN_SHIFT;
+	seq_printf(s, "\t%s:%u\n", "TID1_AC1_SN", u2SN);
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID2_SN_7_0__DW*4]);
+	u2SN = ((*addr) & WF_UWTBL_TID2_SN_7_0__MASK) >>
+				WF_UWTBL_TID2_SN_7_0__SHIFT;
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID2_SN_11_8__DW*4]);
+	u2SN |= (((*addr) & WF_UWTBL_TID2_SN_11_8__MASK) >>
+			WF_UWTBL_TID2_SN_11_8__SHIFT) << 8;
+	seq_printf(s, "\t%s:%u\n", "TID2_AC2_SN", u2SN);
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID3_SN_DW*4]);
+	u2SN = ((*addr) & WF_UWTBL_TID3_SN_MASK) >> WF_UWTBL_TID3_SN_SHIFT;
+	seq_printf(s, "\t%s:%u\n", "TID3_AC3_SN", u2SN);
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID4_SN_DW*4]);
+	u2SN = ((*addr) & WF_UWTBL_TID4_SN_MASK) >> WF_UWTBL_TID4_SN_SHIFT;
+	seq_printf(s, "\t%s:%u\n", "TID4_SN", u2SN);
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID5_SN_3_0__DW*4]);
+	u2SN = ((*addr) & WF_UWTBL_TID5_SN_3_0__MASK) >>
+				WF_UWTBL_TID5_SN_3_0__SHIFT;
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID5_SN_11_4__DW*4]);
+	u2SN |= (((*addr) & WF_UWTBL_TID5_SN_11_4__MASK) >>
+				WF_UWTBL_TID5_SN_11_4__SHIFT) << 4;
+	seq_printf(s, "\t%s:%u\n", "TID5_SN", u2SN);
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID6_SN_DW*4]);
+	u2SN = ((*addr) & WF_UWTBL_TID6_SN_MASK) >> WF_UWTBL_TID6_SN_SHIFT;
+	seq_printf(s, "\t%s:%u\n", "TID6_SN", u2SN);
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_TID7_SN_DW*4]);
+	u2SN = ((*addr) & WF_UWTBL_TID7_SN_MASK) >> WF_UWTBL_TID7_SN_SHIFT;
+	seq_printf(s, "\t%s:%u\n", "TID7_SN", u2SN);
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_COM_SN_DW*4]);
+	u2SN = ((*addr) & WF_UWTBL_COM_SN_MASK) >> WF_UWTBL_COM_SN_SHIFT;
+	seq_printf(s, "\t%s:%u\n", "COM_SN", u2SN);
+}
+
+static void dump_key_table(
+	struct seq_file *s,
+	struct mt7996_dev *dev,
+	uint16_t keyloc0,
+	uint16_t keyloc1,
+	uint16_t keyloc2
+)
+{
+#define ONE_KEY_ENTRY_LEN_IN_DW                8
+	u8 keytbl[ONE_KEY_ENTRY_LEN_IN_DW*4] = {0};
+	uint16_t x;
+
+	seq_printf(s, "\t\n");
+	seq_printf(s, "\t%s:%d\n", "keyloc0", keyloc0);
+	if (keyloc0 != INVALID_KEY_ENTRY) {
+
+		/* Don't swap below two lines, halWtblReadRaw will
+		* write new value WF_WTBLON_TOP_WDUCR_ADDR
+		*/
+		mt7996_wtbl_read_raw(dev, keyloc0,
+			WTBL_TYPE_KEY, 0, ONE_KEY_ENTRY_LEN_IN_DW, keytbl);
+		seq_printf(s, "\t\tKEY WTBL Addr: group:0x%x=0x%x addr: 0x%lx\n",
+			MT_DBG_UWTBL_TOP_WDUCR_ADDR,
+			mt76_rr(dev, MT_DBG_UWTBL_TOP_WDUCR_ADDR),
+			KEYTBL_IDX2BASE(keyloc0, 0));
+		for (x = 0; x < ONE_KEY_ENTRY_LEN_IN_DW; x++) {
+			seq_printf(s, "\t\tDW%02d: %02x %02x %02x %02x\n",
+				x,
+				keytbl[x * 4 + 3],
+				keytbl[x * 4 + 2],
+				keytbl[x * 4 + 1],
+				keytbl[x * 4]);
+		}
+	}
+
+	seq_printf(s, "\t%s:%d\n", "keyloc1", keyloc1);
+	if (keyloc1 != INVALID_KEY_ENTRY) {
+		/* Don't swap below two lines, halWtblReadRaw will
+		* write new value WF_WTBLON_TOP_WDUCR_ADDR
+		*/
+		mt7996_wtbl_read_raw(dev, keyloc1,
+			WTBL_TYPE_KEY, 0, ONE_KEY_ENTRY_LEN_IN_DW, keytbl);
+		seq_printf(s, "\t\tKEY WTBL Addr: group:0x%x=0x%x addr: 0x%lx\n",
+			MT_DBG_UWTBL_TOP_WDUCR_ADDR,
+			mt76_rr(dev, MT_DBG_UWTBL_TOP_WDUCR_ADDR),
+			KEYTBL_IDX2BASE(keyloc1, 0));
+		for (x = 0; x < ONE_KEY_ENTRY_LEN_IN_DW; x++) {
+			seq_printf(s, "\t\tDW%02d: %02x %02x %02x %02x\n",
+				x,
+				keytbl[x * 4 + 3],
+				keytbl[x * 4 + 2],
+				keytbl[x * 4 + 1],
+				keytbl[x * 4]);
+		}
+	}
+
+	seq_printf(s, "\t%s:%d\n", "keyloc2", keyloc2);
+	if (keyloc2 != INVALID_KEY_ENTRY) {
+		/* Don't swap below two lines, halWtblReadRaw will
+		* write new value WF_WTBLON_TOP_WDUCR_ADDR
+		*/
+		mt7996_wtbl_read_raw(dev, keyloc2,
+			WTBL_TYPE_KEY, 0, ONE_KEY_ENTRY_LEN_IN_DW, keytbl);
+		seq_printf(s, "\t\tKEY WTBL Addr: group:0x%x=0x%x addr: 0x%lx\n",
+			MT_DBG_UWTBL_TOP_WDUCR_ADDR,
+			mt76_rr(dev, MT_DBG_UWTBL_TOP_WDUCR_ADDR),
+			KEYTBL_IDX2BASE(keyloc2, 0));
+		for (x = 0; x < ONE_KEY_ENTRY_LEN_IN_DW; x++) {
+			seq_printf(s, "\t\tDW%02d: %02x %02x %02x %02x\n",
+				x,
+				keytbl[x * 4 + 3],
+				keytbl[x * 4 + 2],
+				keytbl[x * 4 + 1],
+				keytbl[x * 4]);
+		}
+	}
+}
+
+static void parse_fmac_uwtbl_key_info(struct seq_file *s, struct mt7996_dev *dev,
+				      u8 *uwtbl, u8 *lwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	uint16_t keyloc0 = INVALID_KEY_ENTRY;
+	uint16_t keyloc1 = INVALID_KEY_ENTRY;
+	uint16_t keyloc2 = INVALID_KEY_ENTRY;
+
+	/* UMAC WTBL DW 7 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "UWTBL key info\n");
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_KEY_LOC0_DW*4]);
+	dw_value = *addr;
+	keyloc0 = (dw_value & WF_UWTBL_KEY_LOC0_MASK) >> WF_UWTBL_KEY_LOC0_SHIFT;
+	keyloc1 = (dw_value & WF_UWTBL_KEY_LOC1_MASK) >> WF_UWTBL_KEY_LOC1_SHIFT;
+
+	seq_printf(s, "\t%s:%u/%u\n", "Key Loc 0/1", keyloc0, keyloc1);
+
+	/* UMAC WTBL DW 6 for BIGTK */
+	if (is_wtbl_bigtk_exist(lwtbl) == true) {
+		addr = (u32 *)&(uwtbl[WF_UWTBL_KEY_LOC2_DW*4]);
+		dw_value = *addr;
+		keyloc2 = (dw_value & WF_UWTBL_KEY_LOC2_MASK) >>
+			WF_UWTBL_KEY_LOC2_SHIFT;
+		seq_printf(s, "\t%s:%u\n", "Key Loc 2", keyloc2);
+	}
+
+	/* Parse KEY link */
+	dump_key_table(s, dev, keyloc0, keyloc1, keyloc2);
+}
+
+static const struct berse_wtbl_parse WTBL_UMAC_DW8[] = {
+	{"UWTBL_WMM_Q",		WF_UWTBL_WMM_Q_MASK,		WF_UWTBL_WMM_Q_SHIFT,	false},
+	{"UWTBL_QOS",		WF_UWTBL_QOS_MASK,		NO_SHIFT_DEFINE,	false},
+	{"UWTBL_HT_VHT_HE",	WF_UWTBL_HT_MASK,		NO_SHIFT_DEFINE,	false},
+	{"UWTBL_HDRT_MODE",	WF_UWTBL_HDRT_MODE_MASK,	NO_SHIFT_DEFINE,	true},
+	{NULL,}
+};
+
+static void parse_fmac_uwtbl_msdu_info(struct seq_file *s, u8 *uwtbl)
+{
+	u32 *addr = 0;
+	u32 dw_value = 0;
+	u32 amsdu_len = 0;
+	u16 i = 0;
+
+	/* UMAC WTBL DW 8 */
+	seq_printf(s, "\t\n");
+	seq_printf(s, "UWTBL DW8\n");
+
+	addr = (u32 *)&(uwtbl[WF_UWTBL_AMSDU_CFG_DW*4]);
+	dw_value = *addr;
+
+	while (WTBL_UMAC_DW8[i].name) {
+
+		if (WTBL_UMAC_DW8[i].shift == NO_SHIFT_DEFINE)
+			seq_printf(s, "\t%s:%d\n", WTBL_UMAC_DW8[i].name,
+				(dw_value & WTBL_UMAC_DW8[i].mask) ? 1 : 0);
+		else
+			seq_printf(s, "\t%s:%u\n", WTBL_UMAC_DW8[i].name,
+				(dw_value & WTBL_UMAC_DW8[i].mask) >>
+					WTBL_UMAC_DW8[i].shift);
+		i++;
+	}
+
+	/* UMAC WTBL DW 8 - SEC_ADDR_MODE */
+	addr = (u32 *)&(uwtbl[WF_UWTBL_SEC_ADDR_MODE_DW*4]);
+	dw_value = *addr;
+	seq_printf(s, "\t%s:%lu\n", "SEC_ADDR_MODE",
+		(dw_value & WTBL_SEC_ADDR_MODE_MASK) >> WTBL_SEC_ADDR_MODE_OFFSET);
+
+	/* UMAC WTBL DW 8 - AMSDU_CFG */
+	seq_printf(s, "\t%s:%d\n", "HW AMSDU Enable",
+				(dw_value & WTBL_AMSDU_EN_MASK) ? 1 : 0);
+
+	amsdu_len = (dw_value & WTBL_AMSDU_LEN_MASK) >> WTBL_AMSDU_LEN_OFFSET;
+	if (amsdu_len == 0)
+		seq_printf(s, "\t%s:invalid (WTBL value=0x%x)\n", "HW AMSDU Len",
+			amsdu_len);
+	else if (amsdu_len == 1)
+		seq_printf(s, "\t%s:%d~%d (WTBL value=0x%x)\n", "HW AMSDU Len",
+			1,
+			255,
+			amsdu_len);
+	else if (amsdu_len == 2)
+		seq_printf(s, "\t%s:%d~%d (WTBL value=0x%x)\n", "HW AMSDU Len",
+			256,
+			511,
+			amsdu_len);
+	else if (amsdu_len == 3)
+		seq_printf(s, "\t%s:%d~%d (WTBL value=0x%x)\n", "HW AMSDU Len",
+			512,
+			767,
+			amsdu_len);
+	else
+		seq_printf(s, "\t%s:%d~%d (WTBL value=0x%x)\n", "HW AMSDU Len",
+			256 * (amsdu_len - 1),
+			256 * (amsdu_len - 1) + 255,
+			amsdu_len);
+
+	seq_printf(s, "\t%s:%lu (WTBL value=0x%lx)\n", "HW AMSDU Num",
+		((dw_value & WTBL_AMSDU_NUM_MASK) >> WTBL_AMSDU_NUM_OFFSET) + 1,
+		(dw_value & WTBL_AMSDU_NUM_MASK) >> WTBL_AMSDU_NUM_OFFSET);
+}
+
+static void
+mt7996_wtbl_dump(struct seq_file *s, struct mt7996_dev *dev, u16 idx)
+{
+	u8 lwtbl[LWTBL_LEN_IN_DW * 4] = {0};
+	u8 uwtbl[UWTBL_LEN_IN_DW * 4] = {0};
+	int x;
+
+	mt7996_wtbl_read_raw(dev, idx, WTBL_TYPE_LMAC, 0,
+				 LWTBL_LEN_IN_DW, lwtbl);
+	seq_printf(s, "Dump WTBL info of WLAN_IDX:%d\n", idx);
+	seq_printf(s, "LMAC WTBL Addr: group:0x%x=0x%x addr: 0x%lx\n",
+		   MT_DBG_WTBLON_TOP_WDUCR_ADDR,
+		   mt76_rr(dev, MT_DBG_WTBLON_TOP_WDUCR_ADDR),
+		   LWTBL_IDX2BASE(idx, 0));
+	for (x = 0; x < LWTBL_LEN_IN_DW; x++) {
+		seq_printf(s, "DW%02d: %02x %02x %02x %02x\n",
+			   x,
+			   lwtbl[x * 4 + 3],
+			   lwtbl[x * 4 + 2],
+			   lwtbl[x * 4 + 1],
+			   lwtbl[x * 4]);
+	}
+
+	/* Parse LWTBL */
+	parse_fmac_lwtbl_dw0_1(s, lwtbl);
+	parse_fmac_lwtbl_dw2(s, lwtbl);
+	parse_fmac_lwtbl_dw3(s, lwtbl);
+	parse_fmac_lwtbl_dw4(s, lwtbl);
+	parse_fmac_lwtbl_dw5(s, lwtbl);
+	parse_fmac_lwtbl_dw6(s, lwtbl);
+	parse_fmac_lwtbl_dw7(s, lwtbl);
+	parse_fmac_lwtbl_dw8(s, lwtbl);
+	parse_fmac_lwtbl_dw9(s, lwtbl);
+	parse_fmac_lwtbl_dw10(s, lwtbl);
+	parse_fmac_lwtbl_dw11(s, lwtbl);
+	parse_fmac_lwtbl_dw12(s, lwtbl);
+	parse_fmac_lwtbl_dw13(s, lwtbl);
+	parse_fmac_lwtbl_dw14(s, lwtbl);
+	parse_fmac_lwtbl_mlo_info(s, lwtbl);
+	parse_fmac_lwtbl_dw31(s, lwtbl);
+	parse_fmac_lwtbl_dw32(s, lwtbl);
+	parse_fmac_lwtbl_rx_stats(s, lwtbl);
+
+	mt7996_wtbl_read_raw(dev, idx, WTBL_TYPE_UMAC, 0,
+				 UWTBL_LEN_IN_DW, uwtbl);
+	seq_printf(s, "Dump WTBL info of WLAN_IDX:%d\n", idx);
+	seq_printf(s, "UMAC WTBL Addr: group:0x%x=0x%x addr: 0x%lx\n",
+		   MT_DBG_UWTBL_TOP_WDUCR_ADDR,
+		   mt76_rr(dev, MT_DBG_UWTBL_TOP_WDUCR_ADDR),
+		   UWTBL_IDX2BASE(idx, 0));
+	for (x = 0; x < UWTBL_LEN_IN_DW; x++) {
+		seq_printf(s, "DW%02d: %02x %02x %02x %02x\n",
+			   x,
+			   uwtbl[x * 4 + 3],
+			   uwtbl[x * 4 + 2],
+			   uwtbl[x * 4 + 1],
+			   uwtbl[x * 4]);
+	}
+
+	/* Parse UWTBL */
+	parse_fmac_uwtbl_mlo_info(s, uwtbl);
+	parse_fmac_uwtbl_pn(s, uwtbl, lwtbl);
+	parse_fmac_uwtbl_sn(s, uwtbl);
+	parse_fmac_uwtbl_key_info(s, dev, uwtbl, lwtbl);
+	parse_fmac_uwtbl_msdu_info(s, uwtbl);
+}
 
 /** global debugfs **/
 
@@ -2119,7 +3578,56 @@ bool mt7996_debugfs_rx_log(struct mt7996_dev *dev, const void *data, int len)
 }
 
 #ifdef CONFIG_MAC80211_DEBUGFS
-/** per-station debugfs **/
+
+static int
+mt7996_link_wtbl_show(struct seq_file *file, void *data)
+{
+	struct ieee80211_bss_conf *conf = file->private;
+	struct mt7996_vif *mvif = NULL;
+	struct mt7996_dev *dev = NULL;
+	struct mt76_vif_link *mlink = NULL;
+	int ret = 0;
+
+	if (!conf || !conf->vif)
+		return -ENOENT;
+
+	mvif = (struct mt7996_vif *)conf->vif->drv_priv;
+
+	if (!mt7996_vif_link_phy(&mvif->deflink))
+		return -ENOENT;
+
+	dev = mt7996_vif_link_phy(&mvif->deflink)->dev;
+
+	if (!dev)
+		return -ENOENT;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	mlink = mt76_dereference(mvif->mt76.link[conf->link_id], &dev->mt76);
+
+	/* WLAN 0 is reserved for control frames, and isn't attached to a link.
+	 * 0 here likely means uninitialized.
+	 */
+	if (!mlink || !mlink->wcid || mlink->wcid->idx == 0) {
+		ret = -ENOENT;
+		goto out;
+	}
+
+	mt7996_wtbl_dump(file, dev, mlink->wcid->idx);
+
+out:
+	mutex_unlock(&dev->mt76.mutex);
+
+	return ret;
+}
+DEFINE_SHOW_ATTRIBUTE(mt7996_link_wtbl);
+
+
+void mt7996_link_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			     struct ieee80211_bss_conf *link_conf, struct dentry *dir)
+{
+	debugfs_create_file("wtbl_info", 0600, dir, link_conf, &mt7996_link_wtbl_fops);
+}
 
 static int
 mt7996_queues_show(struct seq_file *s, void *data)
@@ -2267,11 +3775,55 @@ static const struct file_operations fops_fixed_rate = {
 	.llseek = default_llseek,
 };
 
+static int
+mt7996_link_sta_wtbl_show(struct seq_file *file, void *data)
+{
+	struct ieee80211_link_sta *link_sta = file->private;
+	struct mt7996_sta *msta = NULL;
+	struct mt7996_dev *dev = NULL;
+	struct mt7996_sta_link *msta_link = NULL;
+	int ret = 0;
+
+	if (!link_sta || !link_sta->sta)
+		return -ENOENT;
+
+	msta = (struct mt7996_sta *)link_sta->sta->drv_priv;
+
+	if (!msta || !msta->vif || !mt7996_vif_link_phy(&msta->vif->deflink))
+		return -ENOENT;
+
+	dev = mt7996_vif_link_phy(&msta->vif->deflink)->dev;
+
+	if (!dev)
+		return -ENOENT;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	msta_link = mt76_dereference(msta->link[link_sta->link_id], &dev->mt76);
+
+	/* WLAN 0 is reserved for control frames, and isn't attached to a link.
+	 * 0 here likely means uninitialized.
+	 */
+	if (!msta_link || msta_link->wcid.idx == 0) {
+		ret = -ENOENT;
+		goto out;
+	}
+
+	mt7996_wtbl_dump(file, dev, msta_link->wcid.idx);
+
+out:
+	mutex_unlock(&dev->mt76.mutex);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(mt7996_link_sta_wtbl);
+
 void mt7996_link_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 				 struct ieee80211_link_sta *link_sta,
 				 struct dentry *dir)
 {
 	debugfs_create_file("fixed_rate", 0600, dir, link_sta, &fops_fixed_rate);
+	debugfs_create_file("wtbl_info", 0600, dir, link_sta, &mt7996_link_sta_wtbl_fops);
 }
 
 #endif
