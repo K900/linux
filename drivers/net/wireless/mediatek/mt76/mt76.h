@@ -1008,7 +1008,7 @@ struct mt76_dev {
 	spinlock_t cc_lock;
 
 	u32 cur_cc_bss_rx;
-	u32 debug_lvl;
+	u32 *debug_lvl;
 
 	struct mt76_rx_status rx_ampdu_status;
 	u32 rx_ampdu_len;
@@ -1285,16 +1285,16 @@ struct mt76_mib_stats {
 	u32 ul_hetrig_4mu_cnt;
 };
 
-enum MTK_DEUBG {
-	MTK_DEBUG_TX		= 0x00000001, /* tx path */
-	MTK_DEBUG_TXV		= 0x00000002, /* verbose tx path */
-	MTK_DEBUG_FATAL		= 0x00000004,
-	MTK_DEBUG_WRN		= 0x00000008,
-	MTK_DEBUG_MSG		= 0x00000010, /* messages to/from firmware */
-	MTK_DEBUG_CFG		= 0x00000020, /* Configuration related */
-	MTK_DEBUG_BA		= 0x00000040, /* block-ack and aggregation related */
-	MTK_DEBUG_RXV		= 0x00000080, /* verbose rx path */
-	MTK_DEBUG_MCU_DUMP	= 0x00000100, /* Last n messages to MCU when something goes wrong */
+enum MTK_DEBUG {
+	MT76_DBG_TX		= 0x00000001, /* tx path */
+	MT76_DBG_TXV		= 0x00000002, /* verbose tx path */
+	MT76_DBG_FATAL		= 0x00000004,
+	MT76_DBG_WRN		= 0x00000008,
+	MT76_DBG_MSG		= 0x00000010, /* messages to/from firmware */
+	MT76_DBG_CFG		= 0x00000020, /* Configuration related */
+	MT76_DBG_BA		= 0x00000040, /* block-ack and aggregation related */
+	MT76_DBG_RXV		= 0x00000080, /* verbose rx path */
+	MT76_DBG_MCU_DUMP	= 0x00000100, /* Last n messages to MCU when something goes wrong */
 	MT76_DBG_MLD	 	= 0x00000200, /* MLD related, upstream format */
 	MT76_DBG_STA            = 0x00000400, /* STA related, upstream format */
 	MT76_DBG_BSS            = 0x00000800, /* BSS related, upstream format */
@@ -1302,19 +1302,21 @@ enum MTK_DEUBG {
 	MT76_DBG_SCAN           = 0x00002000, /* Scan related, upstream format */
 	MT76_DBG_CHAN           = 0x00004000, /* Channel related, upstream format */
 	MT76_DBG_MCU_VERBOSE	= 0x00008000, /* Print all MCU messages */
-	MTK_DEBUG_ANY		= 0xffffffff
+	MT76_DBG_ANY		= 0xffffffff
 };
 
 #define mtk_dbg(mt76, dbg_mask, fmt, ...)				\
 	do {								\
-		if ((mt76)->debug_lvl & MTK_DEBUG_##dbg_mask)		\
+		if ((mt76)->debug_lvl &&				\
+		    *((mt76)->debug_lvl) & MT76_DBG_##dbg_mask)		\
 			dev_info((mt76)->dev, fmt, ##__VA_ARGS__);	\
 	} while (0)
 
 /* For compat with out-of-tree mtk patches */
 #define mt76_dbg(mt76, dbg_mask, fmt, ...)				\
 	do {								\
-		if ((mt76)->debug_lvl & dbg_mask)			\
+		if ((mt76)->debug_lvl &&				\
+		    *((mt76)->debug_lvl) & dbg_mask)			\
 			dev_info((mt76)->dev, fmt, ##__VA_ARGS__);	\
 	} while (0)
 
@@ -2440,6 +2442,113 @@ mt76_vif_link_phy(struct mt76_vif_link *mlink)
 	ctx = (struct mt76_chanctx *)mlink->ctx->drv_priv;
 
 	return ctx->phy;
+}
+
+static inline void
+mt76_vif_dbg(struct mt76_dev *dev, struct mt76_vif_data *mvif, u32 dbg_mask, const char *fmt, ...)
+{
+	struct mt76_vif_link *mlink = NULL;
+	struct ieee80211_vif *vif = NULL;
+	char prefix_buf[128];
+	int wcid = -1;
+
+	if (!dev->debug_lvl || !(*dev->debug_lvl & dbg_mask))
+		return;
+
+	if (mvif)
+		mlink = mt76_dereference(mvif->link[0], dev);
+
+	if (mlink) {
+		vif = container_of((void *)mlink, struct ieee80211_vif, drv_priv);
+		if (mlink->wcid)
+			wcid = mlink->wcid->idx;
+	}
+
+	if (vif)
+		snprintf(prefix_buf, sizeof(prefix_buf), "%s[v:%d,m:%d,b:%d,w:%d]",
+			 ieee80211_vif_to_wdev(vif)->netdev->name,
+			 mlink->idx, mlink->omac_idx, mlink->band_idx, wcid);
+	else
+		snprintf(prefix_buf, sizeof(prefix_buf), "(no_vif)");
+
+	struct va_format vaf = {
+		.fmt = fmt,
+	};
+	va_list args;
+
+	va_start(args, fmt);
+	vaf.va = &args;
+	dev_info(dev->dev, "%s: %pV", prefix_buf, &vaf);
+	va_end(args);
+}
+
+static inline void
+mt76_link_dbg(struct mt76_dev *dev, struct mt76_vif_link *mlink, u32 dbg_mask, const char *fmt, ...)
+{
+	struct mt76_vif_data *mvif = NULL;
+	struct mt76_vif_link *def_mlink = NULL;
+	struct ieee80211_vif *vif = NULL;
+	char prefix_buf[128];
+	int wcid = -1;
+
+	if (!dev->debug_lvl || !(*dev->debug_lvl & dbg_mask))
+		return;
+
+	if (mlink) {
+		mvif = mlink->mvif;
+		if (mlink->wcid)
+			wcid = mlink->wcid->idx;
+	}
+
+	if (mvif)
+		def_mlink = mt76_dereference(mvif->link[0], dev);
+
+	if (def_mlink)
+		vif = container_of((void *)def_mlink, struct ieee80211_vif, drv_priv);
+
+	if (vif)
+		snprintf(prefix_buf, sizeof(prefix_buf), "%s[v:%d,m:%d,b:%d,w:%d,l:%d]",
+			 ieee80211_vif_to_wdev(vif)->netdev->name,
+			 mlink->idx, mlink->omac_idx, mlink->band_idx, wcid, mlink->link_idx);
+	else
+		snprintf(prefix_buf, sizeof(prefix_buf), "(no_link)");
+
+	struct va_format vaf = {
+		.fmt = fmt,
+	};
+	va_list args;
+
+	va_start(args, fmt);
+	vaf.va = &args;
+	dev_info(dev->dev, "%s: %pV", prefix_buf, &vaf);
+	va_end(args);
+}
+
+static inline void
+mt76_wcid_dbg(struct mt76_dev *dev, struct mt76_wcid *wcid, u32 dbg_mask, const char *fmt, ...)
+{
+	char prefix_buf[128];
+
+	if (!dev->debug_lvl || !(*dev->debug_lvl & dbg_mask))
+		return;
+
+	if (wcid) {
+		snprintf(prefix_buf, sizeof(prefix_buf), "wlan[%d,s:%d,o:%d,l:%d,%pM]",
+			 wcid->idx, wcid->sta || wcid->sta_disabled, wcid->offchannel,
+			 wcid->link_id, wcid->vif_addr);
+	} else {
+		snprintf(prefix_buf, sizeof(prefix_buf), "no_wcid");
+	}
+
+	struct va_format vaf = {
+		.fmt = fmt,
+	};
+	va_list args;
+
+	va_start(args, fmt);
+	vaf.va = &args;
+	dev_info(dev->dev, "%s: %pV", prefix_buf, &vaf);
+	va_end(args);
 }
 
 #endif

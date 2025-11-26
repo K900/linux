@@ -1788,7 +1788,7 @@ int mt7996_register_device(struct mt7996_dev *dev)
 	dev->phy.dev = dev;
 	dev->phy.mt76 = &dev->mt76.phy;
 	dev->mt76.phy.priv = &dev->phy;
-	dev->mt76.debug_lvl = debug_lvl;
+	dev->mt76.debug_lvl = &debug_lvl;
 	INIT_WORK(&dev->rc_work, mt7996_mac_sta_rc_work);
 	INIT_DELAYED_WORK(&dev->mphy.mac_work, mt7996_mac_work);
 	INIT_DELAYED_WORK(&dev->scs_work, mt7996_mcu_scs_sta_poll);

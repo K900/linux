@@ -13,6 +13,7 @@
 
 extern bool mt7921_disable_pm;
 extern bool mt7921_disable_deep_sleep;
+extern u32 mt7921_debug_lvl; /* module param */
 
 static ssize_t mt7921_thermal_temp_show(struct device *dev,
 					struct device_attribute *attr,
@@ -210,6 +211,7 @@ int mt7921_register_device(struct mt792x_dev *dev)
 	dev->phy.dev = dev;
 	dev->phy.mt76 = &dev->mt76.phy;
 	dev->mt76.phy.priv = &dev->phy;
+	dev->mt76.debug_lvl = &mt7921_debug_lvl;
 	dev->mt76.tx_worker.fn = mt792x_tx_worker;
 
 	INIT_DELAYED_WORK(&dev->pm.ps_work, mt792x_pm_power_save_work);

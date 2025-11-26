@@ -1388,8 +1388,9 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	u8 *txwi = (u8 *)txwi_ptr;
 	u8 link_id;
 
-	mtk_dbg(&dev->mt76, TXV, "mt7996-tx-prepare-skb, skb: %p skb-len: %d wcid: %p qid: %d\n",
-		tx_info->skb, tx_info->skb->len, wcid, qid);
+	mt76_wcid_dbg(&dev->mt76, wcid, MT76_DBG_TXV,
+		      "%s: skb: %p skb-len: %d qid: %d\n", __func__,
+		       tx_info->skb, tx_info->skb->len, qid);
 
 	if (unlikely(tx_info->skb->len <= ETH_HLEN))
 		return -EINVAL;
@@ -1426,8 +1427,8 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 	id = mt76_token_consume(mdev, &t);
 	if (id < 0) {
-		mtk_dbg(&dev->mt76, TXV, "mt7996-tx-prepare-skb, token_consume error: %d\n",
-			id);
+		mt76_wcid_dbg(&dev->mt76, wcid, MT76_DBG_TXV,
+			      "%s: token_consume error: %d\n", __func__, id);
 		return id;
 	}
 
@@ -1465,8 +1466,9 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 		dma_sync_single_for_device(mdev->dma_dev, tx_info->buf[1].addr,
 					   tx_info->buf[1].len, DMA_TO_DEVICE);
 
-		mtk_dbg(mdev, TXV, "mt7996-tx-prepare-skb, EAPOL: a1=%pM, a2=%pM, a3=%pM  wcid->link-id: %d\n",
-			hdr->addr1, hdr->addr2, hdr->addr3, wcid->link_id);
+		mt76_wcid_dbg(mdev, wcid, MT76_DBG_TXV,
+			      "%s: EAPOL: a1=%pM, a2=%pM, a3=%pM\n", __func__,
+			      hdr->addr1, hdr->addr2, hdr->addr3);
 	}
 
 	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
@@ -1708,8 +1710,10 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 		stats->tx_attempts += tx_cnt;
 		stats->tx_retries += tx_cnt - 1;
 
-		mtk_dbg(&dev->mt76, TX, "mt7915-txwi-free, skb: %p skb->len: %d tx-cnt: %d  tx_status: 0x%x  txo: %d\n",
-			t->skb, t->skb->len, tx_cnt, tx_status, !!(cb->flags & MT_TX_CB_TXO_USED));
+		mt76_wcid_dbg(&dev->mt76, wcid, MT76_DBG_TX,
+			      "%s: skb: %p skb->len: %d tx-cnt: %d  tx_status: 0x%x  txo: %d\n",
+			      __func__, t->skb, t->skb->len, tx_cnt, tx_status,
+			      !!(cb->flags & MT_TX_CB_TXO_USED));
 
 		if (tx_status == 0) {
 			stats->tx_mpdu_ok++;
