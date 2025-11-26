@@ -562,7 +562,7 @@ mt7996_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 		mcu_txd->s2d_index = MCU_S2D_H2N;
 
 exit:
-	if ((dev->mt76.debug_lvl & MT76_DBG_MCU_VERBOSE) &&
+	if (dev->mt76.debug_lvl && (*dev->mt76.debug_lvl & MT76_DBG_MCU_VERBOSE) &&
 	    cmd != MCU_CMD(FW_SCATTER)) {
 		bool well_formed = (skb->len % 4 == 0);
 		if (WARN_ON_ONCE(!well_formed)) {

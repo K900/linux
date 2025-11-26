@@ -11,6 +11,8 @@
 #include "mac.h"
 #include "mcu.h"
 
+extern u32 mt7925_debug_lvl; /* module param */
+
 static ssize_t mt7925_thermal_temp_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
@@ -214,6 +216,7 @@ int mt7925_register_device(struct mt792x_dev *dev)
 	dev->phy.dev = dev;
 	dev->phy.mt76 = &dev->mt76.phy;
 	dev->mt76.phy.priv = &dev->phy;
+	dev->mt76.debug_lvl = &mt7925_debug_lvl;
 	dev->mt76.tx_worker.fn = mt792x_tx_worker;
 
 	dev->could_eht = true;
