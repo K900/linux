@@ -1061,6 +1061,8 @@ int mt7996_mcu_set_eml_omn(struct ieee80211_vif *vif, u8 link_id,
 			   struct ieee80211_sta *sta, struct mt7996_dev *dev,
 			   struct mt7996_eml_omn *eml_omn);
 #ifdef CONFIG_MAC80211_DEBUGFS
+void mt7996_link_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+			     struct ieee80211_bss_conf *link_conf, struct dentry *dir);
 void mt7996_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta, struct dentry *dir);
 void mt7996_link_sta_add_debugfs(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
