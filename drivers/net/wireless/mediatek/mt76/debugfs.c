@@ -141,7 +141,7 @@ mt76_debug_lvl_set(void *data, u64 val)
 {
 	struct mt76_dev *dev = data;
 
-	dev->debug_lvl = val;
+	*dev->debug_lvl = val;
 
 	return 0;
 }
@@ -151,7 +151,7 @@ mt76_debug_lvl_get(void *data, u64 *val)
 {
 	struct mt76_dev *dev = data;
 
-	*val = dev->debug_lvl;
+	*val = dev->debug_lvl ? *dev->debug_lvl : 0;
 
 	return 0;
 }
