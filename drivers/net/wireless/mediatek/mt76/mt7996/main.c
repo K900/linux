@@ -217,7 +217,7 @@ static int get_omac_idx(enum nl80211_iftype type, u64 mask)
 static int get_own_mld_idx(u64 mask, bool group_mld)
 {
 	u8 start = group_mld ? 0 : 16;
-	u8 end = group_mld ? 15 : 63;
+	u8 end = group_mld ? 15 : MT7996_FIRST_REPEATER_MLD_IDX - 1;
 	int idx;
 
 	idx = get_free_idx(mask, start, end);
@@ -437,14 +437,25 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	if (idx < 0)
 		return -ENOSPC;
 
-	if (idx < REPEATER_BSSID_START)
+	if (idx < REPEATER_BSSID_START) {
 		mlink->idx = find_first_zero_bit(dev->mt76.vif_mask, MT7996_FIRST_REPEATER_VIF_IDX);
-	else
+
+		mld_idx = get_own_mld_idx(dev->mld_idx_mask, false);
+	} else {
 		mlink->idx = find_next_zero_bit(dev->mt76.vif_mask, MT76_MAX_VIFS,
 						MT7996_FIRST_REPEATER_VIF_IDX);
+		mld_idx = MT7996_FIRST_REPEATER_MLD_IDX + band_idx;
+	}
+
 	if (mlink->idx >= mt7996_max_interface_num(dev)) {
 		mt76_link_dbg(&dev->mt76, mlink, MT76_DBG_BSS, "%s: IF limit reached: %d/%d\n",
 			      __func__, mlink->idx, mt7996_max_interface_num(dev));
+		return -ENOSPC;
+	}
+
+	if (mld_idx < 0) {
+		mt76_link_dbg(&dev->mt76, mlink, MT76_DBG_BSS,
+			      "%s: No more MLD IDs to alloc\n", __func__);
 		return -ENOSPC;
 	}
 
@@ -454,15 +465,6 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 			mvif->mld_remap_idx = get_free_idx(dev->mld_remap_idx_mask,
 							   0, 15);
 		}
-
-		mld_idx = get_own_mld_idx(dev->mld_idx_mask, false);
-		if (mld_idx < 0) {
-			mt76_link_dbg(&dev->mt76, mlink, MT76_DBG_BSS,
-				      "%s: No more MLD IDs to alloc\n", __func__);
-			return -ENOSPC;
-		}
-	} else {
-		mld_idx = -1;
 	}
 
 	link->mld_idx = mld_idx;
