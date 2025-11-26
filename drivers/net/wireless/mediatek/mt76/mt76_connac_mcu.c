@@ -3309,7 +3309,7 @@ exit:
 	if (wait_seq)
 		*wait_seq = seq;
 
-	if (dev->debug_lvl & MTK_DEBUG_MCU_DUMP) {
+	if (dev->debug_lvl && *dev->debug_lvl & MT76_DBG_MCU_DUMP) {
 		mcu_buf->size = min(MT76_MCU_DEBUG_BUF_SIZE, txd_len);
 		memcpy(mcu_buf->message, txd, mcu_buf->size);
 		mcu_buf->command = cmd;

@@ -8,7 +8,7 @@
 #include "mt7915.h"
 #include "mcu.h"
 
-static u32 debug_lvl = MTK_DEBUG_FATAL | MTK_DEBUG_WRN;
+u32 debug_lvl = MT76_DBG_FATAL | MT76_DBG_WRN;
 module_param(debug_lvl, uint, 0644);
 MODULE_PARM_DESC(debug_lvl,
 		 "Enable debugging messages\n"
@@ -21,6 +21,13 @@ MODULE_PARM_DESC(debug_lvl,
 		 "0x00040	block-ack and aggregation related\n"
 		 "0x00080	verbose rx path\n"
 		 "0x00100	Last n messages to MCU when something goes wrong\n"
+		 "0x00200       MLD related\n"
+		 "0000400       STA related\n"
+		 "0x00800       BSS related\n"
+		 "0x01000       DEV related\n"
+		 "0x02000       Scan related\n"
+		 "0x04000       Channel related\n"
+		 "0x08000	Verbose MCU debugging\n"
 		 "0xffffffff	any/all\n"
 	);
 
@@ -120,7 +127,7 @@ static int mt7915_start(struct ieee80211_hw *hw)
 	struct mt7915_dev *dev = mt7915_hw_dev(hw);
 	int ret;
 
-	dev->mt76.debug_lvl = debug_lvl;
+	dev->mt76.debug_lvl = &debug_lvl;
 
 	flush_work(&dev->init_work);
 

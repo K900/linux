@@ -12,7 +12,7 @@
 #include "mcu.h"
 #include "mac.h"
 
-static u32 mt7925_debug_lvl = MTK_DEBUG_FATAL | MTK_DEBUG_WRN;
+u32 mt7925_debug_lvl = MT76_DBG_FATAL | MT76_DBG_WRN;
 module_param_named(debug_lvl, mt7925_debug_lvl, uint, 0644);
 MODULE_PARM_DESC(debug_lvl,
 		 "Enable debugging messages\n"
@@ -25,6 +25,13 @@ MODULE_PARM_DESC(debug_lvl,
 		 "0x00040	block-ack and aggregation related\n"
 		 "0x00080	verbose rx path\n"
 		 "0x00100	Last n messages to MCU when something goes wrong\n"
+		 "0x00200       MLD related\n"
+		 "0000400       STA related\n"
+		 "0x00800       BSS related\n"
+		 "0x01000       DEV related\n"
+		 "0x02000       Scan related\n"
+		 "0x04000       Channel related\n"
+		 "0x08000	Verbose MCU debugging\n"
 		 "0xffffffff	any/all\n"
 	);
 
@@ -382,7 +389,7 @@ static int mt7925_start(struct ieee80211_hw *hw)
 	struct mt792x_phy *phy = mt792x_hw_phy(hw);
 	int err;
 
-	phy->dev->mt76.debug_lvl = mt7925_debug_lvl;
+	phy->dev->mt76.debug_lvl = &mt7925_debug_lvl;
 
 	mt792x_mutex_acquire(phy->dev);
 	err = __mt7925_start(phy);
