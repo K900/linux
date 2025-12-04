@@ -3432,6 +3432,7 @@ int mt7996_init_band_debugfs(struct mt7996_phy *phy)
 			    &mt7996_xmit_queues_fops);
 	debugfs_create_file("sys_recovery", 0600, dir, phy,
 			    &mt7996_sys_recovery_ops);
+	debugfs_create_file("tx_stats", 0400, dir, phy, &mt7996_tx_stats_fops);
 	debugfs_create_file("rxfilter", 0400, dir, phy, &mt7996_rxfilter_fops);
 	debugfs_create_file("sr_enable", 0600, dir, phy, &fops_sr_enable);
 	debugfs_create_file("sr_stats", 0400, dir, phy, &mt7996_sr_stats_fops);
