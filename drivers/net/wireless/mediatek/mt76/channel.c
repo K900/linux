@@ -397,6 +397,8 @@ int mt76_remain_on_channel(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	if (!phy)
 		return -EINVAL;
 
+	cancel_delayed_work_sync(&phy->mac_work);
+
 	mt76_dbg(dev, MT76_DBG_CHAN, "start roc work on freq=%u\n",
 		 chan->center_freq);
 
