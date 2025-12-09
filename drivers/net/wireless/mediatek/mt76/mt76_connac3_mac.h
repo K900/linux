@@ -204,6 +204,11 @@ enum tx_frag_idx {
 	MT_TX_FRAG_LAST
 };
 
+enum {
+       MT_TXS_MPDU_FMT = 0,
+       MT_TXS_PPDU_FMT = 2,
+};
+
 /* BW defined in FW hal_cal_flow_rom.h */
 enum {
        FW_CDBW_20MHZ,
