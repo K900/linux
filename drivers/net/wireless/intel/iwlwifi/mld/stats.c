@@ -362,8 +362,6 @@ void iwl_mld_mac80211_sta_statistics(struct ieee80211_hw *hw,
 {
 	struct iwl_mld_sta *mld_sta = iwl_mld_sta_from_mac80211(sta);
 	struct iwl_mld_vif *mld_vif = iwl_mld_vif_from_mac80211(vif);
-	struct iwl_mld_link *link;
-	int q = 0;
 
 	/* Grab chain signal avg, mac80211 cannot do it because
 	 * this driver uses RSS.  Grab signal_avg here too because firmware
@@ -383,23 +381,6 @@ void iwl_mld_mac80211_sta_statistics(struct ieee80211_hw *hw,
 	sinfo->chain_signal_avg[0] = -ewma_signal_read(&mld_sta->rx_avg_chain_signal[0]);
 	sinfo->chain_signal_avg[1] = -ewma_signal_read(&mld_sta->rx_avg_chain_signal[1]);
 
-	/* NOTE:  This is effectively only the active links */
-	for_each_mld_vif_valid_link(mld_vif, link) {
-		struct link_station_info *ilink;
-
-		if (q >= IEEE80211_MLD_MAX_NUM_LINKS)
-			break;
-
-		ilink = sinfo->links[q++];
-
-		ilink->filled |= BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG);
-		ilink->rx_beacon_signal_avg =
-			-ewma_signal_read(&link->rx_avg_beacon_signal);
-
-		iwl_mld_set_sta_rate(link->last_tx_rate_n_flags, &ilink->txrate);
-		ilink->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
-	}
-
 	/* This API is not EMLSR ready, so we cannot provide complete
 	 * information if EMLSR is active
 	 */
@@ -414,6 +395,28 @@ void iwl_mld_mac80211_sta_statistics(struct ieee80211_hw *hw,
 	iwl_mld_sta_stats_fill_beacon_signal_avg(vif, sinfo);
 
 	/* TODO: NL80211_STA_INFO_BEACON_RX */
+}
+
+void iwl_mld_mac80211_link_sta_statistics(struct ieee80211_hw *hw,
+					  struct ieee80211_vif *vif,
+					  struct ieee80211_link_sta *link_sta,
+					  struct link_station_info *link_sinfo)
+{
+	struct iwl_mld_vif *mld_vif = iwl_mld_vif_from_mac80211(vif);
+	struct iwl_mld_link *mld_link;
+	int link_id = vif->active_links ? __ffs(vif->active_links) : 0;
+
+	mld_link = iwl_mld_link_dereference_check(mld_vif, link_id);
+
+	if (WARN_ON(!mld_link))
+		return;
+
+	link_sinfo->rx_beacon_signal_avg =
+		-ewma_signal_read(&mld_link->rx_avg_beacon_signal);
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG);
+
+	iwl_mld_set_sta_rate(mld_link->last_tx_rate_n_flags, &link_sinfo->txrate);
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
 }
 
 #define IWL_MLD_TRAFFIC_LOAD_MEDIUM_THRESH	10 /* percentage */
