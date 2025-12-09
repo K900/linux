@@ -1016,10 +1016,11 @@ mt7996_mcu_rx_all_sta_info_event(struct mt7996_dev *dev, struct sk_buff *skb)
 				break;
 
 			for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
+				u8 lmac_ac = mt76_connac_lmac_mapping(ac);
 				wcid->stats.tx_bytes +=
-					le32_to_cpu(res->adm_stat[i].tx_bytes[ac]);
+					le32_to_cpu(res->adm_stat[i].tx_bytes[lmac_ac]);
 				wcid->stats.rx_bytes +=
-					le32_to_cpu(res->adm_stat[i].rx_bytes[ac]);
+					le32_to_cpu(res->adm_stat[i].rx_bytes[lmac_ac]);
 			}
 			break;
 		case UNI_ALL_STA_TXRX_MSDU_COUNT:
