@@ -1633,7 +1633,7 @@ static void
 mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 		 struct ieee80211_link_sta *link_sta,
 		 struct mt76_wcid *wcid, struct list_head *free_list,
-		 u32 tx_cnt, u32 tx_status, u32 ampdu)
+		 u32 tx_cnt, u32 tx_status)
 {
 	struct mt76_dev *mdev = &dev->mt76;
 	__le32 *txwi;
@@ -1671,7 +1671,7 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 	info->status.rates[1].idx = -1; /* terminate rate list */
 
 	/* force TX_STAT_AMPDU to be set, or mac80211 will ignore status */
-	if (ampdu || (info->flags & IEEE80211_TX_CTL_AMPDU)) {
+	if (info->flags & IEEE80211_TX_CTL_AMPDU) {
 		info->flags |= IEEE80211_TX_STAT_AMPDU | IEEE80211_TX_CTL_AMPDU;
 		info->status.ampdu_len = 1;
 	}
@@ -1707,21 +1707,12 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 			break;
 		}
 
-		stats->tx_attempts += tx_cnt;
-		stats->tx_retries += tx_cnt - 1;
-
 		mt76_wcid_dbg(&dev->mt76, wcid, MT76_DBG_TX,
 			      "%s: skb: %p skb->len: %d tx-cnt: %d  tx_status: 0x%x  txo: %d\n",
 			      __func__, t->skb, t->skb->len, tx_cnt, tx_status,
 			      !!(cb->flags & MT_TX_CB_TXO_USED));
 
-		if (tx_status == 0) {
-			stats->tx_mpdu_ok++;
-			stats->tx_bytes += t->skb->len;
-		} else {
-			stats->tx_failed++;
-		}
-
+		// TODO:  Not accurate w/regard to which link, since wcid does not match tx link.
 		if (cb->flags & MT_TX_CB_TXO_USED) {
 			stats->txo_tx_mpdu_attempts += tx_cnt;
 
@@ -1790,7 +1781,8 @@ mt7996_mac_tx_free(struct mt7996_dev *dev, void *data, int len)
 	for (cur_info = &tx_free[2]; count < total; cur_info++) {
 		u32 msdu, info;
 		u8 i;
-		u32 tx_cnt, tx_status, ampdu;
+		u32 tx_status = 0;
+		u32 tx_retries = 0, tx_failed = 0;
 
 		if (WARN_ON_ONCE((void *)cur_info >= end))
 			return;
@@ -1841,15 +1833,13 @@ next:
 				cur_info++;
 			continue;
 		} else if (info & MT_TXFREE_INFO_HEADER) {
-			u32 tx_retries = 0, tx_failed = 0, count;
-
 			if (!wcid)
 				continue;
 
-			count = FIELD_GET(MT_TXFREE_INFO_COUNT, info);
-			tx_retries = count ? count - 1 : 0;
-			tx_failed = tx_retries +
-				!!FIELD_GET(MT_TXFREE_INFO_STAT, info);
+			tx_status = FIELD_GET(MT_TXFREE_INFO_STAT, info);
+			tx_retries =
+				FIELD_GET(MT_TXFREE_INFO_COUNT, info) - 1;
+			tx_failed = tx_retries + !!tx_status;
 
 			wcid->stats.tx_retries += tx_retries;
 			wcid->stats.tx_failed += tx_failed;
@@ -1861,11 +1851,6 @@ next:
 			if (msdu == MT_TXFREE_INFO_MSDU_ID)
 				continue;
 
-			/* TODO:  How to get tx_cnt, tx_status, ampdu*/
-			tx_status = 0; /* For now, set txstatus=ok */
-			tx_cnt = 1;
-			ampdu = 1;
-
 			count++;
 			txwi = mt76_token_release(mdev, msdu, &wake);
 
@@ -1874,24 +1859,13 @@ next:
 				continue;
 			}
 
-			/* More educated tx_status guess, if possible */
-			if (txwi->skb) {
-				struct mt76_tx_cb *cb = mt76_tx_skb_cb(txwi->skb);
-				struct ieee80211_tx_info *tx_info = IEEE80211_SKB_CB(txwi->skb);
-
-				/* More informed case, we have already done txs work previously */
-				if ((cb->flags & MT_TX_CB_TXS_DONE)) {
-					tx_status = (tx_info->flags & IEEE80211_TX_STAT_ACK)
-						    ? 0  /* Previously ack'd, probably ok */
-						    : 1; /* No ack, probably fail */
-				}
-			}
-
 			mtk_dbg(mdev, TXV, "mt7996-mac-tx-free, msdu: %d, tx-cnt: %d  t_status: %d count: %d/%d\n",
-				msdu, tx_cnt, tx_status, count, total);
+				msdu, tx_retries + 1, tx_status, count, total);
 
-			mt7996_txwi_free(dev, txwi, link_sta, wcid,
-					 &free_list, tx_cnt, tx_status, ampdu);
+			mt7996_txwi_free(dev, txwi, link_sta, wcid, &free_list,
+					 tx_retries + 1, tx_status);
+
+			tx_retries = 0; /* We recorded it above, don't count it again */
 		}
 	}
 
@@ -1910,9 +1884,10 @@ next:
 
 static bool
 mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
-		       int pid, __le32 *txs_data)
+		       struct mt76_wcid *link_wcid, int pid, __le32 *txs_data)
 {
-	struct mt76_sta_stats *stats = &wcid->stats;
+	u8 fmt = le32_get_bits(txs_data[0], MT_TXS0_TXS_FORMAT);
+	struct mt76_sta_stats *stats = &link_wcid->stats;
 	struct ieee80211_supported_band *sband;
 	struct mt76_dev *mdev = &dev->mt76;
 	struct mt76_phy *mphy;
@@ -1923,13 +1898,15 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 	bool cck = false;
 	u32 txrate, txs, mode, stbc;
 	u32 mcs_idx = 0;
+	u8 bw;
 
 	txs = le32_to_cpu(txs_data[0]);
 
 	mt76_tx_status_lock(mdev, &list);
 
-	/* only report MPDU TXS */
-	if (le32_get_bits(txs_data[0], MT_TXS0_TXS_FORMAT) == 0) {
+	switch (fmt) {
+	case MT_TXS_MPDU_FMT:
+		/* Only report MPDU TXS to mac80211. */
 		skb = mt76_tx_status_skb_get(mdev, wcid, pid, &list);
 		if (skb) {
 			info = IEEE80211_SKB_CB(skb);
@@ -1942,6 +1919,18 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 
 			info->status.rates[0].idx = -1;
 		}
+		break;
+	case MT_TXS_PPDU_FMT:
+		stats->tx_bytes += le32_get_bits(txs_data[5], MT_TXS5_MPDU_TX_BYTE);
+		stats->tx_mpdu_ok += le32_get_bits(txs_data[5], MT_TXS5_MPDU_TX_CNT);
+		stats->tx_attempts += (le32_get_bits(txs_data[5], MT_TXS5_MPDU_TX_CNT) +
+				       le32_get_bits(txs_data[7], MT_TXS7_MPDU_RETRY_CNT));
+		stats->tx_failed += le32_get_bits(txs_data[6], MT_TXS6_MPDU_FAIL_CNT);
+		stats->tx_retries += le32_get_bits(txs_data[7], MT_TXS7_MPDU_RETRY_CNT);
+		break;
+	default:
+		dev_err(mdev->dev, "Unknown TXS format: %hhu\n", fmt);
+		goto unlock;
 	}
 
 	if (mtk_wed_device_active(&dev->mt76.mmio.wed) && wcid->sta) {
@@ -1996,10 +1985,6 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 		if (rate.mcs > 31)
 			goto out;
 
-		rate.flags = RATE_INFO_FLAGS_MCS;
-		if (wcid->rate.flags & RATE_INFO_FLAGS_SHORT_GI)
-			rate.flags |= RATE_INFO_FLAGS_SHORT_GI;
-
 		if (info) {
 			info->status.rates[0].idx = rate.mcs;
 			info->status.rates[0].flags |= IEEE80211_TX_RC_MCS;
@@ -2009,10 +1994,6 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 	case MT_PHY_TYPE_VHT:
 		if (rate.mcs > 9)
 			goto out;
-
-		rate.flags = RATE_INFO_FLAGS_VHT_MCS;
-		if (wcid->rate.flags & RATE_INFO_FLAGS_SHORT_GI)
-			rate.flags |= RATE_INFO_FLAGS_SHORT_GI;
 
 		if (info) {
 			info->status.rates[0].idx = (rate.nss << 4) | rate.mcs;
@@ -2026,9 +2007,6 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 		if (rate.mcs > 11)
 			goto out;
 
-		rate.he_gi = wcid->rate.he_gi;
-		rate.he_dcm = FIELD_GET(MT_TX_RATE_DCM, txrate);
-		rate.flags = RATE_INFO_FLAGS_HE_MCS;
 		if (info)
 			info->status.rates[0].idx = (rate.nss << 4) | rate.mcs;
 		break;
@@ -2038,8 +2016,6 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 		if (rate.mcs > 13)
 			goto out;
 
-		rate.eht_gi = wcid->rate.eht_gi;
-		rate.flags = RATE_INFO_FLAGS_EHT_MCS;
 		if (info)
 			info->status.rates[0].idx = (rate.nss << 4) | rate.mcs;
 		break;
@@ -2049,34 +2025,14 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 
 	stats->tx_mcs[mcs_idx]++;
 	stats->tx_mode[mode]++;
-
-	switch (FIELD_GET(MT_TXS0_BW, txs)) {
-	case IEEE80211_STA_RX_BW_320:
-		rate.bw = RATE_INFO_BW_320;
-		stats->tx_bw[4]++;
-		break;
-	case IEEE80211_STA_RX_BW_160:
-		rate.bw = RATE_INFO_BW_160;
-		stats->tx_bw[3]++;
-		break;
-	case IEEE80211_STA_RX_BW_80:
-		rate.bw = RATE_INFO_BW_80;
-		stats->tx_bw[2]++;
-		break;
-	case IEEE80211_STA_RX_BW_40:
-		rate.bw = RATE_INFO_BW_40;
-		stats->tx_bw[1]++;
-		break;
-	default:
-		rate.bw = RATE_INFO_BW_20;
-		stats->tx_bw[0]++;
-		break;
-	}
-	wcid->rate = rate;
+	bw = FIELD_GET(MT_TXS0_BW, txs);
+	if (bw < ARRAY_SIZE(stats->tx_bw))
+		stats->tx_bw[bw]++;
 
 out:
 	if (skb)
 		mt76_tx_status_skb_done(mdev, skb, &list);
+unlock:
 	mt76_tx_status_unlock(mdev, &list);
 
 	return !!skb;
@@ -2084,8 +2040,7 @@ out:
 
 static void mt7996_mac_add_txs(struct mt7996_dev *dev, void *data)
 {
-	struct mt7996_sta_link *msta_link;
-	struct mt76_wcid *wcid;
+	struct mt76_wcid *wcid, *link_wcid;
 	__le32 *txs_data = data;
 	u16 wcidx;
 	u8 band, pid;
@@ -2106,14 +2061,16 @@ static void mt7996_mac_add_txs(struct mt7996_dev *dev, void *data)
 	if (!wcid)
 		goto out;
 
-	mt7996_mac_add_txs_skb(dev, wcid, pid, txs_data);
+	link_wcid = mt7996_rx_get_wcid(dev, wcidx, band);
+	if (!link_wcid)
+                goto out;
 
-	if (!wcid->sta)
+	mt7996_mac_add_txs_skb(dev, wcid, link_wcid, pid, txs_data);
+
+	if (!link_wcid->sta)
 		goto out;
 
-	msta_link = container_of(wcid, struct mt7996_sta_link, wcid);
-	mt76_wcid_add_poll(&dev->mt76, &msta_link->wcid);
-
+	mt76_wcid_add_poll(&dev->mt76, link_wcid);
 out:
 	rcu_read_unlock();
 }
@@ -2756,7 +2713,7 @@ void mt7996_tx_token_put(struct mt7996_dev *dev)
 
 	spin_lock_bh(&dev->mt76.token_lock);
 	idr_for_each_entry(&dev->mt76.token, txwi, id) {
-		mt7996_txwi_free(dev, txwi, NULL, NULL, NULL, 0, 1, 0);
+		mt7996_txwi_free(dev, txwi, NULL, NULL, NULL, 0, 1);
 		dev->mt76.token_count--;
 	}
 	spin_unlock_bh(&dev->mt76.token_lock);
