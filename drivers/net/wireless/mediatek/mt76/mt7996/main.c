@@ -2189,6 +2189,75 @@ static void mt7996_sta_statistics(struct ieee80211_hw *hw,
 	}
 }
 
+static void mt7996_link_sta_statistics(struct ieee80211_hw *hw,
+				       struct ieee80211_vif *vif,
+				       struct ieee80211_link_sta *link_sta,
+				       struct link_station_info *link_sinfo)
+{
+	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+	struct mt7996_sta *msta = (struct mt7996_sta *)link_sta->sta->drv_priv;
+	struct mt7996_sta_link *msta_link;
+	struct mt76_wcid *wcid;
+	struct mt76_sta_stats *stats;
+	struct rate_info *txrate;
+	u8 link_id = link_sta->link_id;
+
+	if (link_id >= IEEE80211_MLD_MAX_NUM_LINKS)
+		return;
+
+	mutex_lock(&dev->mt76.mutex);
+
+	msta_link = mt76_dereference(msta->link[link_id], &dev->mt76);
+	if (!msta_link)
+		goto out;
+
+	wcid = &msta_link->wcid;
+	stats = &wcid->stats;
+	txrate = &wcid->rate;
+
+	link_sinfo->tx_bytes = stats->tx_bytes;
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BYTES64);
+
+	link_sinfo->rx_bytes = stats->rx_bytes;
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_RX_BYTES64);
+
+	link_sinfo->txrate.mcs = txrate->mcs;
+	link_sinfo->txrate.nss = txrate->nss;
+	link_sinfo->txrate.bw = txrate->bw;
+	link_sinfo->txrate.he_gi = txrate->he_gi;
+	link_sinfo->txrate.he_dcm = txrate->he_dcm;
+	link_sinfo->txrate.he_ru_alloc = txrate->he_ru_alloc;
+	link_sinfo->txrate.eht_gi = txrate->eht_gi;
+	link_sinfo->txrate.flags = txrate->flags;
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_BITRATE);
+
+	link_sinfo->rx_packets = stats->rx_packets;
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_RX_PACKETS);
+
+	link_sinfo->tx_packets = stats->tx_mpdu_ok;
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_PACKETS);
+
+	link_sinfo->tx_retries = stats->tx_retries;
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_RETRIES);
+
+	link_sinfo->tx_failed = stats->tx_failed;
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_TX_FAILED);
+
+	link_sinfo->ack_signal = (s8)msta_link->ack_signal;
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_ACK_SIGNAL);
+
+	link_sinfo->avg_ack_signal =
+		-(s8)ewma_avg_signal_read(&msta_link->avg_ack_signal);
+	link_sinfo->filled |= BIT_ULL(NL80211_STA_INFO_ACK_SIGNAL_AVG);
+
+	//mt76_wcid_dbg(&dev->mt76, wcid, MT76_DBG_WRN,
+	//	      "%s, tx_bytes: %lld rx_bytes: %lld tx_packets: %d rx_packets: %d\n",
+	//	      __func__, link_sinfo->tx_bytes, link_sinfo->rx_bytes,
+	//	      link_sinfo->tx_packets, link_sinfo->rx_packets);
+out:
+	mutex_unlock(&dev->mt76.mutex);
+}
+
 static void mt7996_link_rate_ctrl_update(void *data,
 					 struct mt7996_sta_link *msta_link)
 {
@@ -3130,6 +3199,7 @@ const struct ieee80211_ops mt7996_ops = {
 	.set_bitrate_mask = mt7996_set_bitrate_mask,
 	.set_coverage_class = mt7996_set_coverage_class,
 	.sta_statistics = mt7996_sta_statistics,
+	.link_sta_statistics = mt7996_link_sta_statistics,
 	.sta_set_4addr = mt7996_sta_set_4addr,
 	.sta_set_decap_offload = mt7996_sta_set_decap_offload,
 	.add_twt_setup = mt7996_mac_add_twt_setup,
