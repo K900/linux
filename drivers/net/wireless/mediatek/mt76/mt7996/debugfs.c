@@ -2197,14 +2197,18 @@ mt7996_rmac_table_show(struct seq_file *s, void *data)
 		for_each_set_bit(j, &usage_bitmap[i], 32) {
 			u32 req = MT_WF_RMAC_MEM_CTRL_TRIG |
 				  u32_encode_bits(i * 32 + j, MT_WF_RMAC_MEM_CTRL_TDX);
-			u32 dw[2];
-			u8 *addr = (u8 *)dw;
+			u32 dw[4];
+			u8 *addr1 = (u8 *)&dw[0];
+			u8 *addr3 = (u8 *)&dw[2];
 
 			mt76_wr(dev, MT_WF_RMAC_MEM_CTRL(band), req);
 			dw[0] = mt76_rr(dev, MT_WF_RMAC_SRAM_DATA0(band));
 			dw[1] = mt76_rr(dev, MT_WF_RMAC_SRAM_DATA1(band));
+			dw[2] = mt76_rr(dev, MT_WF_RMAC_SRAM_DATA2(band));
+			dw[3] = mt76_rr(dev, MT_WF_RMAC_SRAM_DATA3(band));
 
-			seq_printf(s, "omac_idx%d\tAddr: %pM\n", i * 32 + j, addr);
+			seq_printf(s, "omac_idx%d\tAddr1: %pM\tAddr3: %pM\tRaw: %08x %08x %08x %08x\n",
+				   i * 32 + j, addr1, addr3, dw[0], dw[1], dw[2], dw[3]);
 		}
 	}
 
