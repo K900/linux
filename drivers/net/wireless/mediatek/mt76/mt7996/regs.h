@@ -396,6 +396,8 @@ enum offs_rev {
 
 #define MT_WF_RMAC_SRAM_DATA0(_band)		MT_WF_RMAC(_band, 0x210)
 #define MT_WF_RMAC_SRAM_DATA1(_band)		MT_WF_RMAC(_band, 0x214)
+#define MT_WF_RMAC_SRAM_DATA2(_band)		MT_WF_RMAC(_band, 0x218)
+#define MT_WF_RMAC_SRAM_DATA3(_band)		MT_WF_RMAC(_band, 0x21c)
 #define MT_WF_RMAC_SRAM_BITMAP0(_band)		MT_WF_RMAC(_band, 0x220)
 #define MT_WF_RMAC_SRAM_BITMAP1(_band)		MT_WF_RMAC(_band, 0x224)
 #define MT_WF_RMAC_MEM_CTRL(_band)		MT_WF_RMAC(_band, 0x228)
