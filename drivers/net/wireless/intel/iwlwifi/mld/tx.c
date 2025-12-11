@@ -1493,7 +1493,10 @@ void iwl_mld_handle_tx_resp_notif(struct iwl_mld *mld,
 		struct iwl_mld_link *link;
 
 		link = mld_vif->link[link_sta->link_id];
-		link->last_tx_rate_n_flags = le32_to_cpu(tx_resp->initial_rate);
+		/* iwlmld is always v3 since fw core 101 */
+		link->last_tx_rate_n_flags =
+			iwl_v3_rate_from_v2_v3(tx_resp->initial_rate,
+					       true);
 	}
 
 	if (tx_failure && mld_sta->sta_state < IEEE80211_STA_AUTHORIZED)
