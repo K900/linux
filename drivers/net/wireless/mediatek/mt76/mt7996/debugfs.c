@@ -2187,6 +2187,7 @@ mt7996_rmac_table_show(struct seq_file *s, void *data)
 	struct mt7996_phy *phy = s->private;
 	struct mt7996_dev *dev = phy->dev;
 	unsigned long usage_bitmap[2] = {0};
+	char buf[20];
 	int i, j;
 	u8 band = phy->mt76->band_idx;
 
@@ -2195,11 +2196,14 @@ mt7996_rmac_table_show(struct seq_file *s, void *data)
 
 	for (i = 0; i < 2; i++) {
 		for_each_set_bit(j, &usage_bitmap[i], 32) {
+			u32 om_addr_lo, bssid_lo;
+			u16 om_addr_hi, bssid_hi;
+			bool om_en, bss_en, mbss_en, color_en, pcolor_en;
+			u8 mode, mbss_msk, color;
+			int idx = i * 32 + j;
 			u32 req = MT_WF_RMAC_MEM_CTRL_TRIG |
 				  u32_encode_bits(i * 32 + j, MT_WF_RMAC_MEM_CTRL_TDX);
 			u32 dw[4];
-			u8 *addr1 = (u8 *)&dw[0];
-			u8 *addr3 = (u8 *)&dw[2];
 
 			mt76_wr(dev, MT_WF_RMAC_MEM_CTRL(band), req);
 			dw[0] = mt76_rr(dev, MT_WF_RMAC_SRAM_DATA0(band));
@@ -2207,8 +2211,57 @@ mt7996_rmac_table_show(struct seq_file *s, void *data)
 			dw[2] = mt76_rr(dev, MT_WF_RMAC_SRAM_DATA2(band));
 			dw[3] = mt76_rr(dev, MT_WF_RMAC_SRAM_DATA3(band));
 
-			seq_printf(s, "omac_idx%d\tAddr1: %pM\tAddr3: %pM\tRaw: %08x %08x %08x %08x\n",
-				   i * 32 + j, addr1, addr3, dw[0], dw[1], dw[2], dw[3]);
+			snprintf(buf, sizeof(buf), "[%d]", idx);
+
+			seq_printf(s, "%-4s ", buf);
+
+			om_en = FIELD_GET(MT_WF_RMAC_SRAM_OMAC_EN, dw[1]);
+			if (om_en) {
+				om_addr_lo = dw[0];
+				om_addr_hi = FIELD_GET(MT_WF_RMAC_SRAM_OMAC_HI, dw[1]);
+
+				snprintf(buf, sizeof(buf), "%02x:%02x:%02x:%02x:%02x:%02x",
+					 om_addr_lo & 0xff, om_addr_lo >> 8 & 0xff,
+					 om_addr_lo >> 16 & 0xff, om_addr_lo >> 24,
+					 om_addr_hi & 0xff, om_addr_hi >> 8);
+			}
+			seq_printf(s, "OwnMAC Addr: %-17s  ", om_en ? buf : "None");
+
+			bss_en = FIELD_GET(MT_WF_RMAC_SRAM_BSSID_EN, dw[3]);
+
+			if (!bss_en) {
+				seq_puts(s, "No BSS\n");
+				continue;
+			}
+
+			bssid_lo = dw[2];
+			bssid_hi = FIELD_GET(MT_WF_RMAC_SRAM_BSSID_HI, dw[3]);
+
+			mode = FIELD_GET(MT_WF_RMAC_SRAM_MODE, dw[3]);
+
+			seq_printf(s, "BSSID: %02x:%02x:%02x:%02x:%02x:%02x  Mode %d  ",
+				   bssid_lo & 0xff, bssid_lo >> 8 & 0xff,
+				   bssid_lo >> 16 & 0xff, bssid_lo >> 24,
+				   bssid_hi & 0xff, bssid_hi >> 8, mode);
+
+			mbss_en = FIELD_GET(MT_WF_RMAC_SRAM_MBSSID_EN, dw[3]);
+
+			if (mbss_en) {
+				mbss_msk = FIELD_GET(MT_WF_RMAC_SRAM_MBSSID_MASK, dw[3]);
+				snprintf(buf, sizeof(buf), "0x%x", mbss_msk);
+			}
+
+			seq_printf(s, "MBSS Mask: %-4s  ", mbss_en ? buf : "None");
+
+			pcolor_en = FIELD_GET(MT_WF_RMAC_SRAM_BSS_PCOLOR_EN, dw[3]);
+			color_en = FIELD_GET(MT_WF_RMAC_SRAM_BSS_COLOR_EN, dw[3]) || pcolor_en;
+
+			if (color_en) {
+				color = FIELD_GET(MT_WF_RMAC_SRAM_BSS_COLOR, dw[3]);
+				snprintf(buf, sizeof(buf), "%-2d%s", color,
+				         pcolor_en ? " (partial)" : "");
+			}
+			seq_printf(s, "Color: %s\n", color_en ? buf : "None");
 		}
 	}
 
