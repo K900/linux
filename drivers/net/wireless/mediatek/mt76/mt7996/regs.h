@@ -396,8 +396,21 @@ enum offs_rev {
 
 #define MT_WF_RMAC_SRAM_DATA0(_band)		MT_WF_RMAC(_band, 0x210)
 #define MT_WF_RMAC_SRAM_DATA1(_band)		MT_WF_RMAC(_band, 0x214)
+#define MT_WF_RMAC_SRAM_BSSID_IDX		GENMASK(31, 30)
+#define MT_WF_RMAC_SRAM_OMAC_EN			BIT(16)
+#define MT_WF_RMAC_SRAM_OMAC_HI			GENMASK(15, 0) /* DATA0 is first 4 octects */
+
 #define MT_WF_RMAC_SRAM_DATA2(_band)		MT_WF_RMAC(_band, 0x218)
 #define MT_WF_RMAC_SRAM_DATA3(_band)		MT_WF_RMAC(_band, 0x21c)
+#define MT_WF_RMAC_SRAM_BSS_COLOR_EN		BIT(31)
+#define MT_WF_RMAC_SRAM_BSS_PCOLOR_EN		BIT(30)
+#define MT_WF_RMAC_SRAM_BSS_COLOR		GENMASK(29, 24)
+#define MT_WF_RMAC_SRAM_MBSSID_EN		BIT(23)
+#define MT_WF_RMAC_SRAM_MBSSID_MASK		GENMASK(22, 20)
+#define MT_WF_RMAC_SRAM_MODE			GENMASK(19, 17)
+#define MT_WF_RMAC_SRAM_BSSID_EN		BIT(16)
+#define MT_WF_RMAC_SRAM_BSSID_HI		GENMASK(15, 0) /* DATA2 is first 4 octets */
+
 #define MT_WF_RMAC_SRAM_BITMAP0(_band)		MT_WF_RMAC(_band, 0x220)
 #define MT_WF_RMAC_SRAM_BITMAP1(_band)		MT_WF_RMAC(_band, 0x224)
 #define MT_WF_RMAC_MEM_CTRL(_band)		MT_WF_RMAC(_band, 0x228)
