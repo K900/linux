@@ -2850,49 +2850,6 @@ mt7996_hw_queues_show(struct seq_file *file, void *data)
 DEFINE_SHOW_ATTRIBUTE(mt7996_hw_queues);
 
 static int
-mt7996_xmit_queues_show(struct seq_file *file, void *data)
-{
-	struct mt7996_phy *phy = file->private;
-	struct mt7996_dev *dev = phy->dev;
-	struct {
-		struct mt76_queue *q;
-		char *queue;
-	} queue_map[] = {
-		{ dev->mphy.q_tx[MT_TXQ_BE],	 "  MAIN0"  },
-		{ NULL,				 "  MAIN1"  },
-		{ NULL,				 "  MAIN2"  },
-		{ dev->mt76.q_mcu[MT_MCUQ_WM],	 "  MCUWM"  },
-		{ dev->mt76.q_mcu[MT_MCUQ_WA],	 "  MCUWA"  },
-		{ dev->mt76.q_mcu[MT_MCUQ_FWDL], "MCUFWDL" },
-	};
-	int i;
-
-	phy = mt7996_phy2(dev);
-	if (phy)
-		queue_map[1].q = phy->mt76->q_tx[MT_TXQ_BE];
-
-	phy = mt7996_phy3(dev);
-	if (phy)
-		queue_map[2].q = phy->mt76->q_tx[MT_TXQ_BE];
-
-	seq_puts(file, "     queue | hw-queued |      head |      tail |\n");
-	for (i = 0; i < ARRAY_SIZE(queue_map); i++) {
-		struct mt76_queue *q = queue_map[i].q;
-
-		if (!q)
-			continue;
-
-		seq_printf(file, "   %s | %9d | %9d | %9d |\n",
-			   queue_map[i].queue, q->queued, q->head,
-			   q->tail);
-	}
-
-	return 0;
-}
-
-DEFINE_SHOW_ATTRIBUTE(mt7996_xmit_queues);
-
-static int
 mt7996_twt_stats(struct seq_file *s, void *data)
 {
 	struct mt7996_dev *dev = dev_get_drvdata(s->private);
@@ -3485,8 +3442,7 @@ int mt7996_init_band_debugfs(struct mt7996_phy *phy)
 
 	debugfs_create_file("hw-queues", 0400, dir, phy,
 			    &mt7996_hw_queues_fops);
-	debugfs_create_file("xmit-queues", 0400, dir, phy,
-			    &mt7996_xmit_queues_fops);
+	mt76_debugfs_add_tx_queues(phy->mt76, dir);
 	debugfs_create_file("sys_recovery", 0600, dir, phy,
 			    &mt7996_sys_recovery_ops);
 	debugfs_create_file("tx_stats", 0400, dir, phy, &mt7996_tx_stats_fops);
@@ -3531,6 +3487,7 @@ int mt7996_init_dev_debugfs(struct mt7996_phy *phy)
 			    &fops_implicit_txbf);
 	debugfs_create_devm_seqfile(dev->mt76.dev, "twt_stats", dir,
 				    mt7996_twt_stats);
+	mt76_debugfs_add_mcu_queues(&dev->mt76, dir);
 	debugfs_create_file("rf_regval", 0600, dir, dev, &fops_rf_regval);
 	debugfs_create_u32("ignore_radar", 0600, dir,
 			   &dev->ignore_radar);
