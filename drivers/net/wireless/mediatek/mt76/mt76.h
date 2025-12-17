@@ -1612,6 +1612,8 @@ static inline struct dentry *mt76_register_debugfs(struct mt76_dev *dev)
 	return mt76_register_debugfs_fops(&dev->phy, NULL);
 }
 
+void mt76_debugfs_add_tx_queues(struct mt76_phy *phy, struct dentry *dir);
+void mt76_debugfs_add_mcu_queues(struct mt76_dev *dev, struct dentry *dir);
 int mt76_queues_read(struct seq_file *s, void *data);
 void mt76_seq_puts_array(struct seq_file *file, const char *str,
 			 s8 *val, int len);
