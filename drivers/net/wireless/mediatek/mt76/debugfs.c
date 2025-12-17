@@ -53,6 +53,78 @@ mt76_napi_threaded_get(void *data, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(fops_napi_threaded, mt76_napi_threaded_get,
 			 mt76_napi_threaded_set, "%llu\n");
 
+static const char *TXQ_NAMES[__MT_TXQ_MAX] = {
+	[MT_TXQ_VO]     = "VO",
+	[MT_TXQ_VI]     = "VI",
+	[MT_TXQ_BE]     = "BE",
+	[MT_TXQ_BK]     = "BK",
+	[MT_TXQ_PSD]    = "PSD",
+	[MT_TXQ_BEACON] = "BEACON",
+	[MT_TXQ_CAB]    = "CAB",
+};
+
+static char *MCUQ_NAMES[__MT_MCUQ_MAX] = {
+	[MT_MCUQ_WM]   = "WM",
+	[MT_MCUQ_WA]   = "WA",
+	[MT_MCUQ_FWDL] = "FWDL",
+};
+
+static int
+mt76_tx_queues_show(struct seq_file *file, void *data)
+{
+	struct mt76_phy *phy = file->private;
+	int i;
+
+	seq_puts(file, "     queue | hw-queued |      head |      tail |\n");
+	for (i = 0; i < ARRAY_SIZE(phy->q_tx); i++) {
+		struct mt76_queue *q = phy->q_tx[i];
+		const char *name = TXQ_NAMES[i] ?: "";
+
+		if (!q)
+			continue;
+
+		seq_printf(file, "%2d %7s | %9d | %9d | %9d |\n",
+			   i, name, q->queued, q->head, q->tail);
+	}
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(mt76_tx_queues);
+
+static int
+mt76_mcu_queues_show(struct seq_file *file, void *data)
+{
+	struct mt76_dev *dev = file->private;
+	int i;
+
+	seq_puts(file, "     queue | hw-queued |      head |      tail |\n");
+	for (i = 0; i < ARRAY_SIZE(dev->q_mcu); i++) {
+		struct mt76_queue *q = dev->q_mcu[i];
+		const char *name = MCUQ_NAMES[i] ?: "";
+
+		if (!q)
+			continue;
+
+		seq_printf(file, "%2d %7s | %9d | %9d | %9d |\n",
+			   i, name, q->queued, q->head, q->tail);
+	}
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(mt76_mcu_queues);
+
+void mt76_debugfs_add_tx_queues(struct mt76_phy *phy, struct dentry *dir)
+{
+	debugfs_create_file("tx-queues", 0400, dir, phy, &mt76_tx_queues_fops);
+}
+EXPORT_SYMBOL_GPL(mt76_debugfs_add_tx_queues);
+
+void mt76_debugfs_add_mcu_queues(struct mt76_dev *dev, struct dentry *dir)
+{
+	debugfs_create_file("mcu-queues", 0400, dir, dev, &mt76_mcu_queues_fops);
+}
+EXPORT_SYMBOL_GPL(mt76_debugfs_add_mcu_queues);
+
 int mt76_queues_read(struct seq_file *s, void *data)
 {
 	struct mt76_dev *dev = dev_get_drvdata(s->private);
