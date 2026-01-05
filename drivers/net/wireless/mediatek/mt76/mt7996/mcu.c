@@ -3054,6 +3054,15 @@ int mt7996_mcu_add_rate_ctrl(struct mt7996_dev *dev, struct mt7996_sta *msta,
 		goto error_unlock;
 
 	sta = wcid_to_sta(&msta_link->wcid);
+	if (!sta) {
+		mt76_dbg(&dev->mt76, MT76_DBG_WRN,
+			 "%s: phy_idx: %hhu, wcid: %hu, link_id: %hhu\n",
+			 __func__,
+			 msta_link->wcid.phy_idx, msta_link->wcid.idx,
+			 link_id);
+		goto error_unlock;
+	}
+
 	link_sta = rcu_dereference(sta->link[link_id]);
 	if (!link_sta)
 		goto error_unlock;
