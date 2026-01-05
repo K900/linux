@@ -1760,7 +1760,7 @@ ieee80211_get_sband(struct ieee80211_sub_if_data *sdata)
 	struct ieee80211_chanctx_conf *chanctx_conf;
 	enum nl80211_band band;
 
-	WARN_ON(ieee80211_vif_is_mld(&sdata->vif));
+	WARN_ON_ONCE(ieee80211_vif_is_mld(&sdata->vif));
 
 	rcu_read_lock();
 	chanctx_conf = rcu_dereference(sdata->vif.bss_conf.chanctx_conf);
