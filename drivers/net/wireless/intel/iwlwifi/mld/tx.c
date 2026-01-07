@@ -1519,7 +1519,7 @@ static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
 
 	rcu_read_lock();
 	link_sta = rcu_dereference(mld->fw_id_to_link_sta[fw_sta_id]);
-	if (link_sta)
+	if (!IS_ERR_OR_NULL(link_sta))
 		link_sta_id = link_sta->link_id;
 	rcu_read_unlock();
 
