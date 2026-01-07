@@ -5,6 +5,12 @@ UTS_MACHINE=$1
 CC_VERSION="$2"
 LD=$3
 
+scm_version() {
+	srctree="$(dirname "$0")/.."
+	head=$(git -C "$srctree" rev-parse --verify HEAD 2>/dev/null)
+	printf 'g%.12s' "$head"
+}
+
 if test -z "$KBUILD_BUILD_USER"; then
 	LINUX_COMPILE_BY=$(whoami | sed 's/\\/\\\\/')
 else
@@ -22,6 +28,6 @@ LD_VERSION=$(LC_ALL=C $LD -v | head -n1 |
 cat <<EOF
 #define UTS_MACHINE		"${UTS_MACHINE}"
 #define LINUX_COMPILE_BY	"${LINUX_COMPILE_BY}"
-#define LINUX_COMPILE_HOST	"${LINUX_COMPILE_HOST}"
+#define LINUX_COMPILE_HOST	"${LINUX_COMPILE_HOST}, $(scm_version)"
 #define LINUX_COMPILER		"${CC_VERSION}, ${LD_VERSION}"
 EOF
