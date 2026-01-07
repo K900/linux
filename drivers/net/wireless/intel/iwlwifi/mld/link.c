@@ -565,8 +565,15 @@ void iwl_mld_remove_link(struct iwl_mld *mld,
 	struct iwl_mld_link *link = iwl_mld_link_from_mac80211(bss_conf);
 	bool is_deflink = link == &mld_vif->deflink;
 
-	if (WARN_ON(!link || link->active))
+	if (WARN_ON_ONCE(!link)) {
+		IWL_ERR(mld, "Attempted to remove nonexistent link.\n");
 		return;
+	}
+
+	if (WARN_ON_ONCE(link->active)) {
+		IWL_ERR(mld, "Attempted to remove active link.\n");
+		return;
+	}
 
 	iwl_mld_rm_link_from_fw(mld, bss_conf);
 	/* Continue cleanup on failure */
