@@ -15,6 +15,10 @@
 #include "linlondp_product.h"
 #include "linlondp_format_caps.h"
 #include <linux/version.h>
+#ifdef CONFIG_DEBUG_FS
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+#endif
 
 #define LINLONDP_EVENT_VSYNC BIT_ULL(0)
 #define LINLONDP_EVENT_FLIP BIT_ULL(1)

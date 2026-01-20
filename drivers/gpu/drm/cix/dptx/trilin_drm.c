@@ -546,6 +546,7 @@ static int link_rate_show(struct seq_file *m, void *data)
 
 DEFINE_SHOW_ATTRIBUTE(link_rate);
 
+#ifdef CONFIG_DEBUG_FS
 void trilin_dp_connector_debugfs_init(struct drm_connector *connector,
 				      struct dentry *root)
 {
@@ -561,6 +562,7 @@ void trilin_dp_connector_debugfs_init(struct drm_connector *connector,
 	debugfs_create_bool("mst_default_on", 0644, root,
 			    &conn->dp->mst_default_on);
 }
+#endif
 
 static const struct drm_connector_funcs trilin_dp_connector_funcs = {
 	.detect = trilin_dp_connector_detect,
@@ -569,7 +571,9 @@ static const struct drm_connector_funcs trilin_dp_connector_funcs = {
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.reset = trilin_dp_connector_reset,
+#ifdef CONFIG_DEBUG_FS
 	.debugfs_init = trilin_dp_connector_debugfs_init,
+#endif
 };
 
 static const struct drm_connector_helper_funcs
