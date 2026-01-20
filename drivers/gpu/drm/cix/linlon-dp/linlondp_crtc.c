@@ -282,7 +282,11 @@ void linlondp_crtc_handle_event(struct linlondp_crtc *kcrtc,
 
 static void linlondp_wb_job_timer_callback(struct timer_list *t)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 16, 0)
 	struct linlondp_wb_timer_data *data = from_timer(data, t, timer);
+#else
+	struct linlondp_wb_timer_data *data = timer_container_of(data, t, timer);
+#endif
 	struct drm_writeback_job *job;
 	unsigned long flags;
 	struct linlondp_crtc *kcrtc;
@@ -319,7 +323,11 @@ static void linlondp_set_wb_job_timer(struct linlondp_crtc *kcrtc)
 	struct linlondp_wb_connector *wb_conn = kcrtc->wb_conn;
 
 	if (wb_conn->timer_data.timer_started)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 15, 0)
 		del_timer(&wb_conn->timer_data.timer);
+#else
+		timer_delete(&wb_conn->timer_data.timer);
+#endif
 
 	wb_conn->timer_data.param = kcrtc;
 	timer_setup(&wb_conn->timer_data.timer, linlondp_wb_job_timer_callback, 0);

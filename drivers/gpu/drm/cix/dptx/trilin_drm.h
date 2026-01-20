@@ -1,6 +1,8 @@
 //	SPDX-License-Identifier: GPL-2.0
 //	Copyright 2024 Cix Technology Group Co., Ltd.
 
+#include <linux/version.h>
+
 #ifndef __TRILIN_DP_DRM_H__
 #define __TRILIN_DP_DRM_H__
 
@@ -22,7 +24,11 @@ int trilin_dp_encoder_atomic_adjust_mode(struct trilin_dp *dp,
 	struct drm_display_mode *adjusted_mode);
 enum drm_mode_status
 trilin_dp_connector_mode_valid(struct drm_connector *connector,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 15, 0)
 			       struct drm_display_mode *mode);
+#else
+			       const struct drm_display_mode *mode);
+#endif
 void trilin_dp_connector_reset(struct drm_connector *connector);
 int trilin_dp_fill_modes(struct drm_connector *connector, uint32_t maxX,
 			 uint32_t maxY);

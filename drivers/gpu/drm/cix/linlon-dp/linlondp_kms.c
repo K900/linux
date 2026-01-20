@@ -278,13 +278,17 @@ static irqreturn_t linlondp_kms_irq_handler(int irq, void *data)
 
 static struct drm_driver linlondp_kms_driver = {
 	.driver_features = DRIVER_GEM | DRIVER_MODESET | DRIVER_ATOMIC,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
 	.lastclose = drm_fb_helper_lastclose,
+#endif
 	.dumb_create = linlondp_gem_dma_dumb_create,
 	.gem_prime_import_sg_table = linlondp_gem_prime_import_sg_table,
 	.fops = &linlondp_cma_fops,
 	.name = "linlondp",
 	.desc = "Linlon Display Processor driver",
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 14, 0)
 	.date = "20230426",
+#endif
 	.major = 0,
 	.minor = 0,
 };

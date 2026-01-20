@@ -31,6 +31,9 @@
 #include "trilin_phy.h"
 #include "trilin_dptx.h"
 #include "trilin_drm_mst.h"
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
+#include <drm/drm_fixed.h>
+#endif
 
 #include <linux/minmax.h>
 
@@ -401,7 +404,11 @@ static int trilin_dp_mst_get_modes(struct drm_connector *connector)
 }
 
 enum drm_mode_status trilin_dp_mst_mode_valid(struct drm_connector *connector,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 15, 0)
 					      struct drm_display_mode *mode)
+#else
+					      const struct drm_display_mode *mode)
+#endif
 {
 	const int min_bpp = 6 * 3;
 	struct trilin_connector *conn = connector_to_trilin(connector);
@@ -623,7 +630,11 @@ _dp_mst_encoders_pre_enable_part2(struct trilin_encoder *mst_encoder)
 
 	mst_state = to_drm_dp_mst_topology_state(mgr->base.state);
 	payload = drm_atomic_get_mst_payload_state(mst_state, port);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
 	drm_dp_add_payload_part2(mgr, state, payload);
+#else
+	drm_dp_add_payload_part2(mgr, payload);
+#endif
 	DP_MST_DEBUG(
 		"mst encoder [%d] _pre enable part-2 complete [state=%p]\n",
 		mst_encoder->id, state);
@@ -662,7 +673,12 @@ static void _dp_mst_encoders_pre_disable(struct trilin_encoder *mst_encoder)
 	new_payload =
 		drm_atomic_get_mst_payload_state(new_mst_state, conn->port);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 7, 0)
 	drm_dp_remove_payload(mgr, new_mst_state, old_payload, new_payload);
+#else
+	drm_dp_remove_payload_part1(mgr, new_mst_state, new_payload);
+	drm_dp_remove_payload_part2(mgr, new_mst_state, old_payload, new_payload);
+#endif
 	trilin_dp_mst_update_timeslots(mst, new_mst_state, mst_encoder);
 
 	mst_encoder->vcpi = 0;
@@ -797,9 +813,17 @@ static int trilin_mst_encoder_atomic_check(struct drm_encoder *encoder,
 		ret = trilin_dp_encoder_compute_config(encoder, crtc_state, conn_state, suggest_bpc);
 		if (ret < 0)
 			break;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
 		if (!mst_state->pbn_div)
+#else
+		if (!mst_state->pbn_div.full)
+#endif
 			mst_state->pbn_div =
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 14, 0)
 				drm_dp_get_vc_payload_bw(mst_mgr, dp->mode.link_rate, dp->mode.lane_cnt);
+#else
+				drm_dp_get_vc_payload_bw(dp->mode.link_rate, dp->mode.lane_cnt);
+#endif
 
 		mst_encoder->pbn = drm_dp_calc_pbn_mode(adjusted_mode->clock, conn->config.bpp << 4);
 		mst_encoder->num_slots = drm_dp_atomic_find_time_slots(state, mst_mgr, mst_port, mst_encoder->pbn);
@@ -809,8 +833,13 @@ static int trilin_mst_encoder_atomic_check(struct drm_encoder *encoder,
 		} else {
 			drm_dp_mst_update_slots(mst_state, link_coding_cap);
 			ret = drm_dp_mst_atomic_check(state);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
 			DP_MST_DEBUG("drm_dp_mst_atomic_check : %d pbn=%d num_slots=%d pbn_div=%d update state=%p (duplicated=%d)\n", ret
 				, mst_encoder->pbn, mst_encoder->num_slots, mst_state->pbn_div, state, state->duplicated);
+#else
+			DP_MST_DEBUG("drm_dp_mst_atomic_check : %d pbn=%d num_slots=%d pbn_div=%u update state=%p (duplicated=%d)\n", ret
+				, mst_encoder->pbn, mst_encoder->num_slots, mst_state->pbn_div.full, state, state->duplicated);
+#endif
 			if (ret == 0)
 				break;
 		}

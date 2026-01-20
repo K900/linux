@@ -163,6 +163,9 @@ linlondp_fb_none_afbc_size_check(struct linlondp_dev *mdev,
 
 struct drm_framebuffer *
 linlondp_fb_create(struct drm_device *dev, struct drm_file *file,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+		   const struct drm_format_info *info,
+#endif
 		   const struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct linlondp_dev *mdev = dev->dev_private;
@@ -182,7 +185,11 @@ linlondp_fb_create(struct drm_device *dev, struct drm_file *file,
 		return ERR_PTR(-EINVAL);
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 17, 0)
 	drm_helper_mode_fill_fb_struct(dev, &kfb->base, mode_cmd);
+#else
+	drm_helper_mode_fill_fb_struct(dev, &kfb->base, info, mode_cmd);
+#endif
 
 	if (kfb->base.modifier)
 		ret = linlondp_fb_afbc_size_check(kfb, file, mode_cmd);

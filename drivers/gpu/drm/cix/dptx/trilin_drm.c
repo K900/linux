@@ -407,7 +407,11 @@ trilin_dp_connector_best_encoder(struct drm_connector *connector)
 
 enum drm_mode_status
 trilin_dp_connector_mode_valid(struct drm_connector *connector,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 15, 0)
 			       struct drm_display_mode *mode)
+#else
+			       const struct drm_display_mode *mode)
+#endif
 {
 	struct trilin_dp *dp = connector_to_dp(connector);
 	//struct trilin_connector *conn = connector_to_trilin(connector);

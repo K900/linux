@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright 2024 Cix Technology Group Co., Ltd. */
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include "trilin_dptx_reg.h"
 #include "trilin_dptx.h"
 
@@ -133,7 +134,11 @@ static int dptx_audio_hw_params(struct device *dev, void *data,
 }
 
 static int dptx_audio_get_dai_id(struct snd_soc_component *comment,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 14, 0)
 				 struct device_node *endpoint)
+#else
+				 struct device_node *endpoint, void *data)
+#endif
 {
 	return 0;
 }

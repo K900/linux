@@ -8,6 +8,7 @@
 #define _LINLONDP_FRAMEBUFFER_H_
 
 #include <drm/drm_framebuffer.h>
+#include <linux/version.h>
 #include "linlondp_format_caps.h"
 
 /**
@@ -37,6 +38,9 @@ struct linlondp_fb {
 
 struct drm_framebuffer *
 linlondp_fb_create(struct drm_device *dev, struct drm_file *file,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 17, 0)
+		   const struct drm_format_info *info,
+#endif
 		   const struct drm_mode_fb_cmd2 *mode_cmd);
 int linlondp_fb_check_src_coords(const struct linlondp_fb *kfb, u32 src_x,
 				 u32 src_y, u32 src_w, u32 src_h);

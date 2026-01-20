@@ -96,7 +96,11 @@ static int linlondp_wb_connector_get_modes(struct drm_connector *connector)
 
 static enum drm_mode_status
 linlondp_wb_connector_mode_valid(struct drm_connector *connector,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 15, 0)
 				 struct drm_display_mode *mode)
+#else
+				 const struct drm_display_mode *mode)
+#endif
 {
 	struct drm_device *dev = connector->dev;
 	struct drm_mode_config *mode_config = &dev->mode_config;

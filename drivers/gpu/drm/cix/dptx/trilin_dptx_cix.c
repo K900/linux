@@ -35,6 +35,7 @@
 #include <asm/types.h>
 #include <linux/component.h>
 #include <linux/of_device.h>
+#include <linux/version.h>
 
 #include "trilin_dptx_reg.h"
 #include "trilin_host_tmr.h"
@@ -238,10 +239,16 @@ static int trilin_dptx_cix_probe(struct platform_device *pdev)
 	return component_add(&pdev->dev, &trilin_dptx_cix_ops);
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
 static int trilin_dptx_cix_remove(struct platform_device *pdev)
+#else
+static void trilin_dptx_cix_remove(struct platform_device *pdev)
+#endif
 {
 	component_del(&pdev->dev, &trilin_dptx_cix_ops);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
 	return 0;
+#endif
 }
 
 #ifdef CONFIG_PM
