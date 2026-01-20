@@ -4,6 +4,7 @@
  * ALL RIGHTS RESERVED
  *
  */
+#include <linux/arm-smccc.h>
 #include <linux/io.h>
 #include <linux/iommu.h>
 #include <linux/of_device.h>
