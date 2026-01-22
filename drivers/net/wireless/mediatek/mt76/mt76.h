@@ -485,6 +485,8 @@ struct mt76_txwi_cache {
 		void *ptr;
 	};
 
+	unsigned long jiffies;
+
 	u8 qid;
 	u8 phy_idx;
 };
@@ -1050,6 +1052,8 @@ struct mt76_dev {
 
 	spinlock_t token_lock;
 	struct idr token;
+	struct list_head token_queue;
+	struct list_head *token_queue_tail;
 	u16 wed_token_count;
 	u16 token_count;
 	u16 token_start;
