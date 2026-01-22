@@ -785,13 +785,13 @@ static inline void drv_channel_switch(struct ieee80211_local *local,
 
 
 static inline int drv_set_antenna(struct ieee80211_local *local,
-				  u32 tx_ant, u32 rx_ant)
+				  int radio_idx, u32 tx_ant, u32 rx_ant)
 {
 	int ret = -EOPNOTSUPP;
 	might_sleep();
 	lockdep_assert_wiphy(local->hw.wiphy);
 	if (local->ops->set_antenna)
-		ret = local->ops->set_antenna(&local->hw, -1, tx_ant, rx_ant);
+		ret = local->ops->set_antenna(&local->hw, radio_idx, tx_ant, rx_ant);
 	trace_drv_set_antenna(local, tx_ant, rx_ant, ret);
 	return ret;
 }
