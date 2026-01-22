@@ -1409,6 +1409,8 @@ void mt76_connac2_tx_token_put(struct mt76_dev *dev, struct mt76_mib_stats* mib)
 		mt76_connac2_txwi_free(dev, txwi, NULL, NULL, 1, 0, 1, mib);
 		dev->token_count--;
 	}
+	INIT_LIST_HEAD(&dev->token_queue);
+	dev->token_queue_tail = &dev->token_queue;
 	spin_unlock_bh(&dev->token_lock);
 	idr_destroy(&dev->token);
 
