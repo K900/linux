@@ -5031,12 +5031,18 @@ static int ieee80211_set_antenna(struct wiphy *wiphy, int radio_idx,
 	struct ieee80211_local *local = wiphy_priv(wiphy);
 	int ret;
 
+	//pr_err("mac80211-set-antenna: radio_idx: %d  tx_ant: %d  rx_ant: %d local->started: %d",
+	//       radio_idx, tx_ant, rx_ant, local->started);
+
 	if (local->started)
 		return -EOPNOTSUPP;
 
-	ret = drv_set_antenna(local, tx_ant, rx_ant);
-	if (ret)
+	ret = drv_set_antenna(local, radio_idx, tx_ant, rx_ant);
+	if (ret) {
+		pr_err("mac80211-set-antenna drv failed: %d radio_idx: %d  tx_ant: %d  rx_ant: %d",
+		       ret, radio_idx, tx_ant, rx_ant);
 		return ret;
+	}
 
 	local->rx_chains = hweight8(rx_ant);
 	return 0;

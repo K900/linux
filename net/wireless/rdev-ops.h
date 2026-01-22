@@ -868,7 +868,7 @@ static inline int rdev_set_antenna(struct cfg80211_registered_device *rdev,
 {
 	int ret;
 	trace_rdev_set_antenna(&rdev->wiphy, radio_idx, tx_ant, rx_ant);
-	ret = rdev->ops->set_antenna(&rdev->wiphy, -1, tx_ant, rx_ant);
+	ret = rdev->ops->set_antenna(&rdev->wiphy, radio_idx, tx_ant, rx_ant);
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
 }

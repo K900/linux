@@ -2111,8 +2111,14 @@ mt7996_set_antenna(struct ieee80211_hw *hw, int radio_idx,
 	int i;
 	int rv = 0;
 
-	if (tx_ant != rx_ant)
+	//pr_info("DBG: mt7996-set-antenna,  cfg-radio-idx: %d tx_ant: 0x%x rx_ant: 0x%x\n",
+	//	radio_idx, tx_ant, rx_ant);
+
+	if (tx_ant != rx_ant) {
+		pr_info("ERROR: mt7996-set-antenna,  cfg-radio-idx: %d tx_ant: 0x%x != rx_ant: 0x%x\n",
+			radio_idx, tx_ant, rx_ant);
 		return -EINVAL;
+	}
 
 	mutex_lock(&dev->mt76.mutex);
 

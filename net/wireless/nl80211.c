@@ -4224,14 +4224,17 @@ static int nl80211_set_wiphy_radio(struct genl_info *info,
 	u32 rts_threshold = 0, old_rts, changed = 0;
 	int result;
 
-	if (!rdev->ops->set_wiphy_params)
-		return -EOPNOTSUPP;
-
 	if (info->attrs[NL80211_ATTR_WIPHY_RTS_THRESHOLD]) {
 		rts_threshold = nla_get_u32(
 				info->attrs[NL80211_ATTR_WIPHY_RTS_THRESHOLD]);
 		changed |= WIPHY_PARAM_RTS_THRESHOLD;
 	}
+
+	if (!changed)
+		return 0;
+
+	if (!rdev->ops->set_wiphy_params)
+		return -EOPNOTSUPP;
 
 	old_rts = rdev->wiphy.radio_cfg[radio_idx].rts_threshold;
 
@@ -4241,7 +4244,7 @@ static int nl80211_set_wiphy_radio(struct genl_info *info,
 	if (result)
 		rdev->wiphy.radio_cfg[radio_idx].rts_threshold = old_rts;
 
-	return 0;
+	return result;
 }
 
 static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
@@ -4317,7 +4320,9 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
 		if (radio_idx >= rdev->wiphy.n_radio)
 			return -EINVAL;
 
-		return nl80211_set_wiphy_radio(info, rdev, radio_idx);
+		result = nl80211_set_wiphy_radio(info, rdev, radio_idx);
+		if (result)
+			return result;
 	}
 
 	if (info->attrs[NL80211_ATTR_WIPHY_TXQ_PARAMS]) {
@@ -4421,8 +4426,14 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
 
 		if ((!rdev->wiphy.available_antennas_tx &&
 		     !rdev->wiphy.available_antennas_rx) ||
-		    !rdev->ops->set_antenna)
+		    !rdev->ops->set_antenna) {
+			NL_SET_ERR_MSG_FMT(info->extack,
+					   "available_antennas_tx: 0x%x  rx: 0x%x  ops->set_antenna: %p",
+					   rdev->wiphy.available_antennas_tx,
+					   rdev->wiphy.available_antennas_rx,
+					   rdev->ops->set_antenna);
 			return -EOPNOTSUPP;
+		}
 
 		tx_ant = nla_get_u32(info->attrs[NL80211_ATTR_WIPHY_ANTENNA_TX]);
 		rx_ant = nla_get_u32(info->attrs[NL80211_ATTR_WIPHY_ANTENNA_RX]);
@@ -4430,15 +4441,23 @@ static int nl80211_set_wiphy(struct sk_buff *skb, struct genl_info *info)
 		/* reject antenna configurations which don't match the
 		 * available antenna masks, except for the "all" mask */
 		if ((~tx_ant && (tx_ant & ~rdev->wiphy.available_antennas_tx)) ||
-		    (~rx_ant && (rx_ant & ~rdev->wiphy.available_antennas_rx)))
+		    (~rx_ant && (rx_ant & ~rdev->wiphy.available_antennas_rx))) {
+			NL_SET_ERR_MSG_FMT(info->extack,
+					   "tx_ant: 0x%x rx_ant: 0x%x available_antennas_tx: 0x%x  rx: 0x%x",
+					   tx_ant, rx_ant, rdev->wiphy.available_antennas_tx,
+					   rdev->wiphy.available_antennas_rx);
 			return -EINVAL;
+		}
 
 		tx_ant = tx_ant & rdev->wiphy.available_antennas_tx;
 		rx_ant = rx_ant & rdev->wiphy.available_antennas_rx;
 
 		result = rdev_set_antenna(rdev, radio_idx, tx_ant, rx_ant);
-		if (result)
+		if (result) {
+			pr_err("set-antenna: rdev_st_antenna failed, rv: %d radio_idx: %d  tx_ant: %d  rx_ant: %d",
+			       result, radio_idx, tx_ant, rx_ant);
 			return result;
+		}
 	}
 
 	changed = 0;
