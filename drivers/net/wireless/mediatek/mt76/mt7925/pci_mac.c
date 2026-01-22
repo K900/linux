@@ -65,6 +65,8 @@ void mt7925_tx_token_put(struct mt792x_dev *dev)
 		mt7925_txwi_free(dev, txwi, NULL, NULL, NULL);
 		dev->mt76.token_count--;
 	}
+	INIT_LIST_HEAD(&dev->mt76.token_queue);
+	dev->mt76.token_queue_tail = &dev->mt76.token_queue;
 	spin_unlock_bh(&dev->mt76.token_lock);
 	idr_destroy(&dev->mt76.token);
 }

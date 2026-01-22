@@ -2104,6 +2104,8 @@ void mt7615_tx_token_put(struct mt7615_dev *dev)
 	spin_lock_bh(&dev->mt76.token_lock);
 	idr_for_each_entry(&dev->mt76.token, txwi, id)
 		mt7615_txwi_free(dev, txwi);
+	INIT_LIST_HEAD(&dev->mt76.token_queue);
+	dev->mt76.token_queue_tail = &dev->mt76.token_queue;
 	spin_unlock_bh(&dev->mt76.token_lock);
 	idr_destroy(&dev->mt76.token);
 }
