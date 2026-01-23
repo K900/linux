@@ -298,6 +298,57 @@ static int mt76_dfs_info_read(struct seq_file *s, void *data)
 	return 0;
 }
 
+int
+mt76_active_tokens_read(struct seq_file *s, void *data)
+{
+	struct mt76_dev *dev = dev_get_drvdata(s->private);
+	struct mt76_txwi_cache *txwi;
+	int id;
+
+	spin_lock_bh(&dev->token_lock);
+	seq_puts(s, "token bytes qid jiffies\n");
+	idr_for_each_entry(&dev->token, txwi, id) {
+		seq_printf(s, "%5d ", id);
+
+		if (txwi && txwi->skb)
+			seq_printf(s, "%5u %3u %lu\n", txwi->skb->len, txwi->qid, txwi->jiffies);
+		else
+			seq_puts(s, "NULL\n");
+	}
+	spin_unlock_bh(&dev->token_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76_active_tokens_read);
+
+int
+mt76_dump_token_msdu_read(struct seq_file *s, void *data)
+{
+	struct mt76_dev *dev = dev_get_drvdata(s->private);
+	struct mt76_txwi_cache *txwi;
+	u32 id = dev->debugfs_reg;
+	int i;
+
+	spin_lock_bh(&dev->token_lock);
+
+	txwi = idr_find(&dev->token, id);
+	if (!txwi || !txwi->skb) {
+		seq_puts(s, "NULL\n");
+		goto out;
+	}
+
+	for (i = 0; i < txwi->skb->len; i++)
+		seq_printf(s, "%02x ", txwi->skb->data[i]);
+
+	seq_puts(s, "\n");
+
+out:
+	spin_unlock_bh(&dev->token_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt76_dump_token_msdu_read);
+
 void mt76_seq_puts_array(struct seq_file *file, const char *str,
 			 s8 *val, int len)
 {
