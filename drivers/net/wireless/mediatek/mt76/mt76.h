@@ -1622,6 +1622,17 @@ int mt76_queues_read(struct seq_file *s, void *data);
 void mt76_seq_puts_array(struct seq_file *file, const char *str,
 			 s8 *val, int len);
 
+/* Dump all tokens currently awaiting Tx/DMA-DONE. */
+int mt76_active_tokens_read(struct seq_file *s, void *data);
+
+/* First specify a token in regidx, then use this to dump the MSDU registered
+ * to that token.
+ * Unless your queue is stuck, this is
+ *   a) not going to dump the MSDU that you want, and
+ *   b) probably useless for you
+ */
+int mt76_dump_token_msdu_read(struct seq_file *s, void *data);
+
 int mt76_eeprom_init(struct mt76_dev *dev, int len);
 int mt76_eeprom_override(struct mt76_phy *phy);
 int mt76_get_of_data_from_file(struct mt76_dev *dev, void *eep, u32 offset, int len);
