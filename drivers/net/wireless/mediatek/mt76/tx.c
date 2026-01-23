@@ -547,19 +547,21 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
 	int idx;
 
 	if (test_bit(MT_WCID_FLAG_PS, &wcid->flags)) {
-		mtk_dbg(dev, TXV, "mt76-txq-send-burst, in PS, return 0\n");
+		mt76_wcid_dbg(dev, wcid, MT76_DBG_TXV, "mt76-txq-send-burst, in PS, return 0\n");
 		return 0;
 	}
 
 	if (atomic_read(&wcid->non_aql_packets) >= MT_MAX_NON_AQL_PKT) {
-		mtk_dbg(dev, TXV, "mt76-txq-send-burst, non-aql-pkts too large: %d, return 0\n",
-			atomic_read(&wcid->non_aql_packets));
+		mt76_wcid_dbg(dev, wcid, MT76_DBG_TXV,
+			      "mt76-txq-send-burst, non-aql-pkts too large: %d, return 0\n",
+			      atomic_read(&wcid->non_aql_packets));
 		return 0;
 	}
 
 	skb = mt76_txq_dequeue(phy, mtxq);
 	if (!skb) {
-		mtk_dbg(dev, TXV, "mt76-txq-send-burst, txq-dequeue returned NULL skb, return 0\n");
+		mt76_txq_dbg(dev, mtxq, MT76_DBG_TXV,
+			     "mt76-txq-send-burst, txq-dequeue returned NULL skb, return 0\n");
 		return 0;
 	}
 
@@ -572,7 +574,8 @@ mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
 	idx = __mt76_tx_queue_skb(phy, qid, skb, wcid, txq->sta, &stop);
 	spin_unlock(&q->lock);
 	if (idx < 0) {
-		mtk_dbg(dev, TXV, "mt76-txq-send-burst, __mt76_tx_queue returned bad idx: %d\n", idx);
+		mt76_txq_dbg(dev, mtxq, MT76_DBG_TXV,
+			     "mt76-txq-send-burst, __mt76_tx_queue returned bad idx: %d\n", idx);
 		return idx;
 	}
 
@@ -633,15 +636,16 @@ mt76_txq_schedule_list(struct mt76_phy *phy, enum mt76_txq_id qid)
 
 		txq = ieee80211_next_txq(phy->hw, qid);
 		if (!txq) {
-			mtk_dbg(dev, TXV, "mt76-txq-schedule-list, no next txq\n");
+			mt76_dbg(dev, MT76_DBG_TXV,
+				 "mt76-txq-schedule-list, no next txq\n");
 			break;
 		}
 
 		mtxq = (struct mt76_txq *)txq->drv_priv;
 		wcid = __mt76_wcid_ptr(dev, mtxq->wcid);
 		if (!wcid || test_bit(MT_WCID_FLAG_PS, &wcid->flags)) {
-			mtk_dbg(dev, TXV, "mt76-txq-schedule-list, NULL wcid: %p or PS\n",
-				wcid);
+			mt76_txq_dbg(dev, mtxq, MT76_DBG_TXV,
+				     "mt76-txq-schedule-list, NULL wcid: %p or PS\n", wcid);
 			continue;
 		}
 
@@ -654,8 +658,9 @@ mt76_txq_schedule_list(struct mt76_phy *phy, enum mt76_txq_id qid)
 
 		q = phy->q_tx[qid];
 
-		mtk_dbg(dev, TXV, "mt76-txq-schedule-list, q->queued: %d q-stopped: %d qid: %d q->ndesc: %d\n",
-			q->queued, mt76_txq_stopped(q), qid, q->ndesc);
+		mt76_txq_dbg(dev, mtxq, MT76_DBG_TXV,
+			     "mt76-txq-schedule-list, q->queued: %d q-stopped: %d q->ndesc: %d\n",
+			     q->queued, mt76_txq_stopped(q), q->ndesc);
 
 		if (dev->queue_ops->tx_cleanup &&
 		    q->queued + 2 * MT_TXQ_FREE_THR >= q->ndesc) {
@@ -669,15 +674,17 @@ mt76_txq_schedule_list(struct mt76_phy *phy, enum mt76_txq_id qid)
 			u16 agg_ssn = mtxq->agg_ssn;
 			u8 tid = txq->tid;
 
-			mtk_dbg(dev, TXV, "mt76-txq-schedule-list, calling send_bar\n");
+			mt76_txq_dbg(dev, mtxq, MT76_DBG_TXV,
+				     "mt76-txq-schedule-list, calling send_bar\n");
 			mtxq->send_bar = false;
 			ieee80211_send_bar(vif, sta->addr, tid, agg_ssn);
 		}
 
 		if (!mt76_txq_stopped(q)) {
 			n_frames = mt76_txq_send_burst(phy, q, mtxq, wcid);
-			mtk_dbg(dev, TXV, "mt76-txq-schedule-list, send-burst, n_frames: %d\n",
-				n_frames);
+			mt76_txq_dbg(dev, mtxq, MT76_DBG_TXV,
+				     "mt76-txq-schedule-list, send-burst, n_frames: %d\n",
+				     n_frames);
 		}
 
 		ieee80211_return_txq(phy->hw, txq, false);

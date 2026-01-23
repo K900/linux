@@ -2576,4 +2576,46 @@ mt76_wcid_dbg(struct mt76_dev *dev, struct mt76_wcid *wcid, u32 dbg_mask, const 
 	va_end(args);
 }
 
+static inline void
+mt76_txq_dbg(struct mt76_dev *dev, struct mt76_txq *mtxq, u32 dbg_mask, const char *fmt, ...)
+{
+	struct ieee80211_txq *txq = NULL;
+	struct ieee80211_vif *vif = NULL;
+	struct wireless_dev *wdev = NULL;
+	struct net_device *netdev = NULL;
+	char *dev_name = "(no_vif)";
+
+	char prefix_buf[128];
+
+	if (!dev->debug_lvl || !(*dev->debug_lvl & dbg_mask))
+		return;
+
+	if (mtxq) {
+		txq = mtxq_to_txq(mtxq);
+		vif = txq->vif;
+	}
+
+	if (vif) {
+		wdev = ieee80211_vif_to_wdev(vif);
+		netdev = wdev->netdev;
+		dev_name = ieee80211_vif_to_wdev(txq->vif)->netdev->name;
+	}
+
+	if (txq)
+		snprintf(prefix_buf, sizeof(prefix_buf), "%s[tid:%d,ac:%d,w:%d]",
+			 dev_name, txq->tid, txq->ac, mtxq->wcid);
+	else
+		snprintf(prefix_buf, sizeof(prefix_buf), "(no_queue)");
+
+	struct va_format vaf = {
+		.fmt = fmt,
+	};
+	va_list args;
+
+	va_start(args, fmt);
+	vaf.va = &args;
+	dev_info(dev->dev, "%s: %pV", prefix_buf, &vaf);
+	va_end(args);
+}
+
 #endif
