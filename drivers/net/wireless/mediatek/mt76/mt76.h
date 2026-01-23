@@ -1731,6 +1731,19 @@ wcid_to_sta(struct mt76_wcid *wcid)
 	return ptr ? container_of(ptr, struct ieee80211_sta, drv_priv) : NULL;
 }
 
+static inline struct ieee80211_vif *
+mvif_to_vif(struct mt76_vif_data *mvif)
+{
+	void *ptr;
+
+	if (!mvif)
+		return NULL;
+
+	ptr = rcu_dereference(mvif->link[0]);
+
+	return ptr ? container_of(ptr, struct ieee80211_vif, drv_priv) : NULL;
+}
+
 static inline struct mt76_tx_cb *mt76_tx_skb_cb(struct sk_buff *skb)
 {
 	BUILD_BUG_ON(sizeof(struct mt76_tx_cb) >
@@ -2473,14 +2486,13 @@ mt76_vif_dbg(struct mt76_dev *dev, struct mt76_vif_data *mvif, u32 dbg_mask, con
 	if (!dev->debug_lvl || !(*dev->debug_lvl & dbg_mask))
 		return;
 
+	vif = mvif_to_vif(mvif);
+
 	if (mvif)
 		mlink = mt76_dereference(mvif->link[0], dev);
 
-	if (mlink) {
-		vif = container_of((void *)mlink, struct ieee80211_vif, drv_priv);
-		if (mlink->wcid)
-			wcid = mlink->wcid->idx;
-	}
+	if (mlink && mlink->wcid)
+		wcid = mlink->wcid->idx;
 
 	if (vif)
 		snprintf(prefix_buf, sizeof(prefix_buf), "%s[v:%d,m:%d,b:%d,w:%d]",
@@ -2504,7 +2516,6 @@ static inline void
 mt76_link_dbg(struct mt76_dev *dev, struct mt76_vif_link *mlink, u32 dbg_mask, const char *fmt, ...)
 {
 	struct mt76_vif_data *mvif = NULL;
-	struct mt76_vif_link *def_mlink = NULL;
 	struct ieee80211_vif *vif = NULL;
 	char prefix_buf[128];
 	int wcid = -1;
@@ -2518,11 +2529,7 @@ mt76_link_dbg(struct mt76_dev *dev, struct mt76_vif_link *mlink, u32 dbg_mask, c
 			wcid = mlink->wcid->idx;
 	}
 
-	if (mvif)
-		def_mlink = mt76_dereference(mvif->link[0], dev);
-
-	if (def_mlink)
-		vif = container_of((void *)def_mlink, struct ieee80211_vif, drv_priv);
+	vif = mvif_to_vif(mvif);
 
 	if (vif)
 		snprintf(prefix_buf, sizeof(prefix_buf), "%s[v:%d,m:%d,b:%d,w:%d,l:%d]",
