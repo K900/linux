@@ -1855,7 +1855,7 @@ iwl_mld_rx_with_sta(struct iwl_mld *mld, struct ieee80211_hdr *hdr,
 		    struct ieee80211_link_sta **rv_link_sta)
 {
 	struct ieee80211_sta *sta = NULL;
-	struct ieee80211_link_sta *link_sta;
+	struct ieee80211_link_sta *link_sta = NULL;
 	struct ieee80211_rx_status *rx_status;
 	u8 baid;
 
