@@ -3,6 +3,7 @@
  * Copyright (C) 2022 MediaTek Inc.
  */
 
+#include "net/mac80211.h"
 #include <linux/etherdevice.h>
 #include <linux/timekeeping.h>
 #include "coredump.h"
@@ -1408,6 +1409,9 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 				       IEEE80211_TX_CTRL_MLO_LINK);
 	}
 
+	if (mvif && link_id != IEEE80211_LINK_UNSPECIFIED)
+		mlink = rcu_dereference(mvif->mt76.link[link_id]);
+
 	if (link_id != wcid->link_id && link_id != IEEE80211_LINK_UNSPECIFIED) {
 		if (msta) {
 			struct mt7996_sta_link *msta_link =
@@ -1474,7 +1478,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
 	memset(txwi_ptr, 0, MT_TXD_SIZE);
 	/* Transmit non qos data by 802.11 header and need to fill txd by host*/
-	if (!is_8023 || pid >= MT_PACKET_ID_FIRST)
+	if (!is_8023 || pid >= MT_PACKET_ID_FIRST || mlink->omac_idx > HW_BSSID_MAX)
 		mt7996_mac_write_txwi(dev, txwi_ptr, tx_info->skb, wcid, key,
 				      pid, qid, 0, link_id);
 
@@ -1526,7 +1530,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 
 		txp->fw.flags = cpu_to_le16(MT_CT_INFO_FROM_HOST);
 
-		if (!is_8023 || pid >= MT_PACKET_ID_FIRST)
+		if (!is_8023 || pid >= MT_PACKET_ID_FIRST || mlink->omac_idx > HW_BSSID_MAX)
 			txp->fw.flags |= cpu_to_le16(MT_CT_INFO_APPLY_TXD);
 
 		if (!key)
