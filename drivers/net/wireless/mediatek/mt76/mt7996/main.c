@@ -447,6 +447,9 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 		mld_idx = MT7996_FIRST_REPEATER_MLD_IDX + band_idx;
 	}
 
+	if (idx > HW_BSSID_MAX)
+		vif->netdev_features &= ~NETIF_F_HW_CSUM;
+
 	if (mlink->idx >= mt7996_max_interface_num(dev)) {
 		mt76_link_dbg(&dev->mt76, mlink, MT76_DBG_BSS, "%s: IF limit reached: %d/%d\n",
 			      __func__, mlink->idx, mt7996_max_interface_num(dev));
