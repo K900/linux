@@ -777,6 +777,11 @@ void debugfs_remove(struct dentry *dentry)
 	if (IS_ERR_OR_NULL(dentry))
 		return;
 
+	if (WARN_ON_ONCE((unsigned long)(dentry) < 8000)) {
+		pr_err("debugfs-remove, dentry is bad: %px\n", dentry);
+		return;
+	}
+
 	simple_pin_fs(&debug_fs_type, &debugfs_mount, &debugfs_mount_count);
 	simple_recursive_removal(dentry, remove_one);
 	simple_release_fs(&debugfs_mount, &debugfs_mount_count);
