@@ -277,8 +277,10 @@ iwl_mld_change_link_in_fw(struct iwl_mld *mld, struct ieee80211_bss_conf *link,
 
 	lockdep_assert_wiphy(mld->wiphy);
 
-	if (WARN_ON(!mld_link))
+	if (WARN_ON_ONCE(!mld_link)) {
+		pr_err("iwl-mld-change-link-in-fw, mld_link is NULL, link: %px\n", link);
 		return -EINVAL;
+	}
 
 	cmd.link_id = cpu_to_le32(mld_link->fw_id);
 	cmd.spec_link_id = link->link_id;
