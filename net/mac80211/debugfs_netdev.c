@@ -1069,6 +1069,11 @@ void ieee80211_link_debugfs_add(struct ieee80211_link_data *link)
 
 void ieee80211_link_debugfs_remove(struct ieee80211_link_data *link)
 {
+	if (WARN_ON_ONCE((unsigned long)(link) < 8000)) {
+		pr_err("link-debugfs-remove, link is bad: %px\n", link);
+		return;
+	}
+
 	if (!link->sdata->vif.debugfs_dir || !link->debugfs_dir) {
 		link->debugfs_dir = NULL;
 		return;
@@ -1080,6 +1085,11 @@ void ieee80211_link_debugfs_remove(struct ieee80211_link_data *link)
 		return;
 	}
 
+	if (WARN_ON_ONCE((unsigned long)(link->debugfs_dir) < 8000)) {
+		pr_err("link-debugfs-remove, link->debugfs_dir is bad: %px\n",
+		       link->debugfs_dir);
+		return;
+	}
 	debugfs_remove_recursive(link->debugfs_dir);
 	link->debugfs_dir = NULL;
 }
