@@ -533,7 +533,7 @@ iwl_mld_process_per_link_stats(struct iwl_mld *mld,
 		int sig;
 
 		bss_conf = iwl_mld_fw_id_to_link_conf(mld, fw_id);
-		if (!bss_conf || bss_conf->vif->type != NL80211_IFTYPE_STATION)
+		if (!bss_conf || !bss_conf->vif || bss_conf->vif->type != NL80211_IFTYPE_STATION)
 			continue;
 
 		link_stats = &per_link[fw_id];
