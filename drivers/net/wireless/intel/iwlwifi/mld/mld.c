@@ -674,8 +674,10 @@ iwl_mld_nic_error(struct iwl_op_mode *op_mode,
 	 * setting doesn't matter if we're going to be unbound either.
 	 */
 	if (type != IWL_ERR_TYPE_RESET_HS_TIMEOUT &&
-	    mld->fw_status.running)
+	    mld->fw_status.running) {
+		ieee80211_stop_queues(mld->hw);
 		mld->fw_status.in_hw_restart = true;
+	}
 
 	/* FW is dead. We don't want to process its notifications.
 	 * Right, we cancel them also in iwl_mld_stop_fw, but
@@ -714,6 +716,7 @@ static bool iwl_mld_sw_reset(struct iwl_op_mode *op_mode,
 	 * had a NIC error both were already done.
 	 */
 	iwl_mld_report_scan_aborted(mld);
+	ieee80211_stop_queues(mld->hw);
 	mld->fw_status.in_hw_restart = true;
 
 	/* Do restart only in the following conditions are met:
