@@ -9619,8 +9619,11 @@ static int ieee80211_prep_connection(struct ieee80211_sub_if_data *sdata,
 		have_sta = sta_info_get(sdata, ap_mld_addr);
 
 	if (mlo && !have_sta &&
-	    WARN_ON(sdata->vif.valid_links || sdata->vif.active_links))
+	    WARN_ON_ONCE(sdata->vif.valid_links || sdata->vif.active_links)) {
+		pr_err("%s: prep-connection, no-have-sta, valid-links: 0x%x  active-links: 0x%x\n",
+		       sdata->dev->name, sdata->vif.valid_links, sdata->vif.active_links);
 		return -EINVAL;
+	}
 
 	err = ieee80211_vif_set_links(sdata, new_links, 0);
 	if (err)
