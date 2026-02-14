@@ -3271,6 +3271,12 @@ cfg80211_inform_bss_data(struct wiphy *wiphy,
 		if (time_after(jiffies, last_jiffies + 5 * HZ)) {
 			pr_info("cfg80211-inform-bss-data, bssid: %pM cannot-use-reasons: 0x%llx\n",
 				bssid, inform_data.cannot_use_reasons);
+			if (inform_data.cannot_use_reasons & (1<<NL80211_BSS_CANNOT_USE_NSTR_NONPRIMARY))
+				pr_info("cfg80211-inform-bss-data, bssid: %pM cannot-use-reason: NSTR_NONPRIMARY\n",
+					bssid);
+			if (inform_data.cannot_use_reasons & (1<<NL80211_BSS_CANNOT_USE_6GHZ_PWR_MISMATCH))
+				pr_info("cfg80211-inform-bss-data, bssid: %pM cannot-use-reason: 6GHZ_PWR_MISMATCH\n",
+					bssid);
 			last_jiffies = jiffies;
 		}
 	}

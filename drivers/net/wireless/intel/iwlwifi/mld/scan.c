@@ -1541,7 +1541,7 @@ iwl_mld_scan_set_link_id(struct iwl_mld *mld, struct ieee80211_vif *vif,
 	}
 
 	link = iwl_mld_link_dereference_check(mld_vif, tsf_report_link_id);
-	if (!WARN_ON(!link)) {
+	if (!WARN_ON_ONCE(!link)) {
 		params->fw_link_id = link->fw_id;
 		/* we to store fw_link_id only for regular scan,
 		 * and use it in scan complete notif
@@ -1549,6 +1549,8 @@ iwl_mld_scan_set_link_id(struct iwl_mld *mld, struct ieee80211_vif *vif,
 		if (scan_status == IWL_MLD_SCAN_REGULAR)
 			mld->scan.fw_link_id = link->fw_id;
 	} else {
+		pr_err("mld-scan-set-link-id, tsf-link-id: %d, link is NULL.\n",
+		       tsf_report_link_id);
 		mld->scan.fw_link_id = IWL_MLD_INVALID_FW_ID;
 		params->fw_link_id = IWL_MLD_INVALID_FW_ID;
 	}
