@@ -620,9 +620,9 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata, bool going_do
 	timer_delete_sync(&local->dynamic_ps_timer);
 	wiphy_work_cancel(local->hw.wiphy, &local->dynamic_ps_enable_work);
 
-	WARN(ieee80211_vif_is_mld(&sdata->vif),
-	     "destroying interface with valid links 0x%04x\n",
-	     sdata->vif.valid_links);
+	WARN_ONCE(ieee80211_vif_is_mld(&sdata->vif),
+		  "%s: destroying interface with valid links 0x%04x\n",
+		  sdata->dev->name, sdata->vif.valid_links);
 
 	sdata->vif.bss_conf.csa_active = false;
 	if (sdata->vif.type == NL80211_IFTYPE_STATION)
