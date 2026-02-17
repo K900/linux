@@ -79,7 +79,7 @@ void iwl_mld_handle_temp_notif(struct iwl_mld *mld, struct iwl_rx_packet *pkt)
 }
 
 #ifdef CONFIG_THERMAL
-static int iwl_mld_get_temp(struct iwl_mld *mld, s32 *temp)
+int iwl_mld_get_temp(struct iwl_mld *mld, s32 *temp)
 {
 	struct iwl_host_cmd cmd = {
 		.id = WIDE_ID(PHY_OPS_GROUP, CMD_DTS_MEASUREMENT_TRIGGER_WIDE),
