@@ -690,6 +690,26 @@ out:
 	return pos;
 }
 
+static ssize_t iwl_dbgfs_nic_temp_read(struct iwl_mld *mld, char *buf,
+				       size_t count)
+{
+	int pos, ret;
+	s32 temp;
+
+	if (iwl_mld_dbgfs_fw_cmd_disabled(mld))
+		return -EIO;
+
+	ret = iwl_mld_get_temp(mld, &temp);
+
+	if (ret)
+		return -EIO;
+
+	pos = scnprintf(buf, sizeof(buf), "%d\n", temp);
+
+	return pos;
+}
+
+WIPHY_DEBUGFS_READ_FILE_OPS_MLD(nic_temp, 64);
 WIPHY_DEBUGFS_WRITE_FILE_OPS_MLD(fw_nmi, 10);
 WIPHY_DEBUGFS_WRITE_FILE_OPS_MLD(fw_restart, 10);
 WIPHY_DEBUGFS_READ_WRITE_FILE_OPS_MLD(he_sniffer_params, 32);
@@ -786,6 +806,7 @@ iwl_mld_add_debugfs_files(struct iwl_mld *mld, struct dentry *debugfs_dir)
 {
 	/* Add debugfs files here */
 
+	MLD_DEBUGFS_ADD_FILE(nic_temp, debugfs_dir, 0400);
 	MLD_DEBUGFS_ADD_FILE(fw_nmi, debugfs_dir, 0200);
 	MLD_DEBUGFS_ADD_FILE(fw_restart, debugfs_dir, 0200);
 	MLD_DEBUGFS_ADD_FILE(wifi_6e_enable, debugfs_dir, 0400);
