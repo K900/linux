@@ -599,11 +599,25 @@ static void __simple_recursive_removal(struct dentry *dentry,
 			      bool locked)
 {
 	struct dentry *this = dget(dentry);
+
+	if (WARN_ON_ONCE((unsigned long)(this) < 8000)) {
+		pr_err("simple-recursive-removal, bad 'this': %px\n",
+		       this);
+		return;
+	}
+
 	while (true) {
 		struct dentry *victim = NULL, *child;
 		struct inode *inode = this->d_inode;
 
+		if (WARN_ON_ONCE((unsigned long)(this) < 8000)) {
+			pr_err("simple-recursive-removal, in while, bad 'this': %px\n",
+			       this);
+			break;
+		}
+
 		inode_lock_nested(inode, I_MUTEX_CHILD);
+
 		if (d_is_dir(this))
 			inode->i_flags |= S_DEAD;
 		while ((child = find_next_child(this, victim)) == NULL) {
@@ -614,6 +628,12 @@ static void __simple_recursive_removal(struct dentry *dentry,
 			inode_unlock(inode);
 			victim = this;
 			this = this->d_parent;
+
+			if (WARN_ON_ONCE((unsigned long)(this) < 8000)) {
+				pr_err("simple-recursive-removal, bad 'this': %px victim: %px\n",
+				       dentry, victim);
+			}
+
 			inode = this->d_inode;
 			if (!locked || victim != dentry)
 				inode_lock_nested(inode, I_MUTEX_CHILD);
@@ -627,8 +647,15 @@ static void __simple_recursive_removal(struct dentry *dentry,
 			if (victim == dentry) {
 				inode_set_mtime_to_ts(inode,
 						      inode_set_ctime_current(inode));
-				if (d_is_dir(dentry))
-					drop_nlink(inode);
+
+				if (WARN_ON_ONCE((unsigned long)(dentry) < 8000)) {
+					pr_err("simple-recursive-removal, bad 'dentry': %px\n",
+					       dentry);
+				}
+				else {
+					if (d_is_dir(dentry))
+						drop_nlink(inode);
+				}
 				if (!locked)
 					inode_unlock(inode);
 				dput(dentry);
