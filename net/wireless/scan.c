@@ -3265,20 +3265,25 @@ cfg80211_inform_bss_data(struct wiphy *wiphy,
 	 * at all, so add some warnings.
 	 */
 	if (inform_data.cannot_use_reasons) {
-		static unsigned long last_jiffies;
+		static unsigned long last_jiffies, count;
+		static u64 reasons;
 
+		reasons |= inform_data.cannot_use_reasons;
+		count++;
+
+#define CFG80211_REASON_FLAG(reasons, flag) \
+	((reasons) & NL80211_BSS_CANNOT_USE_##flag) ? (" " #flag) : ""
 		/* Print no more than once per 5 seconds */
 		if (time_after(jiffies, last_jiffies + 5 * HZ)) {
-			pr_info("cfg80211-inform-bss-data, bssid: %pM cannot-use-reasons: 0x%llx\n",
-				bssid, inform_data.cannot_use_reasons);
-			if (inform_data.cannot_use_reasons & (1<<NL80211_BSS_CANNOT_USE_NSTR_NONPRIMARY))
-				pr_info("cfg80211-inform-bss-data, bssid: %pM cannot-use-reason: NSTR_NONPRIMARY\n",
-					bssid);
-			if (inform_data.cannot_use_reasons & (1<<NL80211_BSS_CANNOT_USE_6GHZ_PWR_MISMATCH))
-				pr_info("cfg80211-inform-bss-data, bssid: %pM cannot-use-reason: 6GHZ_PWR_MISMATCH\n",
-					bssid);
+			pr_info("%s Could not inform of %lu BSS's, sample: %pM, reasons:0x%llx%s%s",
+				__func__, count, bssid, reasons,
+				CFG80211_REASON_FLAG(reasons, NSTR_NONPRIMARY),
+				CFG80211_REASON_FLAG(reasons, 6GHZ_PWR_MISMATCH));
 			last_jiffies = jiffies;
+			count = 0;
+			reasons = 0;
 		}
+#undef CFG80211_REASON_FLAG
 	}
 	return res;
 }
