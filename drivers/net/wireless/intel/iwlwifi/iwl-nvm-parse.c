@@ -1658,8 +1658,9 @@ u32 iwl_nvm_get_regdom_bw_flags(const u16 *nvm_chan,
 		flags |= NL80211_RRF_NO_6GHZ_VLP_CLIENT;
 	}
 
-	if (!(nvm_flags & NVM_CHANNEL_AFC))
-		flags |= NL80211_RRF_NO_6GHZ_AFC_CLIENT;
+	/* Disable this for testing. FW does not report AFC enabled channels correctly. */
+	// if (!(nvm_flags & NVM_CHANNEL_AFC))
+	// 	flags |= NL80211_RRF_NO_6GHZ_AFC_CLIENT;
 
 	/*
 	 * reg_capa is per regulatory domain so apply it for every channel
