@@ -379,6 +379,7 @@ static int ieee80211_vif_update_links(struct ieee80211_sub_if_data *sdata,
 			goto free;
 		}
 		links[link_id] = link;
+		spin_lock_init(&link->data.debugfs_lock);
 	}
 
 	/* keep track of the old pointers for the driver */
