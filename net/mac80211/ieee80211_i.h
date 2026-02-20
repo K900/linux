@@ -1124,7 +1124,8 @@ struct ieee80211_link_data {
 	} bss_bw;
 
 #ifdef CONFIG_MAC80211_DEBUGFS
-	struct dentry *debugfs_dir;
+	spinlock_t debugfs_lock;
+	struct dentry *lnk_debugfs_dir;
 #endif
 };
 

@@ -886,6 +886,11 @@ static void add_mesh_stats(struct ieee80211_sub_if_data *sdata)
 {
 	struct dentry *dir = debugfs_create_dir("mesh_stats",
 						sdata->vif.debugfs_dir);
+	if (IS_ERR(dir)) {
+		sdata_err(sdata, "Failed to create mesh stats dir, rv: %ld vif dir: 0x%px\n",
+			  (long)(dir), sdata->vif.debugfs_dir);
+		return;
+	}
 #define MESHSTATS_ADD(name)\
 	debugfs_create_file(#name, 0400, dir, sdata, &name##_ops)
 
@@ -901,6 +906,11 @@ static void add_mesh_config(struct ieee80211_sub_if_data *sdata)
 {
 	struct dentry *dir = debugfs_create_dir("mesh_config",
 						sdata->vif.debugfs_dir);
+	if (IS_ERR(dir)) {
+		sdata_err(sdata, "Failed to create mesh config dir, rv: %ld vif dir: 0x%px\n",
+			  (long)(dir), sdata->vif.debugfs_dir);
+		return;
+	}
 
 #define MESHPARAMS_ADD(name) \
 	debugfs_create_file(#name, 0600, dir, sdata, &name##_ops)
@@ -1008,10 +1018,27 @@ static void ieee80211_debugfs_add_netdev(struct ieee80211_sub_if_data *sdata,
 	sprintf(buf, "netdev:%s", sdata->name);
 	sdata->vif.debugfs_dir = debugfs_create_dir(buf,
 		sdata->local->hw.wiphy->debugfsdir);
+
+	if (IS_ERR(sdata->vif.debugfs_dir)) {
+		sdata_err(sdata, "Failed to create netdev dir, rv: %ld name: %s wiphy dir: 0x%px\n",
+			  (long)(sdata->vif.debugfs_dir), buf, sdata->local->hw.wiphy->debugfsdir);
+		sdata->vif.debugfs_dir = NULL;
+		return;
+	}
+
 	/* deflink also has this */
-	sdata->deflink.debugfs_dir = sdata->vif.debugfs_dir;
+	spin_lock(&sdata->deflink.debugfs_lock);
+	sdata->deflink.lnk_debugfs_dir = sdata->vif.debugfs_dir;
+	spin_unlock(&sdata->deflink.debugfs_lock);
+
 	sdata->debugfs.subdir_stations = debugfs_create_dir("stations",
 							sdata->vif.debugfs_dir);
+	if (IS_ERR(sdata->debugfs.subdir_stations)) {
+		sdata_err(sdata, "Failed to create netdev subdir-stations dir, rv: %ld wiphy dir: 0x%px\n",
+			  (long)(sdata->debugfs.subdir_stations), sdata->vif.debugfs_dir);
+		sdata->debugfs.subdir_stations = NULL;
+		return;
+	}
 	add_files(sdata);
 	if (!mld_vif)
 		add_link_files(&sdata->deflink, sdata->vif.debugfs_dir);
@@ -1048,73 +1075,113 @@ void ieee80211_debugfs_recreate_netdev(struct ieee80211_sub_if_data *sdata,
 void ieee80211_link_debugfs_add(struct ieee80211_link_data *link)
 {
 	char link_dir_name[10];
+	struct dentry *dir;
 
-	if (WARN_ON(!link->sdata->vif.debugfs_dir || link->debugfs_dir))
-		return;
+	spin_lock(&link->debugfs_lock);
+
+	if (WARN_ON(!link->sdata->vif.debugfs_dir || link->lnk_debugfs_dir))
+		goto out;
 
 	/* For now, this should not be called for non-MLO capable drivers */
 	if (WARN_ON(!(link->sdata->local->hw.wiphy->flags & WIPHY_FLAG_SUPPORTS_MLO)))
-		return;
+		goto out;
 
 	snprintf(link_dir_name, sizeof(link_dir_name),
 		 "link-%d", link->link_id);
 
-	link->debugfs_dir =
-		debugfs_create_dir(link_dir_name,
-				   link->sdata->vif.debugfs_dir);
+	spin_unlock(&link->debugfs_lock);
 
-	DEBUGFS_ADD(link->debugfs_dir, addr);
-	add_link_files(link, link->debugfs_dir);
+	dir = debugfs_create_dir(link_dir_name,
+				 link->sdata->vif.debugfs_dir);
+
+	if (IS_ERR(dir)) {
+		sdata_err(link->sdata, "Failed to create debugfs dir, rv: %ld  link-dir-name: %s vif dir: 0x%px\n",
+			  (long)(dir), link_dir_name, link->sdata->vif.debugfs_dir);
+		return;
+	}
+
+	spin_lock(&link->debugfs_lock);
+	link->lnk_debugfs_dir = dir;
+	spin_unlock(&link->debugfs_lock);
+
+	DEBUGFS_ADD(link->lnk_debugfs_dir, addr);
+	add_link_files(link, link->lnk_debugfs_dir);
+	return;
+out:
+	spin_unlock(&link->debugfs_lock);
 }
 
 void ieee80211_link_debugfs_remove(struct ieee80211_link_data *link)
 {
+	struct dentry *dir;
+
 	if (WARN_ON_ONCE((unsigned long)(link) < 8000)) {
 		pr_err("link-debugfs-remove, link is bad: %px\n", link);
 		return;
 	}
 
-	if (!link->sdata->vif.debugfs_dir || !link->debugfs_dir) {
-		link->debugfs_dir = NULL;
-		return;
+	spin_lock(&link->debugfs_lock);
+	dir = link->lnk_debugfs_dir;
+
+	if (!link->sdata->vif.debugfs_dir || !link->lnk_debugfs_dir) {
+		link->lnk_debugfs_dir = NULL;
+		goto out;
 	}
 
-	if (link->debugfs_dir == link->sdata->vif.debugfs_dir) {
+	if (link->lnk_debugfs_dir == link->sdata->vif.debugfs_dir) {
 		WARN_ON(link != &link->sdata->deflink);
-		link->debugfs_dir = NULL;
-		return;
+		link->lnk_debugfs_dir = NULL;
+		goto out;
 	}
 
-	if (WARN_ON_ONCE((unsigned long)(link->debugfs_dir) < 8000)) {
+	if (WARN_ON_ONCE((unsigned long)(link->lnk_debugfs_dir) < 8000)) {
 		pr_err("link-debugfs-remove, link->debugfs_dir is bad: %px\n",
-		       link->debugfs_dir);
-		return;
+		       link->lnk_debugfs_dir);
+		goto out;
 	}
-	debugfs_remove_recursive(link->debugfs_dir);
-	link->debugfs_dir = NULL;
+	link->lnk_debugfs_dir = NULL;
+	spin_unlock(&link->debugfs_lock);
+
+	debugfs_remove_recursive(dir);
+	return;
+out:
+	spin_unlock(&link->debugfs_lock);
 }
 
 void ieee80211_link_debugfs_drv_add(struct ieee80211_link_data *link)
 {
 	if (link->sdata->vif.type == NL80211_IFTYPE_MONITOR ||
-	    WARN_ON(!link->debugfs_dir))
+	    WARN_ON(!link->lnk_debugfs_dir))
 		return;
 
 	drv_link_add_debugfs(link->sdata->local, link->sdata,
-			     link->conf, link->debugfs_dir);
+			     link->conf, link->lnk_debugfs_dir);
 }
 
 void ieee80211_link_debugfs_drv_remove(struct ieee80211_link_data *link)
 {
-	if (!link || !link->debugfs_dir)
+	struct dentry *dir;
+
+	if (!link)
 		return;
 
-	if (WARN_ON(link->debugfs_dir == link->sdata->vif.debugfs_dir))
-		return;
+	spin_lock(&link->debugfs_lock);
+
+	if (!link->lnk_debugfs_dir)
+		goto out;
+
+	if (WARN_ON(link->lnk_debugfs_dir == link->sdata->vif.debugfs_dir))
+		goto out;
+	dir = link->lnk_debugfs_dir;
+	link->lnk_debugfs_dir = NULL;
+	spin_unlock(&link->debugfs_lock);
 
 	/* Recreate the directory excluding the driver data */
-	debugfs_remove_recursive(link->debugfs_dir);
-	link->debugfs_dir = NULL;
+	debugfs_remove_recursive(dir);
 
 	ieee80211_link_debugfs_add(link);
+	return;
+
+out:
+	spin_unlock(&link->debugfs_lock);
 }
