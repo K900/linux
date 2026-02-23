@@ -953,8 +953,11 @@ unsigned long get_taint(void)
  */
 void add_taint(unsigned flag, enum lockdep_ok lockdep_ok)
 {
-	if (lockdep_ok == LOCKDEP_NOW_UNRELIABLE && __debug_locks_off())
-		pr_warn("Disabling lock debugging due to kernel taint\n");
+	if (lockdep_ok == LOCKDEP_NOW_UNRELIABLE && __debug_locks_off()) {
+		pr_warn("Disabling lock debugging due to kernel taint: 0x%x (lockdep)\n",
+			flag);
+		WARN_ON_ONCE(1);
+	}
 
 	set_bit(flag, &tainted_mask);
 
