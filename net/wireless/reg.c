@@ -54,6 +54,12 @@
 #include "rdev-ops.h"
 #include "nl80211.h"
 
+/* reg_todo can block, and that can cause deadlock with some other
+ * task trying to alloc cma memory.  So, do reg_todo on our own
+ * kthread.
+ */
+static struct task_struct *regdom_kthread = NULL;
+
 /*
  * Grace period we give before making sure all current interfaces reside on
  * channels allowed by the current regulatory domain.
@@ -3232,13 +3238,54 @@ static void reg_process_self_managed_hints(void)
 	reg_check_channels();
 }
 
-static void reg_todo(struct work_struct *work)
+static DECLARE_WAIT_QUEUE_HEAD(regdom_wq);
+
+static void reg_todo_work(void)
 {
 	rtnl_lock();
 	reg_process_pending_hints();
 	reg_process_pending_beacon_hints();
 	reg_process_self_managed_hints();
 	rtnl_unlock();
+}
+
+static void reg_todo(struct work_struct *work)
+{
+        wake_up_all(&regdom_wq);
+}
+
+static int regdom_kthread_function(void *data) {
+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
+
+	add_wait_queue(&regdom_wq, &wait);
+	while (!kthread_should_stop()) {
+		reg_todo_work();
+
+		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
+	}
+	remove_wait_queue(&regdom_wq, &wait);
+	pr_info("regdom Kthread stopped.\n");
+	return 0;
+}
+
+static void init_regdom_kthread(void) {
+
+	regdom_kthread = kthread_run(regdom_kthread_function, NULL, "regdom_kthread");
+
+	if (IS_ERR(regdom_kthread)) {
+		pr_err("Failed to create regdom kthread\n");
+		regdom_kthread = NULL;
+	}
+	else {
+		pr_info("regdom Kthread created and running: %s\n", regdom_kthread->comm);
+	}
+}
+
+static void stop_regdom_kthread(void) {
+	if (regdom_kthread) {
+		kthread_stop(regdom_kthread); /* block until it is really done */
+		regdom_kthread = NULL;
+	}
 }
 
 static void queue_regulatory_request(struct regulatory_request *request)
@@ -4372,6 +4419,8 @@ int __init regulatory_init(void)
 	user_alpha2[0] = '9';
 	user_alpha2[1] = '7';
 
+	init_regdom_kthread();
+
 #ifdef MODULE
 	return regulatory_init_db();
 #else
@@ -4387,6 +4436,7 @@ void regulatory_exit(void)
 	cancel_work_sync(&reg_work);
 	cancel_crda_timeout_sync();
 	cancel_delayed_work_sync(&reg_check_chans);
+	stop_regdom_kthread();
 
 	/* Lock to suppress warnings */
 	rtnl_lock();
