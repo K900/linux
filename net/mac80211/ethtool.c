@@ -545,12 +545,16 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 
 		if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
 			int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
-			u64 accum = (u8)sinfo.chain_signal[0];
+			u64 accum = 0;
 
-			mn = min_t(int, mn, sinfo.chains);
-			for (z = 1; z < mn; z++) {
-				u64 csz = sinfo.chain_signal[z] & 0xFF;
-				u64 cs = csz << (8 * z);
+			for (z = 0; z < mn; z++) {
+				u64 cs = 0;
+
+				if (sinfo.chains & (1 << z)) {
+					u64 csz = sinfo.chain_signal[z] & 0xFF;
+
+					cs = csz << (8 * z);
+				}
 
 				accum |= cs;
 			}
@@ -615,10 +619,11 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 			if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
 				int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
 
-				mn = min_t(int, mn, sinfo.chains);
 				for (z = 0; z < mn; z++) {
-					sig_accum_chain[z] += sinfo.chain_signal[z];
-					amt_accum_chain[z]++;
+					if (sinfo.chains & (1 << z)) {
+						sig_accum_chain[z] += sinfo.chain_signal[z];
+						amt_accum_chain[z]++;
+					}
 				}
 			}
 
@@ -626,7 +631,6 @@ static void ieee80211_get_stats2_vdev(struct net_device *dev,
 				int mn;
 
 				mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
-				mn = min_t(int, mn, sinfo.chains);
 				for (z = 0; z < mn; z++) {
 					sig_accum_chain_avg[z] += sinfo.chain_signal_avg[z];
 					amt_accum_chain_avg[z]++;
@@ -907,12 +911,16 @@ static void ieee80211_get_stats2(struct net_device *dev,
 
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
 					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
-					u64 accum = (u8)sinfo.chain_signal[0];
+					u64 accum = 0;
 
-					mn = min_t(int, mn, sinfo.chains);
-					for (z = 1; z < mn; z++) {
-						u64 csz = sinfo.chain_signal[z] & 0xFF;
-						u64 cs = csz << (8 * z);
+					for (z = 0; z < mn; z++) {
+						u64 cs = 0;
+
+						if (sinfo.chains & (1 << z)) {
+							u64 csz = sinfo.chain_signal[z] & 0xFF;
+
+							cs = csz << (8 * z);
+						}
 
 						accum |= cs;
 					}
@@ -1026,10 +1034,12 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL)) {
 					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal));
 
-					mn = min_t(int, mn, sinfo.chains);
 					for (z = 0; z < mn; z++) {
-						accums[q].sig_accum_chain[z] += sinfo.chain_signal[z];
-						accums[q].amt_accum_chain[z]++;
+						if (sinfo.chains & (1 << z)) {
+							accums[q].sig_accum_chain[z] +=
+								sinfo.chain_signal[z];
+							accums[q].amt_accum_chain[z]++;
+						}
 					}
 				}
 
@@ -1037,7 +1047,6 @@ static void ieee80211_get_stats2(struct net_device *dev,
 					int mn;
 
 					mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
-					mn = min_t(int, mn, sinfo.chains);
 					for (z = 0; z < mn; z++) {
 						accums[q].sig_accum_chain_avg[z] += sinfo.chain_signal_avg[z];
 						accums[q].amt_accum_chain_avg[z]++;
