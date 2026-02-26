@@ -152,8 +152,15 @@ int drv_sta_state(struct ieee80211_local *local,
 	lockdep_assert_wiphy(local->hw.wiphy);
 
 	sdata = get_bss_sdata(sdata);
-	if (!check_sdata_in_driver(sdata))
+	if (!check_sdata_in_driver(sdata)) {
+		sdata_err(sdata, "drv-sta-state, sdata-not-in-driver, old_state: %d  new_state: %d\n",
+			  old_state, new_state);
+		if (new_state < old_state) {
+			/* Going down should not fail, evidently. */
+			return 0;
+		}
 		return -EIO;
+	}
 
 	trace_drv_sta_state(local, sdata, &sta->sta, old_state, new_state);
 	if (local->ops->sta_state) {
