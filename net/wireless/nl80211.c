@@ -12960,6 +12960,32 @@ static int nl80211_authenticate(struct sk_buff *skb, struct genl_info *info)
 	if (!chan)
 		return -EINVAL;
 
+	if (info->attrs[NL80211_ATTR_VENDOR_ID] &&
+	    info->attrs[NL80211_ATTR_VENDOR_DATA]) {
+		int vid = nla_get_u32(info->attrs[NL80211_ATTR_VENDOR_ID]);
+		void *data = nla_data(info->attrs[NL80211_ATTR_VENDOR_DATA]);
+		int data_len = nla_len(info->attrs[NL80211_ATTR_VENDOR_DATA]);
+		struct ct_assoc_info *cai = (struct ct_assoc_info*)(data);
+
+		if (vid == CANDELA_VENDOR_ID) {
+			if (data_len < 4) { /* flags is first u32 */
+				pr_err("%s: ct-data-len: %d too small\n",
+				       __func__, data_len);
+				goto skip_ct_priv;
+			}
+
+			if (cai->flags & CT_ASSOC_DISABLE_40MHZ)
+				req.flags |= ASSOC_REQ_DISABLE_40;
+			if (cai->flags & CT_ASSOC_DISABLE_80MHZ)
+				req.flags |= ASSOC_REQ_DISABLE_80;
+			if (cai->flags & CT_ASSOC_DISABLE_160MHZ)
+				req.flags |= ASSOC_REQ_DISABLE_160;
+			if (cai->flags & CT_ASSOC_DISABLE_320MHZ)
+				req.flags |= ASSOC_REQ_DISABLE_320;
+		}
+skip_ct_priv:
+	}
+
 	ssid = nla_data(info->attrs[NL80211_ATTR_SSID]);
 	ssid_len = nla_len(info->attrs[NL80211_ATTR_SSID]);
 

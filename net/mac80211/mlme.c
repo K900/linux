@@ -6735,9 +6735,19 @@ ieee80211_determine_our_sta_mode_auth(struct ieee80211_sub_if_data *sdata,
 				      bool wmm_used,
 				      struct ieee80211_conn_settings *conn)
 {
+	struct ieee80211_conn_settings tmp = { 0 };
+
 	ieee80211_determine_our_sta_mode(sdata, sband, NULL, wmm_used,
 					 req->link_id > 0 ? req->link_id : 0,
-					 conn);
+					 &tmp);
+
+	// TODO: Handle mode the same way here when we inevitably limit it for
+	// auth too...
+	conn->mode = tmp.mode;
+	//pr_err("our-sta-mode-auth, conn bw-limit: %d  tmp bw limit: %d\n",
+	//       conn->bw_limit, tmp.bw_limit);
+	conn->bw_limit = min_t(enum ieee80211_conn_bw_limit,
+			       conn->bw_limit, tmp.bw_limit);
 }
 
 static void
@@ -6828,8 +6838,12 @@ static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
 				     local->rx_chains);
 	rcu_read_unlock();
 
-	while (conn->bw_limit < ieee80211_min_bw_limit_from_chandef(&chanreq.oper))
+	while (conn->bw_limit < ieee80211_min_bw_limit_from_chandef(&chanreq.oper)) {
+		link_info(link,
+			  "Downgrade chandef, conn bw_limit: %d  min-from-chandef: %d\n",
+			  conn->bw_limit, ieee80211_min_bw_limit_from_chandef(&chanreq.oper));
 		ieee80211_chandef_downgrade(&chanreq.oper, NULL);
+	}
 
 	/*
 	 * If this fails (possibly due to channel context sharing
@@ -9906,6 +9920,10 @@ int ieee80211_mgd_auth(struct ieee80211_sub_if_data *sdata,
 	int err;
 	bool cont_auth, wmm_used;
 
+	// TODO: Use `ieee80211_conn_settings_unlimited` when we inenvitably
+	// do the same work for mode
+	conn.bw_limit = IEEE80211_CONN_BW_LIMIT_320;
+
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);
 
 	/* prepare auth data structure */
@@ -9960,6 +9978,25 @@ int ieee80211_mgd_auth(struct ieee80211_sub_if_data *sdata,
 			    req->ie_len, GFP_KERNEL);
 	if (!auth_data)
 		return -ENOMEM;
+
+	if (req->flags & ASSOC_REQ_DISABLE_320)
+		conn.bw_limit = min_t(enum ieee80211_conn_bw_limit,
+				      conn.bw_limit,
+				      IEEE80211_CONN_BW_LIMIT_160);
+	if (req->flags & ASSOC_REQ_DISABLE_160)
+		conn.bw_limit = min_t(enum ieee80211_conn_bw_limit,
+				      conn.bw_limit,
+				      IEEE80211_CONN_BW_LIMIT_80);
+	if (req->flags & ASSOC_REQ_DISABLE_80)
+		conn.bw_limit = min_t(enum ieee80211_conn_bw_limit,
+				      conn.bw_limit,
+				      IEEE80211_CONN_BW_LIMIT_40);
+	if (req->flags & ASSOC_REQ_DISABLE_40)
+		conn.bw_limit = min_t(enum ieee80211_conn_bw_limit,
+				      conn.bw_limit,
+				      IEEE80211_CONN_BW_LIMIT_20);
+	//pr_err("mgd-auth, after limiting bw: conn bw-limit: %d  req->flags: 0x%x\n",
+	//       conn.bw_limit, req->flags);
 
 	memcpy(auth_data->ap_addr,
 	       req->ap_mld_addr ?: req->bss->bssid,
