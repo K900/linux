@@ -45,6 +45,13 @@ void nl80211_send_sched_scan(struct cfg80211_sched_scan_request *req, u32 cmd);
 void nl80211_common_reg_change_event(enum nl80211_commands cmd_id,
 				     struct regulatory_request *request);
 
+/* We use kthread that sleeps on wait-queue to process work items that
+ * can block and cause deadlocks with CMA allocation logic.
+ */
+extern bool pending_disconnect_work;
+extern struct wait_queue_head regdom_wq;
+bool cfg80211_is_all_idle(void);
+
 static inline void
 nl80211_send_reg_change_event(struct regulatory_request *request)
 {
