@@ -1044,13 +1044,75 @@ static void ieee80211_debugfs_add_netdev(struct ieee80211_sub_if_data *sdata,
 		add_link_files(&sdata->deflink, sdata->vif.debugfs_dir);
 }
 
+static void
+ieee80211_debugfs_clear_link_ptr(struct ieee80211_sub_if_data *sdata,
+				 struct dentry *dir,
+				 const char* dbg)
+{
+	struct ieee80211_link_data *link;
+	int i;
+
+	rcu_read_lock();
+
+	if (sdata->vif.debugfs_dir == dir) {
+		sdata_info(sdata, "Nulling deleted sdata debugfs dir, dbg: %s",
+			   dbg);
+		sdata->vif.debugfs_dir = NULL;
+	}
+
+	for (i = 0; i<IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+		link = rcu_access_pointer(sdata->link[i]);
+		if (!link)
+			continue;
+
+		spin_lock(&link->debugfs_lock);
+		if (dir == link->lnk_debugfs_dir) {
+			link_info(link, "Nulling deleted link %i debugfs dir, dbg: %s",
+				  i, dbg);
+			link->lnk_debugfs_dir = NULL;
+		}
+		spin_unlock(&link->debugfs_lock);
+	}
+	rcu_read_unlock();
+}
+
 void ieee80211_debugfs_remove_netdev(struct ieee80211_sub_if_data *sdata)
 {
-	if (!sdata->vif.debugfs_dir)
+	struct dentry* dir = sdata->vif.debugfs_dir;
+	struct ieee80211_link_data *link;
+	int i;
+
+	if (!dir)
 		return;
 
-	debugfs_remove_recursive(sdata->vif.debugfs_dir);
 	sdata->vif.debugfs_dir = NULL;
+
+	/* In case where there were errors on station creation and maybe
+	 * teardown, we may get here with some links still active.  We are
+	 * about to recursively delete debugfs, so remove any pointers the
+	 * links may have.
+	 */
+	rcu_read_lock();
+
+	for (i = 0; i<IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+		link = rcu_access_pointer(sdata->link[i]);
+		if (!link)
+			continue;
+
+		spin_lock(&link->debugfs_lock);
+		if (dir == link->lnk_debugfs_dir) {
+			/* Deflink sharing our pointer, probably..clear but do not warn. */
+			link->lnk_debugfs_dir = NULL;
+		} else if (link->lnk_debugfs_dir) {
+			sdata_info(sdata, "Nulling link %i debugfs dir in remove-netdev",
+				   i);
+			link->lnk_debugfs_dir = NULL;
+		}
+		spin_unlock(&link->debugfs_lock);
+	}
+	rcu_read_unlock();
+
+	debugfs_remove_recursive(dir);
 	sdata->debugfs.subdir_stations = NULL;
 }
 
@@ -1142,6 +1204,7 @@ void ieee80211_link_debugfs_remove(struct ieee80211_link_data *link)
 	link->lnk_debugfs_dir = NULL;
 	spin_unlock(&link->debugfs_lock);
 
+	ieee80211_debugfs_clear_link_ptr(link->sdata, dir, "link-debugfs-remove");
 	debugfs_remove_recursive(dir);
 	return;
 out:
@@ -1177,6 +1240,7 @@ void ieee80211_link_debugfs_drv_remove(struct ieee80211_link_data *link)
 	spin_unlock(&link->debugfs_lock);
 
 	/* Recreate the directory excluding the driver data */
+	ieee80211_debugfs_clear_link_ptr(link->sdata, dir, "link-drv-remove");
 	debugfs_remove_recursive(dir);
 
 	ieee80211_link_debugfs_add(link);
