@@ -675,7 +675,7 @@ static int cfg80211_sme_disconnect(struct wireless_dev *wdev, u16 reason)
  * code shared for in-device and software SME
  */
 
-static bool cfg80211_is_all_idle(void)
+bool cfg80211_is_all_idle(void)
 {
 	struct cfg80211_registered_device *rdev;
 	struct wireless_dev *wdev;
@@ -704,10 +704,8 @@ static bool cfg80211_is_all_idle(void)
 
 static void disconnect_work(struct work_struct *work)
 {
-	rtnl_lock();
-	if (cfg80211_is_all_idle())
-		regulatory_hint_disconnect();
-	rtnl_unlock();
+	pending_disconnect_work = true;
+	wake_up_all(&regdom_wq);
 }
 
 DECLARE_WORK(cfg80211_disconnect_work, disconnect_work);
