@@ -59,6 +59,8 @@
  * kthread.
  */
 static struct task_struct *regdom_kthread = NULL;
+bool pending_disconnect_work = false;
+bool pending_reg_todo_work = false;
 
 /*
  * Grace period we give before making sure all current interfaces reside on
@@ -3238,7 +3240,7 @@ static void reg_process_self_managed_hints(void)
 	reg_check_channels();
 }
 
-static DECLARE_WAIT_QUEUE_HEAD(regdom_wq);
+DECLARE_WAIT_QUEUE_HEAD(regdom_wq);
 
 static void reg_todo_work(void)
 {
@@ -3251,6 +3253,7 @@ static void reg_todo_work(void)
 
 static void reg_todo(struct work_struct *work)
 {
+	pending_reg_todo_work = true;
         wake_up_all(&regdom_wq);
 }
 
@@ -3259,9 +3262,20 @@ static int regdom_kthread_function(void *data) {
 
 	add_wait_queue(&regdom_wq, &wait);
 	while (!kthread_should_stop()) {
-		reg_todo_work();
+		if (pending_reg_todo_work) {
+			pending_reg_todo_work = false;
+			reg_todo_work();
+		}
+		if (pending_disconnect_work) {
+			rtnl_lock();
+			pending_disconnect_work = false;
+			if (cfg80211_is_all_idle())
+				regulatory_hint_disconnect();
+			rtnl_unlock();
+		}
 
-		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
+		if (!(pending_reg_todo_work || pending_disconnect_work))
+			wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
 	}
 	remove_wait_queue(&regdom_wq, &wait);
 	pr_info("regdom Kthread stopped.\n");
