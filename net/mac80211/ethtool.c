@@ -880,13 +880,23 @@ static void ieee80211_get_stats2(struct net_device *dev,
 				}
 				data->link_stats[q].signal_chains = accum;
 
-				/* No chain signal avg per link, get from sinfo */
-				if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
-					int mn = min_t(int, sizeof(u64), ARRAY_SIZE(sinfo.chain_signal_avg));
-					u64 accum = (u8)sinfo.chain_signal_avg[0];
+				size_t arrsz = sizeof(u64);
+				u8 *csavg = NULL;
+
+				if (linfo && linfo->filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
+					arrsz = ARRAY_SIZE(linfo->chain_signal_avg);
+					csavg = linfo->chain_signal_avg;
+				} else if (sinfo.filled & BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG)) {
+					arrsz = ARRAY_SIZE(sinfo.chain_signal_avg);
+					csavg = sinfo.chain_signal_avg;
+				}
+
+				if (csavg) {
+					int mn = min_t(int, sizeof(u64), arrsz);
+					u64 accum = (u8)csavg[0];
 
 					for (z = 1; z < mn; z++) {
-						u64 csz = sinfo.chain_signal_avg[z] & 0xFF;
+						u64 csz = csavg[z] & 0xFF;
 						u64 cs = csz << (8 * z);
 
 						accum |= cs;
