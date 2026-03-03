@@ -184,6 +184,8 @@ iwl_mld_cleanup_sta(void *data, struct ieee80211_sta *sta)
 		/* Should not happen as link removal should always succeed */
 		WARN_ON(1);
 		RCU_INIT_POINTER(mld_sta->link[link_id], NULL);
+		IWL_ERR(mld_sta->mld, "mld-cleanup-sta, clearing fw_id_to_link_sta[%d]\n",
+			mld_link_sta->fw_id);
 		RCU_INIT_POINTER(mld_sta->mld->fw_id_to_link_sta[mld_link_sta->fw_id],
 				 NULL);
 		if (mld_link_sta != &mld_sta->deflink)
@@ -246,6 +248,8 @@ iwl_mld_free_internal_sta(struct iwl_mld *mld,
 	if (WARN_ON(internal_sta->sta_id == IWL_INVALID_STA))
 		return;
 
+	IWL_ERR(mld, "mld-free-internal-sta, clearing fw_id_to_link_sta[%d]\n",
+		internal_sta->sta_id);
 	RCU_INIT_POINTER(mld->fw_id_to_link_sta[internal_sta->sta_id], NULL);
 	iwl_mld_init_internal_sta(internal_sta);
 }

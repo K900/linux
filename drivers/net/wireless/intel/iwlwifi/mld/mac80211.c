@@ -588,19 +588,23 @@ int iwl_mld_mac80211_start(struct ieee80211_hw *hw)
 			 * nothing to recover, mac80211 will do anyway.
 			 */
 			mld->fw_status.in_hw_restart = false;
+			IWL_ERR(mld, "Failed no-wowlan-resume. ret=%d\n", ret);
 		}
 	}
 #endif /* CONFIG_PM_SLEEP */
 
 	if (mld->fw_status.in_hw_restart) {
+		IWL_ERR(mld, "mld-mac80211-start, already in-hw-restart, stopping fw cleanup\n");
 		iwl_mld_stop_fw(mld);
 		iwl_mld_restart_cleanup(mld);
 	}
 
 	if (!in_d3 || ret) {
 		ret = iwl_mld_start_fw(mld);
-		if (ret)
+		if (ret) {
+			IWL_ERR(mld, "Failed start-fw. ret=%d\n", ret);
 			goto error;
+		}
 	}
 
 	mld->scan.last_start_time_jiffies = jiffies;
@@ -1787,8 +1791,11 @@ static int iwl_mld_move_sta_state_up(struct iwl_mld *mld,
 		}
 
 		ret = iwl_mld_add_sta(mld, sta, vif);
-		if (ret)
+		if (ret) {
+			IWL_ERR(mld, "move-sta-state-up, old: %d new: %d mld-add-sta failed. ret=%d\n",
+				old_state, new_state, ret);
 			return ret;
+		}
 
 		/* just added first TDLS STA, so disable PM and block EMLSR */
 		if (sta->tdls && tdls_count == 0) {

@@ -939,8 +939,10 @@ static int sta_info_insert_drv_state(struct ieee80211_local *local,
 		 * get uploaded set to true after sta_add is called.
 		 * We are at least somewhat added now.
 		 */
-		if (!local->ops->sta_add)
+		if (!local->ops->sta_add) {
+			sdata_info(sdata, "sta-info-insert-drv-state, sta is uploaded\n");
 			sta->uploaded = true;
+		}
 	}
 
 	if (!err)
@@ -1454,6 +1456,8 @@ static int __must_check __sta_info_destroy_part1(struct sta_info *sta)
 
 	if (sta->uploaded)
 		drv_sta_pre_rcu_remove(local, sta->sdata, sta);
+	else
+		sdata_info(sdata, "sta-info_destroy_part1, not calling sta-pre-rcu-remove, sta->uploaded is false.");
 
 	if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN &&
 	    rcu_access_pointer(sdata->u.vlan.sta) == sta)
