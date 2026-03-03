@@ -1052,9 +1052,8 @@ static int iwl_pcie_napi_poll_msix(struct napi_struct *napi, int budget)
 	trans = trans_pcie->trans;
 
 	if (unlikely(test_bit(STATUS_FW_ERROR, &trans->status))) {
-		WARN_ONCE(1,
-			  "iwlwifi: NAPI MSIX poll[%d] invoked after FW error\n",
-			  rxq->id);
+		pr_err("iwlwifi: NAPI MSIX poll[%d] invoked after FW error, returning.\n",
+		       rxq->id);
 		napi_complete_done(napi, 0);
 		return 0;
 	}
