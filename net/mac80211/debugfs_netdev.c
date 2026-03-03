@@ -1080,6 +1080,7 @@ void ieee80211_debugfs_remove_netdev(struct ieee80211_sub_if_data *sdata)
 {
 	struct dentry* dir = sdata->vif.debugfs_dir;
 	struct ieee80211_link_data *link;
+	struct sta_info *s, *first;
 	int i;
 
 	if (!dir)
@@ -1110,6 +1111,30 @@ void ieee80211_debugfs_remove_netdev(struct ieee80211_sub_if_data *sdata)
 		}
 		spin_unlock(&link->debugfs_lock);
 	}
+
+	/* And, same for all stations.  See ieee80211_sta_debugfs_add where
+	 * they are added to the sdata->debugfs.subdir_stations directory
+	 */
+	lockdep_assert_wiphy(sdata->local->hw.wiphy);
+	for (i = 0; i<STA_HASH_SIZE; i++) {
+		first = rcu_dereference_protected(sdata->sta_vhash[i],
+						  lockdep_is_held(&sdata->local->hw.wiphy->mtx));
+		if (!first)
+			continue;
+
+		s = first;
+		while (s) {
+			if (s->debugfs_dir) {
+				sdata_info(sdata, "Nulling sta %pM debugfs dir in remove-netdev",
+					s->sta.addr);
+				s->debugfs_dir = NULL;
+			}
+			s = rcu_access_pointer(s->vnext);
+			if (!s || s == first)
+				break;
+		}
+	}
+
 	rcu_read_unlock();
 
 	debugfs_remove_recursive(dir);
