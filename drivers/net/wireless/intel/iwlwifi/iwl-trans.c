@@ -769,7 +769,7 @@ int iwl_trans_txq_alloc(struct iwl_trans *trans, u32 flags, u32 sta_mask,
 	might_sleep();
 
 	if (WARN_ONCE(trans->state != IWL_TRANS_FW_ALIVE,
-		      "bad state = %d\n", trans->state))
+		      "trans-txq-alloc failed, FW no alive, bad state = %d\n", trans->state))
 		return -EIO;
 
 	return iwl_txq_dyn_alloc(trans, flags, sta_mask, tid,
