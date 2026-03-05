@@ -349,6 +349,23 @@ static ssize_t ieee80211_if_fmt_rc_rateidx_vht_mcs_mask_5ghz(
 
 IEEE80211_IF_FILE_R(rc_rateidx_vht_mcs_mask_5ghz);
 
+static ssize_t
+ieee80211_if_fmt_beacon_info(const struct ieee80211_sub_if_data *sdata,
+			     char *buf, int buflen)
+{
+	int len;
+
+	len = scnprintf(buf, buflen,
+			"%s: beacon_count: %d beacon_loss: %d\n",
+			sdata->name,
+			sdata->deflink.u.mgd.count_beacon_signal,
+			sdata->deflink.u.mgd.beacon_loss_count);
+
+	return len;
+}
+
+IEEE80211_IF_FILE_R(beacon_info);
+
 IEEE80211_IF_FILE(flags, flags, HEX);
 IEEE80211_IF_FILE(state, state, LHEX);
 IEEE80211_IF_FILE(radio_mask, wdev.radio_mask, HEX);
@@ -830,6 +847,7 @@ static void add_common_files(struct ieee80211_sub_if_data *sdata)
 	DEBUGFS_ADD(rc_rateidx_mcs_mask_5ghz);
 	DEBUGFS_ADD(rc_rateidx_vht_mcs_mask_2ghz);
 	DEBUGFS_ADD(rc_rateidx_vht_mcs_mask_5ghz);
+	DEBUGFS_ADD(beacon_info);
 	DEBUGFS_ADD(hw_queues);
 
 	if (sdata->vif.type != NL80211_IFTYPE_P2P_DEVICE &&
