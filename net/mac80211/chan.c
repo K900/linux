@@ -1187,6 +1187,8 @@ static int ieee80211_assign_link_chanctx(struct ieee80211_link_data *link,
 	bool new_idle;
 	int ret;
 
+	lockdep_assert_wiphy(local->hw.wiphy);
+
 	if (WARN_ON(sdata->vif.type == NL80211_IFTYPE_NAN))
 		return -EOPNOTSUPP;
 
