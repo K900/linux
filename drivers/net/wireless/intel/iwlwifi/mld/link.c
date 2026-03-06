@@ -590,6 +590,7 @@ void iwl_mld_remove_link(struct iwl_mld *mld,
 	if (link && !is_deflink)
 		kfree_rcu(link, rcu_head);
 
+	rcu_read_lock();
 	RCU_INIT_POINTER(mld_vif->link[bss_conf->link_id], NULL);
 
 	if (fw_id >= mld->fw->ucode_capa.num_links) {
@@ -609,6 +610,7 @@ void iwl_mld_remove_link(struct iwl_mld *mld,
 	else {
 		RCU_INIT_POINTER(mld->fw_id_to_bss_conf[fw_id], NULL);
 	}
+	rcu_read_unlock();
 }
 
 void iwl_mld_handle_missed_beacon_notif(struct iwl_mld *mld,
