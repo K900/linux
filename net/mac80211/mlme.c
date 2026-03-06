@@ -6839,9 +6839,9 @@ static int ieee80211_prep_channel(struct ieee80211_sub_if_data *sdata,
 	rcu_read_unlock();
 
 	while (conn->bw_limit < ieee80211_min_bw_limit_from_chandef(&chanreq.oper)) {
-		link_info(link,
-			  "Downgrade chandef, conn bw_limit: %d  min-from-chandef: %d\n",
-			  conn->bw_limit, ieee80211_min_bw_limit_from_chandef(&chanreq.oper));
+		//link_info(link,
+		//	  "Downgrade chandef, conn bw_limit: %d  min-from-chandef: %d\n",
+		//	  conn->bw_limit, ieee80211_min_bw_limit_from_chandef(&chanreq.oper));
 		ieee80211_chandef_downgrade(&chanreq.oper, NULL);
 	}
 
