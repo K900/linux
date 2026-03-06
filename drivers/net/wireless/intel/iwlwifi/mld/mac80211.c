@@ -560,6 +560,18 @@ iwl_mld_restart_cleanup(struct iwl_mld *mld)
 	ieee80211_wake_queues(mld->hw);
 }
 
+/* mac80211 thinks our driver/firmware/hardware has crashed
+ * and cannot be recovered.  Force clean any existing configuration
+ * (stas, etc), as mac80211 will not attempt further cleanup.
+ */
+static void iwl_mld_mac80211_force_cleanup(struct ieee80211_hw *hw)
+{
+	struct iwl_mld *mld = IWL_MAC80211_GET_MLD(hw);
+
+	IWL_ERR(mld, "mac80211-force-cleanup called, calling mld_restart_cleanup.\n");
+	iwl_mld_restart_cleanup(mld);
+}
+
 static
 int iwl_mld_mac80211_start(struct ieee80211_hw *hw)
 {
@@ -3271,6 +3283,7 @@ const struct ieee80211_ops iwl_mld_hw_ops = {
 	.start = iwl_mld_mac80211_start,
 	.stop = iwl_mld_mac80211_stop,
 	.config = iwl_mld_mac80211_config,
+	.force_cleanup = iwl_mld_mac80211_force_cleanup,
 	.get_antenna = iwl_mld_get_antenna,
 	.set_antenna = iwl_mld_set_antenna,
 	.add_interface = iwl_mld_mac80211_add_interface,
