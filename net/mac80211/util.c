@@ -2078,10 +2078,13 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 			local->is_dead = 1;
 #endif
 		}
+		pr_err("Hardware became unavailable, waking queues...\n");
 		ieee80211_wake_queues_by_reason(hw, IEEE80211_MAX_QUEUE_MAP,
 						IEEE80211_QUEUE_STOP_REASON_SUSPEND,
 						false);
+		pr_err("Hardware became unavailable, calling handle-reconfig-failure...\n");
 		ieee80211_handle_reconfig_failure(local);
+		pr_err("Hardware became unavailable, returning...\n");
 		return res;
 	}
 
