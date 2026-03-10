@@ -380,6 +380,8 @@ struct all_sta_trx_rate {
 	u8 __rsv2;
 } __packed;
 
+#define UNI_EVENT_SIZE_ADM_STAT_V1	1452
+
 struct mt7996_mcu_all_sta_info_event {
 	u8 rsv[4];
 	__le16 tag;
@@ -396,7 +398,15 @@ struct mt7996_mcu_all_sta_info_event {
 			u8 rsv[2];
 			__le32 tx_bytes[IEEE80211_NUM_ACS];
 			__le32 rx_bytes[IEEE80211_NUM_ACS];
-		} __packed, adm_stat);
+		} __packed, adm_stat_v1);
+
+		DECLARE_FLEX_ARRAY(struct {
+			__le16 wlan_idx;
+			u8 rsv[2];
+			__le32 tx_bytes[IEEE80211_NUM_ACS];
+			__le32 rx_bytes[IEEE80211_NUM_ACS];
+			__le32 tx_bytes_failed[IEEE80211_NUM_ACS];
+		} __packed, adm_stat_v2);
 
 		DECLARE_FLEX_ARRAY(struct {
 			__le16 wlan_idx;
