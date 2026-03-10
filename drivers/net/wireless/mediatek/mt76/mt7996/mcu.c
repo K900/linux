@@ -1009,18 +1009,32 @@ mt7996_mcu_rx_all_sta_info_event(struct mt7996_dev *dev, struct sk_buff *skb)
 				dev_err(dev->mt76.dev, "Failed to update TX/RX rates\n");
 			break;
 		case UNI_ALL_STA_TXRX_ADM_STAT:
-			wlan_idx = le16_to_cpu(res->adm_stat[i].wlan_idx);
+			bool v1;
+
+			v1 = le16_to_cpu(res->len) == UNI_EVENT_SIZE_ADM_STAT_V1;
+			if (v1)
+				wlan_idx = le16_to_cpu(res->adm_stat_v1[i].wlan_idx);
+			else
+				wlan_idx = le16_to_cpu(res->adm_stat_v2[i].wlan_idx);
 			wcid = mt76_wcid_ptr(dev, wlan_idx);
 
 			if (!wcid)
 				break;
 
-			for (ac = 0; ac < IEEE80211_NUM_ACS; ac++) {
+			for (ac = IEEE80211_AC_VO; ac < IEEE80211_NUM_ACS; ac++) {
 				u8 lmac_ac = mt76_connac_lmac_mapping(ac);
-				wcid->stats.tx_bytes +=
-					le32_to_cpu(res->adm_stat[i].tx_bytes[lmac_ac]);
-				wcid->stats.rx_bytes +=
-					le32_to_cpu(res->adm_stat[i].rx_bytes[lmac_ac]);
+				u32 tx_bytes, rx_bytes;
+
+				if (v1) {
+					tx_bytes = le32_to_cpu(res->adm_stat_v1[i].tx_bytes[lmac_ac]);
+					rx_bytes = le32_to_cpu(res->adm_stat_v1[i].rx_bytes[lmac_ac]);
+				} else {
+					tx_bytes = le32_to_cpu(res->adm_stat_v2[i].tx_bytes[lmac_ac]);
+					rx_bytes = le32_to_cpu(res->adm_stat_v2[i].rx_bytes[lmac_ac]);
+				}
+
+				wcid->stats.tx_bytes += tx_bytes;
+				wcid->stats.rx_bytes += rx_bytes;
 			}
 			break;
 		case UNI_ALL_STA_TXRX_MSDU_COUNT:
