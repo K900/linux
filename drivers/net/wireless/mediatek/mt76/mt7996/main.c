@@ -2834,9 +2834,10 @@ static void mt7996_ethtool_worker(void *wi_data, struct ieee80211_sta *sta)
 }
 
 static
-void mt7996_get_et_stats(struct ieee80211_hw *hw,
-			 struct ieee80211_vif *vif,
-			 struct ethtool_stats *stats, u64 *data)
+void mt7996_get_et_stats2(struct ieee80211_hw *hw,
+			  struct ieee80211_vif *vif,
+			  struct ethtool_stats *stats,
+			  u64 *data, u32 level)
 {
 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
@@ -2877,8 +2878,12 @@ void mt7996_get_et_stats(struct ieee80211_hw *hw,
 		mib = &phy->mib;
 
 
+		if (level && level < 5)
+			goto skip_query_fw_stats;
+
 		mt7996_mac_update_stats(phy);
 
+skip_query_fw_stats:
 		/* driver phy-wide stats */
 		data[ei++] = mib->tx_pkts_nic;
 		data[ei++] = mib->tx_bytes_nic;
@@ -2972,6 +2977,14 @@ void mt7996_get_et_stats(struct ieee80211_hw *hw,
 	if (ei != MT7996_SSTATS_LEN)
 		dev_err(dev->mt76.dev, "ei: %d  MT7996_SSTATS_LEN: %d",
 			ei, (int)MT7996_SSTATS_LEN);
+}
+
+static void mt7996_get_et_stats(struct ieee80211_hw *hw,
+				struct ieee80211_vif *vif,
+				struct ethtool_stats *stats,
+				u64 *data)
+{
+	mt7996_get_et_stats2(hw, vif, stats, data, 0);
 }
 
 static void
@@ -3210,6 +3223,7 @@ const struct ieee80211_ops mt7996_ops = {
 	.get_stats = mt7996_get_stats,
 	.get_et_sset_count = mt7996_get_et_sset_count,
 	.get_et_stats = mt7996_get_et_stats,
+	.get_et_stats2 = mt7996_get_et_stats2,
 	.get_et_strings = mt7996_get_et_strings,
 	.get_tsf = mt7996_get_tsf,
 	.set_tsf = mt7996_set_tsf,
