@@ -1271,7 +1271,7 @@ EXPORT_SYMBOL(wiphy_rfkill_start_polling);
 void cfg80211_process_wiphy_works(struct cfg80211_registered_device *rdev,
 				  struct wiphy_work *end)
 {
-	unsigned int runaway_limit = 100;
+	unsigned int runaway_limit = 200;
 	unsigned long flags;
 
 	lockdep_assert_held(&rdev->wiphy.mtx);
