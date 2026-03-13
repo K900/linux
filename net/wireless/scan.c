@@ -1206,8 +1206,16 @@ void cfg80211_scan_done(struct cfg80211_scan_request *request,
 {
 	struct cfg80211_scan_request_int *intreq =
 		container_of(request, struct cfg80211_scan_request_int, req);
-	struct cfg80211_registered_device *rdev = wiphy_to_rdev(request->wiphy);
+	struct cfg80211_registered_device *rdev;
 	struct cfg80211_scan_info old_info = intreq->info;
+
+	/* MTK7996 stress test is showing NULL here sometimes, keep it
+	 * from crashing while we figure out what is going on.
+	 */
+	if (WARN_ON(!request->wiphy))
+		return;
+
+	rdev = wiphy_to_rdev(request->wiphy);
 
 	trace_cfg80211_scan_done(intreq, info);
 	WARN_ON(intreq != rdev->scan_req &&
