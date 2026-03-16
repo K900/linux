@@ -381,6 +381,17 @@ mt7996_mcu_parse_response(struct mt76_dev *mdev, int cmd,
 		return -ETIMEDOUT;
 	}
 
+	/*
+	// VERY VERBOSE MCU DEBUGGING
+	//if (FIELD_GET(__MCU_CMD_FIELD_ID, cmd) == 0x2b)
+	      mt76_dbg(mdev, MT76_DBG_WRN,
+	               "%s: cmd: 0x%02lx, ext_cid: 0x%02lx, seq: %d\n",
+	               __func__,
+	               FIELD_GET(__MCU_CMD_FIELD_ID, cmd),
+	               FIELD_GET(__MCU_CMD_FIELD_EXT_ID, cmd),
+	               seq);
+	*/
+
 	mdev->last_successful_mcu_cmd = cmd;
 
 	if (mdev->first_failed_mcu_cmd) {
@@ -562,6 +573,17 @@ mt7996_mcu_send_message(struct mt76_dev *mdev, struct sk_buff *skb,
 		mcu_txd->s2d_index = MCU_S2D_H2N;
 
 exit:
+	/*
+	// VERY VERBOSE MCU DEBUGGING
+	//if (FIELD_GET(__MCU_CMD_FIELD_ID, cmd) == 0x2b)
+	      mt76_dbg(mdev, MT76_DBG_WRN,
+	               "%s: cmd: 0x%02lx, ext_cid: 0x%02lx, seq: %d\n",
+	               __func__,
+	               FIELD_GET(__MCU_CMD_FIELD_ID, cmd),
+	               FIELD_GET(__MCU_CMD_FIELD_EXT_ID, cmd),
+	               seq);
+	*/
+
 	if (dev->mt76.debug_lvl && (*dev->mt76.debug_lvl & MT76_DBG_MCU_VERBOSE) &&
 	    cmd != MCU_CMD(FW_SCATTER)) {
 		bool well_formed = (skb->len % 4 == 0);
