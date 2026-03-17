@@ -118,6 +118,7 @@ static int nft_dev_path_info(struct net_device_path_stack *stack,
 		case DEV_PATH_ETHERNET:
 		case DEV_PATH_IEEE80211:
 		case DEV_PATH_DSA:
+		case DEV_PATH_MTK_WDMA:
 		case DEV_PATH_VLAN:
 		case DEV_PATH_PPPOE:
 		case DEV_PATH_TUN:
@@ -127,7 +128,8 @@ static int nft_dev_path_info(struct net_device_path_stack *stack,
 
 			if (path->type == DEV_PATH_ETHERNET ||
 			    path->type == DEV_PATH_IEEE80211 ||
-			    path->type == DEV_PATH_DSA)
+			    path->type == DEV_PATH_DSA ||
+			    path->type == DEV_PATH_MTK_WDMA)
 				break;
 
 			/* DEV_PATH_VLAN, DEV_PATH_PPPOE and DEV_PATH_TUN */
