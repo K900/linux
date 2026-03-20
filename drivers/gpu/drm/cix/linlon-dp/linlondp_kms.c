@@ -26,7 +26,7 @@
 
 DEFINE_DRM_GEM_DMA_FOPS(linlondp_cma_fops);
 
-static bool enable_render = true;
+static bool enable_render = false;
 module_param(enable_render, bool, 0644);
 MODULE_PARM_DESC(enable_render, "Enable render node support (true/false)");
 
