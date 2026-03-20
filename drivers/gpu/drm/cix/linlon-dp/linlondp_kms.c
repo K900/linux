@@ -12,6 +12,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_fb_helper.h>
+#include <drm/drm_fbdev_dma.h>
 #include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_managed.h>
@@ -282,6 +283,7 @@ static struct drm_driver linlondp_kms_driver = {
 	.lastclose = drm_fb_helper_lastclose,
 #endif
 	.dumb_create = linlondp_gem_dma_dumb_create,
+	DRM_FBDEV_DMA_DRIVER_OPS,
 	.gem_prime_import_sg_table = linlondp_gem_prime_import_sg_table,
 	.fops = &linlondp_cma_fops,
 	.name = "linlondp",
