@@ -1941,6 +1941,7 @@ mt7996_mac_add_txs_skb(struct mt7996_dev *dev, struct mt76_wcid *wcid,
 		stats->tx_bytes += le32_get_bits(txs_data[5], MT_TXS5_MPDU_TX_BYTE);
 		stats->tx_mpdu_ok += le32_get_bits(txs_data[5], MT_TXS5_MPDU_TX_CNT);
 		stats->tx_attempts += (le32_get_bits(txs_data[5], MT_TXS5_MPDU_TX_CNT) +
+				       le32_get_bits(txs_data[6], MT_TXS6_MPDU_FAIL_CNT) +
 				       le32_get_bits(txs_data[7], MT_TXS7_MPDU_RETRY_CNT));
 		stats->tx_failed += le32_get_bits(txs_data[6], MT_TXS6_MPDU_FAIL_CNT);
 		stats->tx_retries += le32_get_bits(txs_data[7], MT_TXS7_MPDU_RETRY_CNT);
