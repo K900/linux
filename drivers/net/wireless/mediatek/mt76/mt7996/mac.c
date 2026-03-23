@@ -1843,7 +1843,7 @@ next:
 			tx_status = FIELD_GET(MT_TXFREE_INFO_STAT, info);
 			tx_retries =
 				FIELD_GET(MT_TXFREE_INFO_COUNT, info) - 1;
-			tx_failed = tx_retries + !!tx_status;
+			tx_failed = !!tx_status;
 
 			wcid->stats.tx_retries += tx_retries;
 			wcid->stats.tx_failed += tx_failed;
