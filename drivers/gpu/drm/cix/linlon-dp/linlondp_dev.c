@@ -794,6 +794,11 @@ int linlondp_dev_resume(struct linlondp_dev *mdev)
 {
 	int err = 0;
 
+	if (!mdev || !mdev->dev) {
+		WARN_ON_ONCE(1);
+		return -EINVAL;
+	}
+
 	dev_info(mdev->dev, "%s\n", __func__);
 
 #if !IS_ENABLED(CONFIG_DRM_LINLONDP_CLOCK_FIXED)
@@ -818,6 +823,11 @@ int linlondp_dev_resume(struct linlondp_dev *mdev)
 
 int linlondp_dev_suspend(struct linlondp_dev *mdev)
 {
+	if (!mdev || !mdev->dev) {
+		WARN_ON_ONCE(1);
+		return -EINVAL;
+	}
+
 	dev_info(mdev->dev, "%s\n", __func__);
 
 	if (mdev->iommu && mdev->funcs->disconnect_iommu)

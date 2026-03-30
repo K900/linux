@@ -111,11 +111,12 @@ static bool is_new_frame(struct linlondp_events *a)
 	       (LINLONDP_EVENT_FLIP | LINLONDP_EVENT_EOW);
 }
 
-void linlondp_print_events(struct linlondp_events *evts, struct drm_device *dev)
+void linlondp_print_events(struct linlondp_events *evts, struct drm_device *dev,
+			   struct linlondp_dev *mdev_for_print_cfg)
 {
 	u64 print_evts = 0;
 	static bool en_print = true;
-	struct linlondp_dev *mdev = dev->dev_private;
+	struct linlondp_dev *mdev = mdev_for_print_cfg ? : dev->dev_private;
 	u16 const err_verbosity = mdev->err_verbosity;
 	u64 evts_mask = evts->global | evts->pipes[0] | evts->pipes[1];
 

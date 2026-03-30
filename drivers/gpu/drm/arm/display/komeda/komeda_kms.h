@@ -77,7 +77,7 @@ struct komeda_crtc {
 	struct komeda_pipeline *slave;
 
 	/** @slave_planes: komeda slave planes mask */
-	u32 slave_planes;
+	u64 slave_planes;
 
 	/** @wb_conn: komeda write back connector */
 	struct komeda_wb_connector *wb_conn;

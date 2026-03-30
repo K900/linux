@@ -364,8 +364,8 @@ static int linlondp_pipeline_obj_add(struct linlondp_kms_dev *kms,
 	return 0;
 }
 
-int linlondp_kms_add_private_objs(struct linlondp_kms_dev *kms,
-				  struct linlondp_dev *mdev)
+static int linlondp_kms_add_private_objs_one(struct linlondp_kms_dev *kms,
+					     struct linlondp_dev *mdev)
 {
 	struct linlondp_pipeline *pipe;
 	int i, j, err;
@@ -416,6 +416,28 @@ int linlondp_kms_add_private_objs(struct linlondp_kms_dev *kms,
 			return err;
 
 		err = linlondp_timing_ctrlr_obj_add(kms, pipe->ctrlr);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+int linlondp_kms_add_private_objs(struct linlondp_kms_dev *kms,
+				  struct linlondp_dev *mdev)
+{
+	return linlondp_kms_add_private_objs_multi(kms, &mdev, 1);
+}
+
+int linlondp_kms_add_private_objs_multi(struct linlondp_kms_dev *kms,
+					struct linlondp_dev **mdevs,
+					unsigned int n_mdevs)
+{
+	unsigned int di;
+	int err;
+
+	for (di = 0; di < n_mdevs; di++) {
+		err = linlondp_kms_add_private_objs_one(kms, mdevs[di]);
 		if (err)
 			return err;
 	}

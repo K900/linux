@@ -290,8 +290,13 @@ void linlondp_dev_destroy(struct linlondp_dev *mdev);
 
 struct linlondp_dev *dev_to_mdev(struct device *dev);
 
-void linlondp_print_events(struct linlondp_events *evts,
-			   struct drm_device *dev);
+void linlondp_print_events(struct linlondp_events *evts, struct drm_device *dev,
+			   struct linlondp_dev *mdev_for_print_cfg);
+
+struct component_match;
+int linlondp_dpu_add_graph_slaves(struct device *master,
+				  struct component_match **match,
+				  struct device *dpu_dev);
 
 int linlondp_dev_resume(struct linlondp_dev *mdev);
 int linlondp_dev_suspend(struct linlondp_dev *mdev);

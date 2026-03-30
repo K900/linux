@@ -42,7 +42,8 @@ int linlondp_fb_check_src_coords(const struct linlondp_fb *kfb, u32 src_x,
 				 u32 src_y, u32 src_w, u32 src_h);
 dma_addr_t linlondp_fb_get_pixel_addr(struct linlondp_fb *kfb, int x, int y,
 				      int plane);
-bool linlondp_fb_is_layer_supported(struct linlondp_fb *kfb, u32 layer_type,
-				    u32 rot);
+struct linlondp_layer;
+bool linlondp_fb_is_layer_supported(struct linlondp_fb *kfb,
+				    struct linlondp_layer *layer, u32 rot);
 
 #endif

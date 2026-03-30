@@ -175,10 +175,10 @@ union phy_configure_opts;
 #define DPTX_MEM_DP_PHY_IDX 2
 #define DPTX_MEM_DP_RCSU_IDX 3
 
-/* MST define */
-#define TRILIN_DPTX_POSSIBLE_CRTCS_MST 0x3
+/* MST: possible_crtcs for virtual encoders is built at runtime from CRTCs,
+ * num_crtc, and max_streams fallback — see trilin_drm_mst_encoder_init().
+ */
 #define TRILIN_DPTX_POSSIBLE_CRTCS_SST 0x1
-#define LINLON_KMS_SIZE 2
 
 /*Reserved Register accese CMD*/
 #define CIX_SIP_DP_GOP_CTRL (0xc200000f)
@@ -196,8 +196,14 @@ union phy_configure_opts;
  * @dma_align: DMA alignment constraint (must be a power of 2)
  */
 struct trilin_dpsub {
-	struct drm_device *drm[LINLON_KMS_SIZE];
+	struct drm_device *drm;
 	struct device *dev;
+	/*
+	 * Set in trilin_dptx_cix_bind() from ACPI graph / DT before trilin_dp_drm_init().
+	 * The real DRM encoder is dp->encoder.base, not cix_dptx->encoder; this passes
+	 * possible_crtcs into drm_encoder_init. 0 = unset (use OF or SST fallback).
+	 */
+	u32 preset_possible_crtcs;
 	struct clk *apb_clk;
 	struct clk *vid_clk0;
 	struct clk *vid_clk1;
@@ -347,10 +353,10 @@ enum trilin_dptx_state {
 };
 
 struct trilin_dp_panel {
-	/* By default, stream_id is assigned to DP_INVALID_STREAM.
-	 * Client sets the stream id value using set_stream_id interface.
+	/* Which DP TX hardware source block (0/1/...) for register access; regs use TRILIN_DPTX_SOURCE_OFFSET * source_id.
+	 * MST/SST: from DTS "cix,dp-source" or MST pipe_id, default 0.
 	 */
-	enum trilin_dp_stream_id stream_id;
+	u32 source_id;
 	/* DRM connector assosiated with this panel */
 	struct trilin_connector *connector;
 };
@@ -395,6 +401,7 @@ struct trilin_dp_psr {
 	bool psr2_enabled;
 	bool main_link_keep_active;
 	bool link_retrain;
+	ktime_t allow_after;	/* PSR entry hold-off, see trilin_dp_psr_enable() */
 };
 
 /**
@@ -426,7 +433,7 @@ struct trilin_dp {
 	struct drm_panel *edp_panel;
 	struct device *dev;
 	struct trilin_dpsub *dpsub;
-	struct drm_device **drm;
+	struct drm_device *drm;
 	void __iomem *dp_iomem;
 	void __iomem *phy_iomem;
 	void __iomem *rcsu_iomem;
@@ -474,7 +481,6 @@ struct trilin_dp {
 	struct dptx_audio dp_audio;
 	struct cix_hdcp hdcp;
 	u8 pixel_per_cycle, force_pixel_per_cycle;
-	bool plugin;
 	bool hpd_multi_func;
 
 	u32 active_stream_cnt;
@@ -504,7 +510,7 @@ struct trilin_dp {
 #define DP_DEBUG(fmt, ...)										\
 	do {                                                              \
 		if (DRM_UT_KMS)                                           \
-			drm_dbg_atomic(dp->drm[0], ""fmt, ##__VA_ARGS__);    \
+			drm_dbg_atomic(dp->drm, ""fmt, ##__VA_ARGS__);    \
 		else                                                      \
 			dev_dbg(dp->dev, "[drm:%s][debug]" fmt, __func__, \
 				##__VA_ARGS__);                           \
@@ -522,7 +528,7 @@ struct trilin_dp {
 #define DP_MST_DEBUG(fmt, ...)									\
 	do {                                                              \
 		if (DRM_UT_KMS)                                           \
-			drm_dbg_atomic(dp->drm[0], "MST:" fmt, ##__VA_ARGS__);    \
+			drm_dbg_atomic(dp->drm, "MST:" fmt, ##__VA_ARGS__);    \
 		else                                                      \
 			dev_dbg(dp->dev, "[MST:%s][debug]" fmt, __func__, \
 				##__VA_ARGS__);                           \
@@ -560,7 +566,7 @@ int trilin_dp_pre_disable(struct trilin_dp *dp, struct trilin_dp_panel *panel);
 int trilin_dp_disable(struct trilin_dp *dp, struct trilin_dp_panel *panel);
 int trilin_dp_unprepare(struct trilin_dp *dp);
 int trilin_dp_set_stream_info(struct trilin_dp *dp,
-			      struct trilin_dp_panel *dp_panel, u32 stream_id,
+			      struct trilin_dp_panel *dp_panel, u32 source_id,
 			      u32 start_slot, u32 num_slots);
 int trilin_dp_panel_setup_hdr_sdp(struct trilin_dp *dp,
 				  struct trilin_dp_panel *dp_panel);
@@ -572,8 +578,8 @@ void trilin_dp_connector_debugfs_init(struct drm_connector *connector,
 				      struct dentry *root);
 
 int trilin_dp_pm_prepare(struct trilin_dp *dp);
-int trilin_dp_pm_resume_early(struct trilin_dp *dp);
 int trilin_dp_pm_complete(struct trilin_dp *dp);
+int trilin_dp_pm_shutdown(struct trilin_dp *dp);
 int trilin_dp_hpd_config_cb(struct trilin_dp *dp);
 int trilin_dp_deinit_config(struct trilin_dp *dp);
 
@@ -581,6 +587,8 @@ void trilin_dp_psr_enable(struct trilin_dp *dp,
 	struct trilin_dp_panel *dp_panel);
 void trilind_dp_psr_disable(struct trilin_dp *dp,
 	struct trilin_dp_panel *dp_panel);
+void trilin_dp_psr_force_off(struct trilin_dp *dp);
 bool trilin_dp_plugged_status(struct trilin_dp *dp);
+bool trilin_dp_link_trained(struct trilin_dp *dp);
 //---------------------------------------------------------
 #endif /* _TRILIN_DPTX_H_ */

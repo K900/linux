@@ -7,10 +7,11 @@
 #ifndef _LINLONDP_UTILS_
 #define _LINLONDP_UTILS_
 
+#include <linux/bits.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
 
-#define has_bit(nr, mask) (BIT(nr) & (mask))
+#define has_bit(nr, mask) (BIT_ULL(nr) & (mask))
 #define has_bits(bits, mask) (((bits) & (mask)) == (bits))
 
 #define dp_wait_cond(__cond, __tries, __min_range, __max_range) \

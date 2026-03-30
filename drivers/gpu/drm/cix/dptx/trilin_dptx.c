@@ -103,6 +103,46 @@ u32 trilin_phy_read(struct trilin_dp *dp, int offset)
 	return readl(dp->phy_iomem + offset);
 }
 
+static bool trilin_dp_lane_count_valid(u8 lane_cnt)
+{
+	return lane_cnt == 1 || lane_cnt == 2 || lane_cnt == 4;
+}
+
+bool trilin_dp_link_trained(struct trilin_dp *dp)
+{
+	u8 link_status[DP_LINK_STATUS_SIZE];
+	int ret;
+	u8 lane_cnt;
+
+	mutex_lock(&dp->session_lock);
+	ret = drm_dp_dpcd_read_link_status(&dp->aux, link_status);
+	if (ret != DP_LINK_STATUS_SIZE) {
+		DP_INFO("read link_status failed (%d), need retrain\n", ret);
+		mutex_unlock(&dp->session_lock);
+		return false;
+	}
+
+	lane_cnt = trilin_dp_read(dp, TRILIN_DPTX_LANE_COUNT_SET) & 0x1f;
+	mutex_unlock(&dp->session_lock);
+
+	if (!trilin_dp_lane_count_valid(lane_cnt)) {
+		DP_INFO("invalid lane count %u, need retrain\n", lane_cnt);
+		return false;
+	}
+
+	if (!drm_dp_clock_recovery_ok(link_status, lane_cnt)) {
+		DP_INFO("clock recovery not ok, need retrain\n");
+		return false;
+	}
+
+	if (!drm_dp_channel_eq_ok(link_status, lane_cnt)) {
+		DP_INFO("channel eq not ok, need retrain\n");
+		return false;
+	}
+
+	return true;
+}
+
 struct trilin_encoder *encoder_to_trilin(struct drm_encoder *encoder)
 {
 	return container_of(encoder, struct trilin_encoder, base);
@@ -901,7 +941,7 @@ static int trilin_dp_aux_register(struct trilin_dp *dp)
 	DP_DEBUG("enter\n");
 	dp->aux.name = "Trilin DP AUX";
 	dp->aux.dev = dp->dev;
-	dp->aux.drm_dev = dp->drm[0];
+	dp->aux.drm_dev = dp->drm;
 	dp->aux.transfer = trilin_dp_aux_transfer;
 	return drm_dp_aux_register(&dp->aux);
 }
@@ -1097,7 +1137,7 @@ static void trilin_dp_panel_config_msa(struct trilin_dp *dp,
 	int link_rate;
 	int pixel_rate = dp->mode.pclock;
 	int audio_link_rate;
-	u32 regs_off = TRILIN_DPTX_SOURCE_OFFSET * dp_panel->stream_id;
+	u32 regs_off = TRILIN_DPTX_SOURCE_OFFSET * dp_panel->source_id;
 	struct trilin_connector *conn = dp_panel->connector;
 
 	/* In synchronous mode, set the diviers */
@@ -1153,7 +1193,7 @@ static void trilin_dp_vrr_enable(struct trilin_dp *dp,
 	if (conn && !conn->vrr.enable)
 		return;
 
-	regs_off = TRILIN_DPTX_SOURCE_OFFSET * dp_panel->stream_id;
+	regs_off = TRILIN_DPTX_SOURCE_OFFSET * dp_panel->source_id;
 	trilin_dp_write(dp, TRILIN_DPTX_SEC0_ADAPTIVE_SYNC_ENABLE + regs_off,
 		1);
 }
@@ -1321,10 +1361,18 @@ void trilin_dp_psr_enable(struct trilin_dp *dp,
 	struct trilin_phy_t *phy = &dp->phy;
 
 	if (dp->psr.active || !dp->psr.enable ||
-		!conn || conn->vrr.enable ||
-		(dp_panel && dp_panel->stream_id != 0)) {
+		!conn || conn->vrr.enable)
 		return;
-	}
+
+	/*
+	 * Hold off PSR entry for a short window after a full encoder enable:
+	 * drm_self_refresh_helper schedules SR entry ~50ms after the commit,
+	 * but the panel needs longer than that to stabilise after unblank and
+	 * will leave the sink in DP_PSR_SINK_INACTIVE, tripping the timeout
+	 * + recovery branch below. Framework retries on the next idle commit.
+	 */
+	if (!ktime_after(ktime_get(), dp->psr.allow_after))
+		return;
 
 	ret = drm_dp_dpcd_readb(&dp->aux, DP_PSR_STATUS, &psr_status);
 	if (ret != 1) {
@@ -1360,6 +1408,26 @@ err:
 	dp->psr_default_on = 0;
 }
 
+/*
+ * Tear down PSR without waiting for the sink to resync. Used on the
+ * full-disable path (suspend / unplug / shutdown) where the DPU has
+ * already stopped feeding pixels: the sink can never leave
+ * DP_PSR_SINK_ACTIVE_RFB on its own, so the wait in
+ * trilind_dp_psr_disable() would always time out. Drop PSR via DPCD
+ * directly; the subsequent stream_off call becomes a no-op.
+ */
+void trilin_dp_psr_force_off(struct trilin_dp *dp)
+{
+	if (!dp->psr.active)
+		return;
+
+	drm_dp_dpcd_writeb(&dp->aux, DP_PSR_EN_CFG, 0);
+	trilin_dp_write(dp, TRILIN_DPTX_VIDEO_STREAM_ENABLE, 0x1);
+	trilin_dp_write(dp, TRILIN_DPTX_SRC0_PSR_STATE, 0x0);
+
+	dp->psr.active = false;
+}
+
 void trilind_dp_psr_disable(struct trilin_dp *dp,
 		struct trilin_dp_panel *dp_panel)
 {
@@ -1367,7 +1435,7 @@ void trilind_dp_psr_disable(struct trilin_dp *dp,
 	u8 psr_status;
 	struct trilin_phy_t *phy = &dp->phy;
 
-	if (!dp->psr.active || (dp_panel && dp_panel->stream_id != 0))
+	if (!dp->psr.active)
 		return;
 
 	if (!dp->psr.main_link_keep_active) {
@@ -1605,7 +1673,7 @@ static int trilin_dp_panel_config_misc(struct trilin_dp *dp,
 {
 	struct trilin_connector *conn = dp_panel->connector;
 
-	trilin_dp_set_misc(dp, dp_panel->stream_id, &conn->config);
+	trilin_dp_set_misc(dp, dp_panel->source_id, &conn->config);
 	return 0;
 }
 
@@ -1618,7 +1686,7 @@ trilin_dp_panel_setup_colorimetry_sdp(struct trilin_dp *dp,
 	if (conn->config.override & TRILIN_DPTX_STREAM_OVERRIDE_ENABLE) {
 		DP_DEBUG("format=%d colorspace=%0x", conn->config.format, conn->config.colorspace);
 		cix_dptx_setup_vsc_sdp(&conn->sdp[CIX_VSC_SDP], &conn->config);
-		cix_infoframe_write_packet(dp, dp_panel->stream_id, CIX_VSC_SDP,
+		cix_infoframe_write_packet(dp, dp_panel->source_id, CIX_VSC_SDP,
 					   &conn->sdp[CIX_VSC_SDP], 1);
 		if (conn->config.colorspace == DRM_MODE_COLORIMETRY_BT2020_YCC
 			|| conn->config.colorspace == DRM_MODE_COLORIMETRY_BT2020_RGB
@@ -1641,7 +1709,7 @@ static int trilin_dp_panel_setup_avi_sdp(struct trilin_dp *dp,
 		cix_dptx_setup_avi_infoframe(&conn->sdp[CIX_AVI_INFO_SDP],
 					     conn->config.format,
 					     connector_state);
-		cix_infoframe_write_packet(dp, dp_panel->stream_id,
+		cix_infoframe_write_packet(dp, dp_panel->source_id,
 					   CIX_AVI_INFO_SDP,
 					   &conn->sdp[CIX_AVI_INFO_SDP], 1);
 	}
@@ -1658,7 +1726,7 @@ int trilin_dp_panel_setup_hdr_sdp(struct trilin_dp *dp,
 		cix_dp_hdr_metadata_infoframe_sdp_pack(&conn->drm_infoframe,
 						       &conn->sdp[CIX_HDR_SDP],
 						       sizeof(struct dp_sdp));
-		cix_infoframe_write_packet(dp, dp_panel->stream_id, CIX_HDR_SDP,
+		cix_infoframe_write_packet(dp, dp_panel->source_id, CIX_HDR_SDP,
 					   &conn->sdp[CIX_HDR_SDP], 1);
 	}
 	return 0;
@@ -1690,10 +1758,10 @@ void trilin_dp_panel_hw_cfg(struct trilin_dp *dp,
 	trilin_dp_panel_setup_hdr_sdp(dp, dp_panel);
 	trilin_dp_vrr_enable(dp, dp_panel);
 	//set transfer unit..
-	trilin_dp_mode_set_transfer_unit(dp, dp_panel->stream_id, mode,
+	trilin_dp_mode_set_transfer_unit(dp, dp_panel->source_id, mode,
 					 conn->config.bpp);
 	//v_active h_active totalhor_ver,polarity...widebus_en
-	trilin_dp_mode_set_timing(dp, dp_panel->stream_id, mode,
+	trilin_dp_mode_set_timing(dp, dp_panel->source_id, mode,
 				  conn->config.bpp);
 }
 /* ------------------------------------------------------------------------------
@@ -1713,22 +1781,21 @@ static void trilin_dp_ctrl_set_mst_channel_info(struct trilin_dp *dp,
 }
 
 int trilin_dp_set_stream_info(struct trilin_dp *dp,
-			      struct trilin_dp_panel *dp_panel, u32 stream_id,
+			      struct trilin_dp_panel *dp_panel, u32 source_id,
 			      u32 start_slot, u32 num_slots)
 {
 	int rc = 0;
 	const int max_slots = 64;
 
-	if (stream_id >= dp->max_streams) {
-		DP_WARN("invalid stream id:%d\n", stream_id);
+	if (source_id >= dp->max_streams) {
+		DP_WARN("invalid source id:%d\n", source_id);
 		return -EINVAL;
 	}
 
-	if (dp_panel && dp_panel->stream_id != stream_id) {
-		DP_WARN("invalid stream id:%d -- pannel stream: %d\n",
-			stream_id, dp_panel->stream_id);
-		dp_panel->stream_id = stream_id;
-		//return -EINVAL;
+	if (dp_panel && dp_panel->source_id != source_id) {
+		DP_WARN("invalid source id:%d -- panel source: %d\n",
+			source_id, dp_panel->source_id);
+		dp_panel->source_id = source_id;
 	}
 
 	if (start_slot + num_slots > max_slots) {
@@ -1738,12 +1805,12 @@ int trilin_dp_set_stream_info(struct trilin_dp *dp,
 	}
 
 	mutex_lock(&dp->session_lock);
-	trilin_dp_ctrl_set_mst_channel_info(dp, stream_id, start_slot,
+	trilin_dp_ctrl_set_mst_channel_info(dp, source_id, start_slot,
 					    num_slots);
 	mutex_unlock(&dp->session_lock);
 
 	if (!dp_panel)
-		DP_WARN("dp_panel did not init for stream %d", stream_id);
+		DP_WARN("dp_panel did not init for source %d", source_id);
 
 	return rc;
 }
@@ -1819,17 +1886,17 @@ static int trilin_dp_ctrl_enable_stream_clocks(struct trilin_dp *dp,
 	if (dp->platform_id != CIX_PLATFORM_SOC)
 		return rc;
 
-	if (dp_panel->stream_id == DP_STREAM_0) {
+	if (dp_panel->source_id == DP_STREAM_0) {
 		vid_clk = dp->dpsub->vid_clk0;
-	} else if (dp_panel->stream_id == DP_STREAM_1) {
+	} else if (dp_panel->source_id == DP_STREAM_1) {
 		vid_clk = dp->dpsub->vid_clk1;
-	} else if (dp_panel->stream_id == DP_STREAM_2) {
+	} else if (dp_panel->source_id == DP_STREAM_2) {
 		vid_clk = dp->dpsub->vid_clk2;
-	} else if (dp_panel->stream_id == DP_STREAM_3) {
+	} else if (dp_panel->source_id == DP_STREAM_3) {
 		vid_clk = dp->dpsub->vid_clk3;
 	} else {
-		DP_ERR("Invalid stream:%d for clk %s\n",
-		       dp_panel->stream_id, enable ? "enable" : "disable");
+		DP_ERR("Invalid source:%d for clk %s\n",
+		       dp_panel->source_id, enable ? "enable" : "disable");
 		return -EINVAL;
 	}
 
@@ -1838,7 +1905,7 @@ static int trilin_dp_ctrl_enable_stream_clocks(struct trilin_dp *dp,
 	else if (__clk_is_enabled(vid_clk))
 		clk_disable_unprepare(vid_clk);
 
-	DP_DEBUG("%s stream%d clk", enable ? "enable" : "disable", dp_panel->stream_id);
+	DP_DEBUG("%s source%d clk", enable ? "enable" : "disable", dp_panel->source_id);
 	return rc;
 }
 
@@ -1847,7 +1914,7 @@ static int trilin_dp_ctrl_stream_on(struct trilin_dp *dp,
 {
 	int rc = 0;
 	struct dptx_audio *dp_audio = &dp->dp_audio;
-	u32 regs_off = TRILIN_DPTX_SOURCE_OFFSET * dp_panel->stream_id;
+	u32 regs_off = TRILIN_DPTX_SOURCE_OFFSET * dp_panel->source_id;
 
 	/*enable stream power and clock*/
 	trilin_dp_ctrl_enable_stream_clocks(dp, dp_panel, true);
@@ -1871,11 +1938,11 @@ end:
 		dptx_audio_reconfig_and_enable(dp);
 	}
 
-	dp->active_panels[dp_panel->stream_id] = dp_panel;
+	dp->active_panels[dp_panel->source_id] = dp_panel;
 	dp->active_stream_cnt++;
 
-	DP_INFO("trilin_dp_encoder_enable stream_id=%d, active_stream_cnt:%d\n",
-		dp_panel->stream_id, dp->active_stream_cnt);
+	DP_INFO("trilin_dp_encoder_enable source_id=%d, active_stream_cnt:%d\n",
+		dp_panel->source_id, dp->active_stream_cnt);
 
 	return rc;
 }
@@ -1883,7 +1950,7 @@ end:
 static int trilin_dp_ctrl_stream_off(struct trilin_dp *dp,
 				     struct trilin_dp_panel *dp_panel)
 {
-	u32 regs_off = TRILIN_DPTX_SOURCE_OFFSET * dp_panel->stream_id;
+	u32 regs_off = TRILIN_DPTX_SOURCE_OFFSET * dp_panel->source_id;
 
 	if (dp->edp_panel) {
 		if (drm_panel_disable(dp->edp_panel))
@@ -1903,11 +1970,11 @@ static int trilin_dp_ctrl_stream_off(struct trilin_dp *dp,
 	trilin_dp_write(dp, TRILIN_DPTX_VIDEO_STREAM_ENABLE + regs_off, 0);
 	trilin_dp_ctrl_enable_stream_clocks(dp, dp_panel, false);
 
-	dp->active_panels[dp_panel->stream_id] = NULL;
+	dp->active_panels[dp_panel->source_id] = NULL;
 	dp->active_stream_cnt--;
 
-	DP_INFO("trilin_dp_encoder_disable stream_id=%d, active_stream_cnt=%d\n",
-		dp_panel->stream_id, dp->active_stream_cnt);
+	DP_INFO("trilin_dp_encoder_disable source_id=%d, active_stream_cnt=%d\n",
+		dp_panel->source_id, dp->active_stream_cnt);
 
 	return 0;
 }
@@ -1930,8 +1997,8 @@ static int trilin_dp_stream_disable(struct trilin_dp *dp,
 	if (!dp->active_stream_cnt)
 		return 0;
 
-	if (dp_panel->stream_id == dp->max_streams ||
-			!dp->active_panels[dp_panel->stream_id]) {
+	if (dp_panel->source_id == dp->max_streams ||
+			!dp->active_panels[dp_panel->source_id]) {
 		DP_ERR("panel is already disabled\n");
 		return 0;
 	}
@@ -2033,7 +2100,7 @@ static int trilin_dp_core_on(struct trilin_dp *dp, bool shallow)
 	int rc = 0;
 	struct trilin_phy_t *phy = &dp->phy;
 	bool fast_train_success = false;
-	int enable_sources = 0x1; //enable stream 0
+	int enable_sources =  (1 << dp->dp_panel.source_id);
 	int i;
 
 	DP_DEBUG("enter");
@@ -2050,7 +2117,6 @@ static int trilin_dp_core_on(struct trilin_dp *dp, bool shallow)
 		return rc;
 	}
 
-	/*Fixme: stream 0 and 1; should follow active_nums..*/
 	if (dp->mst.mst_active)
 		enable_sources = (1 << dp->max_streams) - 1;
 
@@ -2097,6 +2163,8 @@ static int trilin_dp_core_on(struct trilin_dp *dp, bool shallow)
 	trilin_dp_write(dp, TRILIN_DPTX_SOURCE_ENABLE, enable_sources);
 	trilin_dp_write(dp, TRILIN_DPTX_FORCE_SCRAMBLER_RESET, enable_sources);
 	trilin_dp_write(dp, TRILIN_DPTX_MST_ENABLE, dp->mst.mst_active);
+	if (!dp->mst.mst_active)
+		trilin_dp_write(dp, TRILIN_DPTX_SST_SOURCE_SELECT, dp->dp_panel.source_id);
 
 	if (!rc)
 		DP_INFO("main link training done! rate:%d lanes:%d %s\n",
@@ -2165,6 +2233,42 @@ static int trilin_dp_core_off(struct trilin_dp *dp)
  * link state
  */
 
+static int trilin_dp_edp_panel_prepare(struct trilin_dp *dp)
+{
+	int rc;
+
+	if (!dp->edp_panel || dp->edp_panel_ready)
+		return 0;
+
+	rc = drm_panel_prepare(dp->edp_panel);
+	if (rc) {
+		DP_ERR("edp panel prepare failed: %d\n", rc);
+		return rc;
+	}
+	msleep(50);
+	dp->edp_panel_ready = true;
+	return 0;
+}
+
+static void trilin_dp_edp_panel_unprepare(struct trilin_dp *dp)
+{
+	if (!dp->edp_panel || !dp->edp_panel_ready)
+		return;
+
+	if (drm_panel_unprepare(dp->edp_panel))
+		DP_INFO("edp panel unprepare failed");
+
+	dp->edp_panel_ready = false;
+}
+
+
+static void trilin_dp_edp_drop_panel(struct trilin_dp *dp)
+{
+	trilin_dp_edp_panel_unprepare(dp);
+	dp->edp_panel = NULL;
+}
+
+
 static int trinlin_dp_panel_read_sink_caps(struct trilin_dp *dp)
 {
 	const int ADAPTIVE_SYNC_CAPABILITY = 0x2214;
@@ -2178,6 +2282,28 @@ static int trinlin_dp_panel_read_sink_caps(struct trilin_dp *dp)
 	if (rc) {
 		DP_ERR("read dcpd caps failed...\n");
 		return rc;
+	}
+
+	/*
+	 * DT "edp-panel" may be present on a standard DP port, or no sink may
+	 * be connected. DP_EDP_CONFIGURATION_CAP (DPCD 0x07) non-zero marks a
+	 * real eDP sink; otherwise skip panel power ops and treat as DP.
+	 */
+	if (dp->edp_panel) {
+		if (dp->dpcd[DP_EDP_CONFIGURATION_CAP]) {
+			dev_info(dp->dev,
+				 "%s: detected eDP device (DPCD[0x07]=0x%02x)\n",
+				 __func__, dp->dpcd[DP_EDP_CONFIGURATION_CAP]);
+		} else {
+			dev_info(dp->dev,
+				 "%s: edp-panel in DT but DPCD[0x07]=0, standard DP (clearing edp_panel)\n",
+				 __func__);
+			/*
+			 * host_init may have prepared the panel before DPCD is read;
+			 * balance with unprepare before dropping the pointer.
+			 */
+			trilin_dp_edp_drop_panel(dp);
+		}
 	}
 
 	rc = drm_dp_read_downstream_info(drm_aux, dp->dpcd,
@@ -2321,7 +2447,7 @@ static int trilin_dp_clear_info(struct trilin_dp *dp,
 				struct trilin_dp_panel *dp_panel)
 {
 	struct trilin_connector *conn = dp_panel->connector;
-	const int id = dp_panel->stream_id;
+	const int id = dp_panel->source_id;
 
 	memset(&(dp->mst_ch_info.slot_info[id]), 0,
 	       sizeof(struct trilin_dp_mst_ch_slot_info));
@@ -2426,15 +2552,9 @@ int trilin_dp_host_init(struct trilin_dp *dp)
 		return rc;
 	}
 
-	if (dp->edp_panel) {
-		rc = drm_panel_prepare(dp->edp_panel);
-		if (rc) {
-			DP_ERR("edp panel prepare failed");
-			goto err_out;
-		}
-		msleep(50);
-		dp->edp_panel_ready = true;
-	}
+	rc = trilin_dp_edp_panel_prepare(dp);
+	if (rc)
+		goto err_out;
 
 	dp->state |= DPTX_STATE_INITIALIZED;
 	/* log this as it results from user action of cable connection */
@@ -2458,8 +2578,10 @@ static int trilin_dp_host_init_from_bootloader(struct trilin_dp *dp)
 
 	/* add force to detect to sync call detect. */
 	drm_helper_probe_detect(&dp->connector.base, NULL, false);
-	/* then call the hpd envent */
-	schedule_delayed_work(&dp->hpd_event_work, 0);
+	/* probe_detect updates dp->status; reset so hpd_event_work sees a change */
+	dp->status = connector_status_unknown;
+	schedule_delayed_work(&dp->hpd_event_work, msecs_to_jiffies(10));
+	schedule_delayed_work(&dp->hpd_irq_work, msecs_to_jiffies(10));
 	return rc;
 }
 
@@ -2475,10 +2597,7 @@ static void trilin_dp_host_deinit(struct trilin_dp *dp)
 		DP_DEBUG("[not initialized]");
 		return;
 	}
-	if (dp->edp_panel) {
-		if (drm_panel_unprepare(dp->edp_panel))
-			DP_INFO("unprepare failed");
-	}
+	trilin_dp_edp_panel_unprepare(dp);
 
 	if (phy->phy_ops)
 		phy->phy_ops->exit(dp);
@@ -2695,8 +2814,8 @@ static void trilin_dp_hpd_event_work_func(struct work_struct *work)
 	else
 		DP_INFO("dp hpd event received: Unplugged\n");
 
-	if (dp->drm[0])
-		drm_helper_hpd_irq_event(dp->drm[0]);
+	if (dp->drm)
+		drm_helper_hpd_irq_event(dp->drm);
 
 	DP_DEBUG("dp audio plugin status = %d\n", connected);
 	dptx_audio_handle_plugged_change(dp_audio, connected);
@@ -2783,70 +2902,30 @@ static irqreturn_t trilin_dp_irq_handler(int irq, void *data)
  * Common function for trilin_drm.c and trilin_drm_mst.c
  */
 
-int trilin_dp_pm_resume_early(struct trilin_dp *dp)
-{
-	struct drm_connector *connector = &dp->connector.base;
-	struct drm_device *dev = connector->dev;
-	struct drm_modeset_acquire_ctx ctx;
-	struct drm_atomic_state *old_state = dev->mode_config.suspend_state;
-	struct drm_atomic_state *new_state = NULL;
-	struct drm_connector_state *conn_state;
-	struct drm_connector *conn;
-	int ret, i;
-	DP_INFO("enter");
-
-	if(IS_ERR(old_state)) {
-		DP_ERR("old state err");
-		return PTR_ERR(old_state);
-	}
-
-	if (!old_state) {
-		DP_ERR("old state null");
-		return -EINVAL;
-	}
-
-	/* force status disconnected */
-	DRM_MODESET_LOCK_ALL_BEGIN(dev, ctx, 0, ret);
-	new_state = drm_atomic_helper_duplicate_state(dev, &ctx);
-
-	if (IS_ERR(new_state)) {
-		DP_ERR("state duplication failed");
-		goto unlock;
-	}
-
-	for_each_new_connector_in_state(new_state, conn, conn_state, i) {
-		ret = drm_atomic_set_crtc_for_connector(conn_state, NULL);
-		if (ret) {
-			DP_ERR("set crtc null failed");
-			goto state_put;
-		}
-		conn->status = connector_status_disconnected;
-		drm_connector_update_edid_property(conn, NULL);
-		drm_mode_prune_invalid(dev, &conn->modes, false);
-	}
-
-	drm_atomic_state_put(old_state);
-	dev->mode_config.suspend_state = new_state;
-	new_state = NULL;
-
-state_put:
-	if (new_state)
-		drm_atomic_state_put(new_state);
-unlock:
-	DRM_MODESET_LOCK_ALL_END(dev, ctx, ret);
-	return ret;
-}
-
 int trilin_dp_pm_prepare(struct trilin_dp *dp)
 {
+	struct trilin_dpsub *dpsub = dp->dpsub;
+
+	/*
+	 * Stop KMS connector polling before DP host teardown so output_poll_execute
+	 * cannot run drm_get_edid/AUX after the controller is shut down. Order is
+	 * independent of dpm_list; drm_mode_config_helper_suspend() will call
+	 * poll_disable again (idempotent).
+	 */
+	if (dpsub && dpsub->drm && dpsub->drm->mode_config.poll_enabled)
+		drm_kms_helper_poll_disable(dpsub->drm);
+
 	mutex_lock(&dp->session_lock);
 	DP_DEBUG("enter");
 	trilin_dp_mst_suspend(dp);
 	mutex_unlock(&dp->session_lock);
+	/* Disable IRQ before draining work so the ISR cannot re-queue between
+	 * cancel_delayed_work_sync() and disable_irq().
+	 */
+	disable_irq(dp->irq);
 	cancel_delayed_work_sync(&dp->hpd_irq_work);
 	cancel_delayed_work_sync(&dp->hpd_event_work);
 	mutex_lock(&dp->session_lock);
-	disable_irq(dp->irq);
 	dp->state |= DPTX_STATE_SUSPENDED;
 	if (!dp->active_stream_cnt) {
 		DP_DEBUG("no active stream. just deinit");
@@ -2860,6 +2939,8 @@ int trilin_dp_pm_prepare(struct trilin_dp *dp)
 
 int trilin_dp_pm_complete(struct trilin_dp *dp)
 {
+	struct trilin_dpsub *dpsub = dp->dpsub;
+
 	mutex_lock(&dp->session_lock);
 	DP_DEBUG("enter");
 	if (!(dp->state & DPTX_STATE_SUSPENDED))
@@ -2870,11 +2951,26 @@ int trilin_dp_pm_complete(struct trilin_dp *dp)
 	enable_irq(dp->irq);
 	trilin_dp_mst_resume(dp);
 	dp->state &= ~DPTX_STATE_SUSPENDED;
+
+	/* Re-enable polling after IRQ and MST are back; redundant if resume already
+	 * called drm_kms_helper_poll_enable() (idempotent).
+	 */
+	if (dpsub && dpsub->drm && dpsub->drm->mode_config.poll_enabled)
+		drm_kms_helper_poll_enable(dpsub->drm);
 end:
 	mutex_unlock(&dp->session_lock);
 	return 0;
 }
 
+int trilin_dp_pm_shutdown(struct trilin_dp *dp)
+{
+	mutex_lock(&dp->session_lock);
+	dp->active_stream_cnt = 0;
+	mutex_unlock(&dp->session_lock);
+
+	trilin_dp_pm_prepare(dp);
+	return 0;
+}
 #define DUMP_DP_REG(reg)                                    \
 	seq_printf(m, "0x%0x : 0x%0x\n", (unsigned int)reg, \
 		   trilin_dp_read(dp, reg))
@@ -2986,6 +3082,13 @@ int trilin_dp_prepare(struct trilin_dp *dp)
 		usleep_range(100, 200);
 	}
 
+	if (trilin_dp_get_hpd_state(dp)
+		&& !(dp->state & DPTX_STATE_CONNECTED)) {
+		mutex_unlock(&dp->session_lock);
+		trilin_dp_handle_connect(dp, false);
+		mutex_lock(&dp->session_lock);
+	}
+
 	if (!trilin_dp_is_ready(dp)) {
 		DP_DEBUG("[not ready]");
 		goto end;
@@ -3012,12 +3115,9 @@ int trilin_dp_enable(struct trilin_dp *dp, struct trilin_dp_panel *dp_panel)
 		goto end;
 	}
 
-	if (dp->edp_panel && !dp->edp_panel_ready) {
-		drm_panel_prepare(dp->edp_panel);
-		msleep(50);
-		dp->edp_panel_ready = true;
-		DP_INFO("drm_panel_prepare ready");
-	}
+	rc = trilin_dp_edp_panel_prepare(dp);
+	if (rc)
+		goto end;
 
 	//trilin_dp_sink_set_msa_timing_ignore(dp, dp_panel, true);
 
@@ -3142,6 +3242,9 @@ int trilin_dp_init_config(struct trilin_dp *dp)
 		goto end2;
 	}
 
+	if (dp->edp_panel && !trilin_dp_get_hpd_state(dp))
+		trilin_dp_edp_drop_panel(dp);
+
 	rc = trilin_dp_hdcp_init(dp->dpsub);
 	if (rc) {
 		DP_ERR("trilin_dp_hdcp_init Failed");
@@ -3252,7 +3355,7 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
 	struct resource *res_dp, *res_phy, *res_rcsu = NULL;
 	struct device *dev;
 	struct fwnode_handle *fwnode_edp_panel;
-	struct drm_panel *edp_panel;
+	struct drm_panel *edp_panel = NULL;
 	int ret;
 	const char *str_prop;
 	u32 is_insmod = 0;
@@ -3263,8 +3366,14 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
 	if (!IS_ERR_OR_NULL(fwnode_edp_panel)) {
 		edp_panel = fwnode_drm_find_panel(fwnode_edp_panel);
 		if (IS_ERR(edp_panel)) {
-			dev_err(dev, "%s, invalid drm_panel\n", __func__);
-			return PTR_ERR(edp_panel);
+			ret = PTR_ERR(edp_panel);
+			if (ret == -EPROBE_DEFER)
+				dev_dbg(dev, "%s, edp-panel not ready, defer probe\n",
+					__func__);
+			else
+				dev_err(dev, "%s, invalid drm_panel: %d\n",
+					__func__, ret);
+			return ret;
 		} else
 			dev_info(dev, "%s, edp-panel %s is found\n", __func__,
 				 dev_name(edp_panel->dev));
@@ -3290,12 +3399,8 @@ int trilin_dp_probe(struct trilin_dpsub *dpsub, struct drm_device *drm)
 	dp->dpsub = dpsub;
 	dp->status = connector_status_unknown;
 
-	if (!dpsub->drm[0]) {
-		dpsub->drm[0] = drm;
-	}
-
-	dp->drm = dpsub->drm; //DP_DEBUG needs dp->drm[0]
-
+	dpsub->drm = drm;
+	dp->drm = drm;
 	dp->num_lanes = TRILIN_DPTX_MAX_LANES;
 	dp->max_rate = DP_HIGH_BIT_RATE3;
 	dp->max_streams = 2;

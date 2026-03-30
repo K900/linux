@@ -12,6 +12,9 @@
 
 #include "linlondp_framebuffer.h"
 #include "linlondp_dev.h"
+#include "linlondp_kms.h"
+#include "linlondp_pipeline.h"
+#include "linlondp_kms.h"
 
 static void linlondp_fb_destroy(struct drm_framebuffer *fb)
 {
@@ -195,7 +198,19 @@ linlondp_fb_create(struct drm_device *dev, struct drm_file *file,
 		goto err_cleanup;
 	}
 
-	kfb->is_va = mdev->iommu ? true : false;
+	{
+		struct linlondp_kms_dev *kms = to_kdev(dev);
+		unsigned int ui;
+		bool va = false;
+
+		for (ui = 0; ui < kms->n_hw_mdevs; ui++) {
+			if (kms->hw_mdevs[ui]->iommu) {
+				va = true;
+				break;
+			}
+		}
+		kfb->is_va = va;
+	}
 
 	return &kfb->base;
 
@@ -268,13 +283,13 @@ dma_addr_t linlondp_fb_get_pixel_addr(struct linlondp_fb *kfb, int x, int y,
 }
 
 /* if the fb can be supported by a specific layer */
-bool linlondp_fb_is_layer_supported(struct linlondp_fb *kfb, u32 layer_type,
-				    u32 rot)
+bool linlondp_fb_is_layer_supported(struct linlondp_fb *kfb,
+				    struct linlondp_layer *layer, u32 rot)
 {
-	struct drm_framebuffer *fb = &kfb->base;
-	struct linlondp_dev *mdev = fb->dev->dev_private;
-	u32 fourcc = fb->format->format;
-	u64 modifier = fb->modifier;
+	struct linlondp_dev *mdev = layer->base.pipeline->mdev;
+	u32 fourcc = kfb->base.format->format;
+	u64 modifier = kfb->base.modifier;
+	u32 layer_type = layer->layer_type;
 	bool supported;
 
 	supported = linlondp_format_mod_supported(&mdev->fmt_tbl, layer_type,

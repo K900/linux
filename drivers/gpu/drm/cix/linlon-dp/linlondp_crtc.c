@@ -101,17 +101,19 @@ static int linlondp_crtc_atomic_check(struct drm_crtc *crtc,
 		linlondp_crtc_update_clock_ratio(kcrtc_st);
 
 	if (crtc_state->active) {
-		err = linlondp_build_display_data_flow(kcrtc, kcrtc_st);
+		err = linlondp_build_display_data_flow(kcrtc, kcrtc_st, state);
 		if (err)
 			return err;
 	}
 
 	/* release unclaimed pipeline resources */
-	err = linlondp_release_unclaimed_resources(kcrtc->slave, kcrtc_st);
+	err = linlondp_release_unclaimed_resources(kcrtc->slave, kcrtc_st,
+						   state);
 	if (err)
 		return err;
 
-	err = linlondp_release_unclaimed_resources(kcrtc->master, kcrtc_st);
+	err = linlondp_release_unclaimed_resources(kcrtc->master, kcrtc_st,
+						 state);
 	if (err)
 		return err;
 
@@ -124,7 +126,7 @@ static int linlondp_crtc_atomic_check(struct drm_crtc *crtc,
  */
 static int linlondp_crtc_prepare(struct linlondp_crtc *kcrtc)
 {
-	struct linlondp_dev *mdev = kcrtc->base.dev->dev_private;
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 	struct linlondp_pipeline *master = kcrtc->master;
 	struct linlondp_crtc_state *kcrtc_st = to_kcrtc_st(kcrtc->base.state);
 	struct drm_display_mode *mode = &kcrtc_st->base.adjusted_mode;
@@ -185,7 +187,7 @@ unlock:
 
 static int linlondp_crtc_unprepare(struct linlondp_crtc *kcrtc)
 {
-	struct linlondp_dev *mdev = kcrtc->base.dev->dev_private;
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 	struct linlondp_pipeline *master = kcrtc->master;
 	u32 new_mode;
 	int err;
@@ -330,7 +332,7 @@ static void linlondp_crtc_do_flush(struct drm_crtc *crtc,
 {
 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
 	struct linlondp_crtc_state *kcrtc_st = to_kcrtc_st(crtc->state);
-	struct linlondp_dev *mdev = kcrtc->base.dev->dev_private;
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 	struct linlondp_pipeline *master = kcrtc->master;
 	struct linlondp_pipeline *slave = kcrtc->slave;
 	struct linlondp_wb_connector *wb_conn = kcrtc->wb_conn;
@@ -360,10 +362,10 @@ static void linlondp_crtc_do_flush(struct drm_crtc *crtc,
 static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
 					struct drm_atomic_state *state)
 {
-	int err, repeat = 0;
+	int err;
 	struct drm_crtc_state *old = drm_atomic_get_old_crtc_state(state, crtc);
 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
-	struct linlondp_dev *mdev = kcrtc->base.dev->dev_private;
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 	struct linlondp_pipeline *master = kcrtc->master;
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
@@ -375,7 +377,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
 		return;
 	}
 
-	dev_info(crtc->dev->dev, "%s enter\n", __func__);
+	dev_info(mdev->dev, "%s enter\n", __func__);
 
 	if (mdev->enabled_by_gop) {
 		mdev->enabled_by_gop = 0;
@@ -407,21 +409,31 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
 	else
 		dev_info(mdev->dev, "%s, succeed to enable aclk.\n", __func__);
 
-	/* wait for pm runtime enabled */
-	if (!pm_runtime_enabled(crtc->dev->dev)) {
-		do {
-			usleep_range(1000, 1200);
-			if (++repeat == 500)
-				break;
-		} while (!pm_runtime_enabled(crtc->dev->dev));
+	/*
+	 * Do not call pm_runtime_enable() here: unbalanced vs cluster bind and
+	 * hides misconfiguration. Cluster must pm_runtime_enable each DPU device;
+	 * wait until that is visible, then resume via get_sync.
+	 */
+#if IS_ENABLED(CONFIG_PM)
+	if (!pm_runtime_enabled(mdev->dev)) {
+		int repeat = 0;
 
-		if (repeat == 500) {
-			dev_err(mdev->dev, "%s: pm runtime enable timeout\n", __func__);
+		do {
+			usleep_range(1000, 2000);
+			if (++repeat >= 2000)
+				break;
+		} while (!pm_runtime_enabled(mdev->dev));
+
+		if (!pm_runtime_enabled(mdev->dev)) {
+			dev_err(mdev->dev,
+				"%s: %s runtime PM still disabled after ~2s (crtc=%d). linlon-cluster bind must pm_runtime_enable every DPU; refresh initramfs if module was replaced)\n",
+				__func__, dev_name(mdev->dev), drm_crtc_index(crtc));
 			return;
 		}
 	}
+#endif
 
-	pm_runtime_get_sync(crtc->dev->dev);
+	pm_runtime_get_sync(mdev->dev);
 	//enable irq once more in std scence
 	mdev->funcs->enable_irq(mdev);
 	linlondp_crtc_prepare(to_kcrtc(crtc));
@@ -429,7 +441,7 @@ static void linlondp_crtc_atomic_enable(struct drm_crtc *crtc,
 	WARN_ON(drm_crtc_vblank_get(crtc));
 	linlondp_crtc_do_flush(crtc, old);
 
-	dev_info(crtc->dev->dev, "%s exit\n", __func__);
+	dev_info(mdev->dev, "%s exit\n", __func__);
 }
 
 void linlondp_crtc_flush_and_wait_for_flip_done(
@@ -502,14 +514,14 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
 	struct linlondp_crtc_state *old_st = to_kcrtc_st(old);
 	struct linlondp_pipeline *master = kcrtc->master;
 	struct linlondp_pipeline *slave = kcrtc->slave;
-	struct linlondp_dev *mdev = kcrtc->base.dev->dev_private;
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 	struct completion *disable_done;
 	bool needs_phase2 = false;
 	bool needs_slave_phase2 = false;
 
 	/*this log helps for really disabling crtc not self_refresh*/
 	if (!new_state || !new_state->self_refresh_active)
-		dev_info(crtc->dev->dev, "%s enter\n", __func__);
+		dev_info(mdev->dev, "%s enter\n", __func__);
 
 	DRM_DEBUG_ATOMIC("CRTC%d_DISABLE: active_pipes: 0x%x, affected: 0x%x\n",
 			 drm_crtc_index(crtc), old_st->active_pipes,
@@ -567,10 +579,10 @@ static void linlondp_crtc_atomic_disable(struct drm_crtc *crtc,
 	drm_crtc_vblank_put(crtc);
 	drm_crtc_vblank_off(crtc);
 	linlondp_crtc_unprepare(kcrtc);
-	pm_runtime_put(crtc->dev->dev);
+	pm_runtime_put(mdev->dev);
 	clk_disable_unprepare(mdev->aclk);
 
-	dev_info(crtc->dev->dev, "%s exit\n", __func__);
+	dev_info(mdev->dev, "%s exit\n", __func__);
 }
 
 static void linlondp_crtc_atomic_flush(struct drm_crtc *crtc,
@@ -611,7 +623,7 @@ static unsigned long linlondp_calc_min_aclk_rate(struct linlondp_crtc *kcrtc,
 {
 	unsigned long min_aclk = 0;
 	struct drm_crtc *crtc = &kcrtc->base;
-	struct linlondp_dev *mdev = crtc->dev->dev_private;
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 	/* Once dual-link one display pipeline drives two display outputs,
 	 * the aclk needs run on the double rate of pxlclk
 	 */
@@ -645,8 +657,8 @@ static enum drm_mode_status
 linlondp_crtc_mode_valid(struct drm_crtc *crtc,
 			 const struct drm_display_mode *m)
 {
-	struct linlondp_dev *mdev = crtc->dev->dev_private;
 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 	struct linlondp_pipeline *master = kcrtc->master;
 	unsigned long min_pxlclk, min_aclk;
 	u8 pixel_per_cycle = 1;
@@ -699,7 +711,7 @@ static bool linlondp_crtc_mode_fixup(struct drm_crtc *crtc,
 	u16 hor_divisor = 1;
 	u8 pixel_per_cycle = 1;
 	bool rebuilt_crtcs = false;
-	struct linlondp_dev *mdev = crtc->dev->dev_private;
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 	struct linlondp_kms_dev *kms;
 
 	if (kcrtc->master->force_pixel_per_cycle != 0)
@@ -719,7 +731,7 @@ static bool linlondp_crtc_mode_fixup(struct drm_crtc *crtc,
 
 	if (rebuilt_crtcs) {
 		kms = container_of(crtc->dev, struct linlondp_kms_dev, base);
-		linlondp_kms_setup_crtcs(kms, mdev);
+		linlondp_kms_setup_crtcs(kms, kms->hw_mdevs, kms->n_hw_mdevs);
 		DRM_DEBUG_ATOMIC("%s sidy_by_side. rebuild crtcs",
 			mdev->side_by_side ? "enable" : "disable");
 	}
@@ -803,8 +815,8 @@ static void linlondp_crtc_atomic_destroy_state(struct drm_crtc *crtc,
 
 static int linlondp_crtc_vblank_enable(struct drm_crtc *crtc)
 {
-	struct linlondp_dev *mdev = crtc->dev->dev_private;
 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 
 	mdev->funcs->on_off_vblank(mdev, kcrtc->master->id, true);
 	return 0;
@@ -812,8 +824,8 @@ static int linlondp_crtc_vblank_enable(struct drm_crtc *crtc)
 
 static void linlondp_crtc_vblank_disable(struct drm_crtc *crtc)
 {
-	struct linlondp_dev *mdev = crtc->dev->dev_private;
 	struct linlondp_crtc *kcrtc = to_kcrtc(crtc);
+	struct linlondp_dev *mdev = kcrtc->master->mdev;
 
 	mdev->funcs->on_off_vblank(mdev, kcrtc->master->id, false);
 }
@@ -915,40 +927,53 @@ static const struct drm_crtc_funcs linlondp_crtc_funcs = {
 };
 
 int linlondp_kms_setup_crtcs(struct linlondp_kms_dev *kms,
-			     struct linlondp_dev *mdev)
+			     struct linlondp_dev **mdevs, unsigned int n_mdevs)
 {
 	struct linlondp_crtc *crtc;
 	struct linlondp_pipeline *master, *slave;
 	char str[16];
-	int i;
+	unsigned int di, pi;
+	struct linlondp_dev *mdev;
 
 	kms->n_crtcs = 0;
 
-	for (i = 0; i < mdev->n_pipelines; i++) {
-		crtc = &kms->crtcs[kms->n_crtcs];
-		master = mdev->pipelines[i];
+	for (di = 0; di < n_mdevs; di++) {
+		mdev = mdevs[di];
 
-		crtc->master = master;
-		crtc->slave = linlondp_pipeline_get_slave(master);
-		crtc->side_by_side = mdev->side_by_side;
+		for (pi = 0; pi < mdev->n_pipelines; pi++) {
+			if (kms->n_crtcs >= LINLONDP_MAX_KMS_CRTCS) {
+				DRM_ERROR("Too many CRTCs for KMS (max %d)\n",
+					  LINLONDP_MAX_KMS_CRTCS);
+				return -EINVAL;
+			}
 
-		if (crtc->slave)
-			sprintf(str, "pipe-%d", crtc->slave->id);
-		else
-			sprintf(str, "None");
+			crtc = &kms->crtcs[kms->n_crtcs];
+			master = mdev->pipelines[pi];
 
-		DRM_INFO("CRTC-%d: master(pipe-%d) slave(%s) sbs(%s).\n",
-			 kms->n_crtcs, master->id, str,
-			 crtc->side_by_side ? "On" : "Off");
+			crtc->master = master;
+			crtc->slave = linlondp_pipeline_get_slave(master);
+			crtc->side_by_side = mdev->side_by_side;
 
-		kms->n_crtcs++;
-	}
+			if (crtc->slave)
+				sprintf(str, "pipe-%d", crtc->slave->id);
+			else
+				sprintf(str, "None");
 
-	if (mdev->side_by_side) {
-		master = mdev->pipelines[mdev->side_by_side_master];
-		slave = linlondp_pipeline_get_slave(master);
-		for (i = 0; i < master->n_layers; i++)
-			master->layers[i]->sbs_slave = slave->layers[i];
+			DRM_INFO("CRTC-%d: master(pipe-%d) slave(%s) sbs(%s).\n",
+				 kms->n_crtcs, master->id, str,
+				 crtc->side_by_side ? "On" : "Off");
+
+			kms->n_crtcs++;
+		}
+
+		if (mdev->side_by_side) {
+			int i;
+
+			master = mdev->pipelines[mdev->side_by_side_master];
+			slave = linlondp_pipeline_get_slave(master);
+			for (i = 0; i < master->n_layers; i++)
+				master->layers[i]->sbs_slave = slave->layers[i];
+		}
 	}
 
 	return 0;

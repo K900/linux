@@ -8,6 +8,7 @@
 #define _LINLONDP_KMS_H_
 
 #include <linux/list.h>
+#include <linux/mutex.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_blend.h>
@@ -16,7 +17,10 @@
 #include <drm/drm_writeback.h>
 #include <drm/drm_print.h>
 
+#include "linlondp_pipeline.h"
+
 struct linlondp_events;
+struct linlondp_dev;
 /**
  * struct linlondp_plane - linlondp instance of drm_plane
  */
@@ -212,7 +216,7 @@ struct linlondp_crtc {
 	/** @sbs_overlap: amount of overlap in side by side mode */
 	u32 sbs_overlap;
 	/** @slave_planes: linlondp slave planes mask */
-	u32 slave_planes;
+	u64 slave_planes;
 
 	/** @wb_conn: linlondp write back connector */
 	struct linlondp_wb_connector *wb_conn;
@@ -261,10 +265,22 @@ struct linlondp_kms_dev {
 	/** @base: &drm_device */
 	struct drm_device base;
 
+	/**
+	 * @n_hw_mdevs: number of &hw_mdevs (1 for legacy, >1 for display cluster)
+	 * @hw_mdevs: physical linlondp instances backing this DRM device
+	 * @component_master: device used for component_bind_all / unbind_all
+	 */
+	unsigned int n_hw_mdevs;
+	struct linlondp_dev *hw_mdevs[LINLONDP_MAX_CLUSTER_DPUS];
+	struct device *component_master;
+
 	/** @n_crtcs: valid numbers of crtcs in &linlondp_kms_dev.crtcs */
 	int n_crtcs;
 	/** @crtcs: crtcs list */
-	struct linlondp_crtc crtcs[LINLONDP_MAX_PIPELINES];
+	struct linlondp_crtc crtcs[LINLONDP_MAX_KMS_CRTCS];
+	/* Snapshot taken at atomic_check when CRTC goes active->inactive (user blank). */
+	struct drm_atomic_state *pre_blank_state;
+	struct mutex pre_blank_lock;
 };
 
 #define to_kplane(p) container_of(p, struct linlondp_plane, base)
@@ -315,7 +331,7 @@ void linlondp_crtc_get_color_config(struct drm_crtc_state *crtc_st,
 unsigned long linlondp_crtc_get_aclk(struct linlondp_crtc_state *kcrtc_st);
 
 int linlondp_kms_setup_crtcs(struct linlondp_kms_dev *kms,
-			     struct linlondp_dev *mdev);
+			     struct linlondp_dev **mdevs, unsigned int n_mdevs);
 
 int linlondp_kms_add_crtcs(struct linlondp_kms_dev *kms,
 			   struct linlondp_dev *mdev);
@@ -323,6 +339,12 @@ int linlondp_kms_add_planes(struct linlondp_kms_dev *kms,
 			    struct linlondp_dev *mdev);
 int linlondp_kms_add_private_objs(struct linlondp_kms_dev *kms,
 				  struct linlondp_dev *mdev);
+int linlondp_kms_add_planes_multi(struct linlondp_kms_dev *kms,
+				  struct linlondp_dev **mdevs,
+				  unsigned int n_mdevs);
+int linlondp_kms_add_private_objs_multi(struct linlondp_kms_dev *kms,
+					struct linlondp_dev **mdevs,
+					unsigned int n_mdevs);
 int linlondp_kms_add_wb_connectors(struct linlondp_kms_dev *kms,
 				   struct linlondp_dev *mdev);
 void linlondp_kms_cleanup_private_objs(struct linlondp_kms_dev *kms);
@@ -334,6 +356,12 @@ void linlondp_crtc_flush_and_wait_for_flip_done(
 	bool disable_crtc);
 
 struct linlondp_kms_dev *linlondp_kms_attach(struct linlondp_dev *mdev);
+struct linlondp_kms_dev *
+linlondp_kms_attach_cluster(struct device *component_master_dev,
+			    struct linlondp_dev **mdevs, unsigned int n_mdevs);
 void linlondp_kms_detach(struct linlondp_kms_dev *kms);
+
+bool linlondp_kms_fixup_inactive_suspend_state(struct drm_device *drm);
+void linlondp_kms_clear_pre_blank_state(struct drm_device *drm);
 
 #endif /*_LINLONDP_KMS_H_*/

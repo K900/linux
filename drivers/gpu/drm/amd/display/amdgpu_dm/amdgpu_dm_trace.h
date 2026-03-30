@@ -179,7 +179,7 @@ TRACE_EVENT(amdgpu_dm_crtc_atomic_check,
 			     __field(bool, async_flip)
 			     __field(bool, vrr_enabled)
 			     __field(bool, self_refresh_active)
-			     __field(u32, plane_mask)
+			     __field(u64, plane_mask)
 			     __field(u32, connector_mask)
 			     __field(u32, encoder_mask)
 	    ),
@@ -209,7 +209,7 @@ TRACE_EVENT(amdgpu_dm_crtc_atomic_check,
 	    TP_printk("crtc_id=%u crtc_state=%p state=%p commit=%p changed("
 		      "planes=%d mode=%d active=%d conn=%d zpos=%d color_mgmt=%d) "
 		      "state(enable=%d active=%d async_flip=%d vrr_enabled=%d "
-		      "self_refresh_active=%d no_vblank=%d) mask(plane=%x conn=%x "
+		      "self_refresh_active=%d no_vblank=%d) mask(plane=%llx conn=%x "
 		      "enc=%x)",
 		      __entry->crtc_id, __entry->crtc_state, __entry->state,
 		      __entry->commit, __entry->planes_changed,

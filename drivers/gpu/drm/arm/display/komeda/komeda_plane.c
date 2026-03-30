@@ -224,7 +224,7 @@ komeda_set_crtc_plane_mask(struct komeda_kms_dev *kms,
 		kcrtc = &kms->crtcs[i];
 
 		if (pipe == kcrtc->slave)
-			kcrtc->slave_planes |= BIT(drm_plane_index(plane));
+			kcrtc->slave_planes |= drm_plane_mask(plane);
 	}
 }
 

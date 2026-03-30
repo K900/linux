@@ -22,7 +22,7 @@ static int linlondp_plane_init_data_flow(struct drm_plane_state *st,
 	struct drm_framebuffer *fb = st->fb;
 	const struct linlondp_format_caps *caps = to_kfb(fb)->format_caps;
 	struct linlondp_pipeline *pipe = kplane->layer->base.pipeline;
-	struct linlondp_dev *mdev = st->plane->dev->dev_private;
+	struct linlondp_dev *mdev = kplane->layer->base.pipeline->mdev;
 	struct drm_crtc_state *crtc_st;
 	struct drm_display_mode *mode;
 	struct drm_display_mode *adjusted_mode;
@@ -132,13 +132,15 @@ static int linlondp_plane_atomic_check(struct drm_plane *plane,
 
 	if (kcrtc->side_by_side)
 		err = linlondp_build_layer_sbs_data_flow(layer, kplane_st,
-							 kcrtc_st, &dflow);
+							 kcrtc_st, state,
+							 &dflow);
 	else if (dflow.en_split)
 		err = linlondp_build_layer_split_data_flow(layer, kplane_st,
-							   kcrtc_st, &dflow);
+							   kcrtc_st, state,
+							   &dflow);
 	else
 		err = linlondp_build_layer_data_flow(layer, kplane_st, kcrtc_st,
-						     &dflow);
+						     state, &dflow);
 
 	return err;
 }
@@ -158,7 +160,12 @@ static const struct drm_plane_helper_funcs linlondp_plane_helper_funcs = {
 
 static void linlondp_plane_destroy(struct drm_plane *plane)
 {
-	drm_plane_cleanup(plane);
+	/*
+	 * drm_universal_plane_init() may fail before setting plane->dev; in that
+	 * case drm_plane_cleanup() must not run (drm_mode_object_unregister(NULL)).
+	 */
+	if (plane->dev)
+		drm_plane_cleanup(plane);
 
 	kfree(to_kplane(plane));
 }
@@ -312,8 +319,8 @@ static int linlondp_plane_atomic_set_property(struct drm_plane *plane,
 static bool linlondp_plane_format_mod_supported(struct drm_plane *plane,
 						u32 format, u64 modifier)
 {
-	struct linlondp_dev *mdev = plane->dev->dev_private;
 	struct linlondp_plane *kplane = to_kplane(plane);
+	struct linlondp_dev *mdev = kplane->layer->base.pipeline->mdev;
 	u32 layer_type = kplane->layer->layer_type;
 
 	return linlondp_format_mod_supported(&mdev->fmt_tbl, layer_type, format,
@@ -390,7 +397,7 @@ static void linlondp_set_crtc_plane_mask(struct linlondp_kms_dev *kms,
 		kcrtc = &kms->crtcs[i];
 
 		if (pipe == kcrtc->slave)
-			kcrtc->slave_planes |= BIT(drm_plane_index(plane));
+			kcrtc->slave_planes |= drm_plane_mask(plane);
 	}
 }
 
@@ -544,7 +551,7 @@ linlondp_plane_create_layer_split_property(struct linlondp_plane *kplane)
 static int linlondp_plane_add(struct linlondp_kms_dev *kms,
 			      struct linlondp_layer *layer)
 {
-	struct linlondp_dev *mdev = kms->base.dev_private;
+	struct linlondp_dev *mdev = layer->base.pipeline->mdev;
 	struct linlondp_component *c = &layer->base;
 	struct linlondp_color_manager *color_mgr;
 	struct linlondp_plane *kplane;
@@ -632,16 +639,44 @@ cleanup:
 int linlondp_kms_add_planes(struct linlondp_kms_dev *kms,
 			    struct linlondp_dev *mdev)
 {
+	return linlondp_kms_add_planes_multi(kms, &mdev, 1);
+}
+
+int linlondp_kms_add_planes_multi(struct linlondp_kms_dev *kms,
+				  struct linlondp_dev **mdevs,
+				  unsigned int n_mdevs)
+{
 	struct linlondp_pipeline *pipe;
+	unsigned int di, n_planes;
 	int i, j, err;
 
-	for (i = 0; i < mdev->n_pipelines; i++) {
-		pipe = mdev->pipelines[i];
+	/* __drm_universal_plane_init() rejects num_total_plane >= 64. */
+	n_planes = 0;
+	for (di = 0; di < n_mdevs; di++) {
+		struct linlondp_dev *mdev = mdevs[di];
 
-		for (j = 0; j < pipe->n_layers; j++) {
-			err = linlondp_plane_add(kms, pipe->layers[j]);
-			if (err)
-				return err;
+		for (i = 0; i < mdev->n_pipelines; i++) {
+			pipe = mdev->pipelines[i];
+			n_planes += pipe->n_layers;
+		}
+	}
+	if (n_planes > 64) {
+		DRM_ERROR("linlondp: %u planes exceed DRM core limit (64); fewer DPUs or layers required for one card\n",
+			  n_planes);
+		return -EINVAL;
+	}
+
+	for (di = 0; di < n_mdevs; di++) {
+		struct linlondp_dev *mdev = mdevs[di];
+
+		for (i = 0; i < mdev->n_pipelines; i++) {
+			pipe = mdev->pipelines[i];
+
+			for (j = 0; j < pipe->n_layers; j++) {
+				err = linlondp_plane_add(kms, pipe->layers[j]);
+				if (err)
+					return err;
+			}
 		}
 	}
 

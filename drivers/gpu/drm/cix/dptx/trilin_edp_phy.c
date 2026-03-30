@@ -1181,6 +1181,6 @@ trilin_phy_error_t trilin_edp_phy_register(struct trilin_dp *dp)
 	if (reg_val == TRILIN_EDP_PHY_ID)
 		phy->phy_ops = &edp_phy_ops;
 
-	DP_INFO("end\n");
+	DP_DEBUG("end\n");
 	return trilin_phy_error_none;
 }
