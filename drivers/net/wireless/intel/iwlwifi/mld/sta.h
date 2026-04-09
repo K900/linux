@@ -7,9 +7,13 @@
 #define __iwl_mld_sta_h__
 
 #include <net/mac80211.h>
+#include <linux/average.h>
 
 #include "mld.h"
 #include "tx.h"
+
+/* This makes us a 'struct ewma_signal {' object. */
+DECLARE_EWMA(signal, 10, 8);
 
 /**
  * struct iwl_mld_rxq_dup_data - Duplication detection data, per STA & Rx queue
@@ -143,6 +147,10 @@ struct iwl_mld_sta {
 	struct iwl_mld_link_sta __rcu *link[IEEE80211_MLD_MAX_NUM_LINKS];
 	struct iwl_mld_ptk_pn __rcu *ptk_pn[IWL_NUM_DEFAULT_KEYS];
 	struct iwl_mld_per_q_mpdu_counter *mpdu_counters;
+
+	struct ewma_signal rx_avg_chain_signal[2];
+	struct ewma_signal rx_avg_signal;
+	struct ewma_signal rx_avg_beacon_signal;
 };
 
 static inline struct iwl_mld_sta *

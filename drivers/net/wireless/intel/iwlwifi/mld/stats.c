@@ -72,8 +72,10 @@ iwl_mld_fill_stats_from_oper_notif(struct iwl_mld *mld,
 		mld_link_sta->signal_avg =
 			-(s8)le32_to_cpu(per_sta->average_energy);
 
-	sinfo->signal_avg = mld_link_sta->signal_avg;
-	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG);
+	if (!(sinfo->filled & BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG))) {
+		sinfo->signal_avg = mld_link_sta->signal_avg;
+		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_SIGNAL_AVG);
+	}
 
 unlock:
 	rcu_read_unlock();
@@ -351,6 +353,25 @@ void iwl_mld_mac80211_sta_statistics(struct ieee80211_hw *hw,
 				     struct station_info *sinfo)
 {
 	struct iwl_mld_sta *mld_sta = iwl_mld_sta_from_mac80211(sta);
+	struct iwl_mld_vif *mld_vif = iwl_mld_vif_from_mac80211(vif);
+
+	/* Grab chain signal avg, mac80211 cannot do it because
+	 * this driver uses RSS.  Grab signal_avg here too because firmware
+	 * appears go not do DB summing and/or has other bugs. --Ben
+	 */
+	sinfo->signal_avg = -ewma_signal_read(&mld_sta->rx_avg_signal);
+	if (mld_vif->disable_bf) {
+		/* The firmware reliably reports different signal (2db weaker in my case)
+		 * than if I calculate it from the rx-status.  So, fill that here.
+		 * Beacons are only received if you turn off beacon filtering, however.
+		 */
+		sinfo->filled |= BIT_ULL(NL80211_STA_INFO_BEACON_SIGNAL_AVG);
+		sinfo->rx_beacon_signal_avg = -ewma_signal_read(&mld_sta->rx_avg_beacon_signal);
+	}
+
+	sinfo->filled |= BIT_ULL(NL80211_STA_INFO_CHAIN_SIGNAL_AVG);
+	sinfo->chain_signal_avg[0] = -ewma_signal_read(&mld_sta->rx_avg_chain_signal[0]);
+	sinfo->chain_signal_avg[1] = -ewma_signal_read(&mld_sta->rx_avg_chain_signal[1]);
 
 	/* This API is not EMLSR ready, so we cannot provide complete
 	 * information if EMLSR is active

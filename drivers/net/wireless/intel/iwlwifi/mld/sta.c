@@ -807,6 +807,11 @@ iwl_mld_init_sta(struct iwl_mld *mld, struct ieee80211_sta *sta,
 	mld_sta->sta_type = type;
 	mld_sta->mld = mld;
 
+	ewma_signal_init(&mld_sta->rx_avg_chain_signal[0]);
+	ewma_signal_init(&mld_sta->rx_avg_chain_signal[1]);
+	ewma_signal_init(&mld_sta->rx_avg_signal);
+	ewma_signal_init(&mld_sta->rx_avg_beacon_signal);
+
 	if (!mld->fw_status.in_hw_restart)
 		for (int i = 0; i < ARRAY_SIZE(sta->txq); i++)
 			iwl_mld_init_txq(iwl_mld_txq_from_mac80211(sta->txq[i]));
