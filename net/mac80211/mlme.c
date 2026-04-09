@@ -563,8 +563,10 @@ ieee80211_verify_sta_ht_mcs_support(struct ieee80211_sub_if_data *sdata,
 	if (sband->band == NL80211_BAND_6GHZ)
 		return true;
 
-	if (!ht_op)
+	if (!ht_op) {
+		sdata_info(sdata, "Missing HT operation IE, disable HT\n");
 		return false;
+	}
 
 	memcpy(&sta_ht_cap, &sband->ht_cap, sizeof(sta_ht_cap));
 	ieee80211_apply_htcap_overrides(sdata, &sta_ht_cap);
@@ -592,8 +594,12 @@ ieee80211_verify_sta_ht_mcs_support(struct ieee80211_sub_if_data *sdata,
 	/* Simply check that all basic rates are in the STA RX mask */
 	for (i = 0; i < IEEE80211_HT_MCS_MASK_LEN; i++) {
 		if ((ht_op->basic_set[i] & sta_ht_cap.mcs.rx_mask[i]) !=
-		    ht_op->basic_set[i])
+		    ht_op->basic_set[i]) {
+			sdata_info(sdata,
+			           "Missing mandatory rates for MCS %d, basic_set %x, rx_mask %x, disable HT\n",
+			           i, ht_op->basic_set[i], sta_ht_cap.mcs.rx_mask[i]);
 			return false;
+		}
 	}
 
 	return true;
@@ -612,8 +618,10 @@ ieee80211_verify_sta_vht_mcs_support(struct ieee80211_sub_if_data *sdata,
 	if (sband->band != NL80211_BAND_5GHZ)
 		return true;
 
-	if (!vht_op)
+	if (!vht_op) {
+		sdata_info(sdata, "Missing VHT operation IE, disable VHT\n");
 		return false;
+	}
 
 	memcpy(&sta_vht_cap, &sband->vht_cap, sizeof(sta_vht_cap));
 	ieee80211_apply_vhtcap_overrides(sdata, &sta_vht_cap);
@@ -681,8 +689,10 @@ ieee80211_verify_peer_he_mcs_support(struct ieee80211_sub_if_data *sdata,
 	u16 ap_min_req_set;
 	int nss;
 
-	if (!he_cap)
+	if (!he_cap) {
+		sdata_info(sdata, "Missing HE capability IE, disable HE\n");
 		return false;
+	}
 
 	/* mcs_nss is right after he_cap info */
 	he_mcs_nss_supp = (void *)(he_cap + 1);
@@ -706,8 +716,10 @@ ieee80211_verify_peer_he_mcs_support(struct ieee80211_sub_if_data *sdata,
 		return false;
 	}
 
-	if (!he_op)
+	if (!he_op) {
+		sdata_info(sdata, "Missing HE operation IE, disable HE\n");
 		return true;
+	}
 
 	ap_min_req_set = le16_to_cpu(he_op->he_mcs_nss_set);
 
@@ -766,8 +778,15 @@ ieee80211_verify_sta_he_mcs_support(struct ieee80211_sub_if_data *sdata,
 	u16 ap_min_req_set;
 	int i;
 
-	if (!sta_he_cap || !he_op)
+	if (!sta_he_cap) {
+		sdata_info(sdata, "Missing STA HE capability, disable HE\n");
 		return false;
+	}
+
+	if (!he_op) {
+		sdata_info(sdata, "Missing HE operation IE, disable HE\n");
+		return false;
+	}
 
 	ap_min_req_set = le16_to_cpu(he_op->he_mcs_nss_set);
 
@@ -832,6 +851,7 @@ ieee80211_verify_sta_he_mcs_support(struct ieee80211_sub_if_data *sdata,
 	}
 
 	/* If here, STA doesn't meet AP's HE min requirements */
+	sdata_info(sdata, "HE min requirements not met by STA, disable HE\n");
 	return false;
 }
 
