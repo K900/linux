@@ -438,12 +438,13 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 		return -ENOSPC;
 
 	if (idx < REPEATER_BSSID_START) {
-		mlink->idx = find_first_zero_bit(dev->mt76.vif_mask, MT7996_FIRST_REPEATER_VIF_IDX);
+		mlink->idx = find_first_zero_bit(dev->mt76.vif_mask,
+						 mt7996_first_repeater_vif_idx(dev));
 
 		mld_idx = get_own_mld_idx(dev->mld_idx_mask, false);
 	} else {
 		mlink->idx = find_next_zero_bit(dev->mt76.vif_mask, MT76_MAX_VIFS,
-						MT7996_FIRST_REPEATER_VIF_IDX);
+						mt7996_first_repeater_vif_idx(dev));
 		mld_idx = MT7996_FIRST_REPEATER_MLD_IDX + band_idx;
 	}
 
@@ -478,7 +479,7 @@ int mt7996_vif_link_add(struct mt76_phy *mphy, struct ieee80211_vif *vif,
 	mlink->wcid->offchannel = mlink->offchannel;
 
 	if (mlink->omac_idx >= REPEATER_BSSID_START) {
-		mlink->bss_idx = MT7996_FIRST_REPEATER_VIF_IDX + band_idx + 1;
+		mlink->bss_idx = mt7996_first_repeater_vif_idx(dev) + band_idx + 1;
 		ret = mt7996_configure_master_omac(phy, true);
 	}
 
