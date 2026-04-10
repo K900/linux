@@ -23,8 +23,6 @@
 					 MT76_CONNAC_MAX_REPEATER_WLANS)
 #endif
 
-#define MT7996_FIRST_REPEATER_VIF_IDX	((MT7996_MAX_INTERFACES - MT76_CONNAC_MAX_REPEATER_WLANS) \
-					 * MT7996_MAX_RADIOS)
 #define MT7996_FIRST_REPEATER_MLD_IDX	61
 
 #define MT7996_MASTER_OMAC_IDX		HW_BSSID_1
@@ -928,6 +926,11 @@ static inline u8 mt7996_max_interface_num(struct mt7996_dev *dev)
 	return min((MT7996_MAX_INTERFACES - MT76_CONNAC_MAX_REPEATER_WLANS) * mt7996_num_bands(dev),
 		   MT7996_WTBL_BMC_SIZE) +
 	       MT76_CONNAC_MAX_REPEATER_WLANS * mt7996_num_bands(dev);
+}
+
+static inline u8 mt7996_first_repeater_vif_idx(struct mt7996_dev *dev)
+{
+	return (MT7996_MAX_INTERFACES - MT76_CONNAC_MAX_REPEATER_WLANS) * mt7996_num_bands(dev);
 }
 
 static inline u16 mt7996_wtbl_size(struct mt7996_dev *dev)
