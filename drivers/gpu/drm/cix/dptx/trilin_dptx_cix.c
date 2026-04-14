@@ -41,6 +41,7 @@
 #include "trilin_dptx.h"
 #include "trilin_phy.h"
 #include "cix_edp_panel.h"
+#include <linux/pinctrl/consumer.h>
 
 struct trilin_dptx_pdata {
 	int eDP;
@@ -51,6 +52,8 @@ struct trilin_dptx_cix_dev {
 	struct drm_encoder encoder;
 	struct trilin_dptx *dptx;
 	struct trilin_dpsub dpsub;
+	struct gpio_desc *pdb_gpiod;
+	bool dp_to_hdmi;
 };
 
 /* defined in dptx bridge driver */
@@ -207,12 +210,30 @@ static const struct component_ops trilin_dptx_cix_ops = {
 static int trilin_dptx_cix_probe(struct platform_device *pdev)
 {
 	struct trilin_dptx_cix_dev *dptx_dev;
+	const char *str_prop;
+	struct device *dev;
+	int ret;
 
+	dev = &pdev->dev;
 	dptx_dev = devm_kzalloc(&pdev->dev, sizeof(*dptx_dev), GFP_KERNEL);
 	if (!dptx_dev)
 		return -ENOMEM;
 
 	platform_set_drvdata(pdev, dptx_dev);
+	ret = device_property_read_string(dev, "dp_to_hdmi", &str_prop);
+	if (ret >= 0) {
+		if (strcmp("yes",str_prop) == 0) {
+			dptx_dev->pdb_gpiod = devm_gpiod_get_optional(&pdev->dev, "pdb", GPIOD_OUT_HIGH);
+			if (IS_ERR(dptx_dev->pdb_gpiod)) {
+				dev_dbg(&pdev->dev, "failed to pdb gpio ...\n");
+			} else {
+				msleep(10);
+			}
+			dptx_dev->dp_to_hdmi = true;
+		} else {
+			dptx_dev->dp_to_hdmi = false;
+		}
+	}
 
 	return component_add(&pdev->dev, &trilin_dptx_cix_ops);
 }
@@ -230,6 +251,14 @@ static int trilin_dptx_pm_suspend(struct device *dev)
 	struct trilin_dptx_cix_dev *cix_dptx = dev_get_drvdata(dev);
 	struct trilin_dpsub *dpsub = &cix_dptx->dpsub;
 	struct trilin_dp *dp = dpsub->dp;
+
+	if (cix_dptx->dp_to_hdmi) {
+		if (!IS_ERR(cix_dptx->pdb_gpiod)) {
+			gpiod_set_value(cix_dptx->pdb_gpiod, 0);
+		}
+
+		pinctrl_pm_select_sleep_state(dev);
+	}
 
 	dev_dbg(dev, "%s\n", __func__);
 	if (dp)
@@ -257,6 +286,15 @@ static int trilin_dptx_pm_resume(struct device *dev)
 	struct trilin_dpsub *dpsub = &cix_dptx->dpsub;
 	struct trilin_dp *dp = dpsub->dp;
 	int ret = 0;
+
+	if (cix_dptx->dp_to_hdmi) {
+		if (!IS_ERR(cix_dptx->pdb_gpiod)) {
+			gpiod_set_value(cix_dptx->pdb_gpiod, 1);
+			msleep(10);
+		}
+
+		pinctrl_pm_select_default_state(dev);
+	}
 
 	dev_dbg(dev, "%s\n", __func__);
 	if (dp)
