@@ -1120,7 +1120,10 @@ mt7996_mcu_rx_ext_event(struct mt7996_dev *dev, struct sk_buff *skb)
 		break;
 	default:
 		/* in SDK, grep for EventExtEventHandler */
-		mtk_dbg(&dev->mt76, WRN, "mt7996, unhandled rx_ext_event: 0x%x", rxd->ext_eid);
+		printk_once(KERN_WARNING "mt7996e: %s: unhandled rx_ext_event. Use MT76_DBG_MSG to see more.\n",
+			    __func__);
+		mtk_dbg(&dev->mt76, MSG, "mt7996, unhandled rx_ext_event: 0x%x",
+			rxd->ext_eid);
 		break;
 	}
 }
