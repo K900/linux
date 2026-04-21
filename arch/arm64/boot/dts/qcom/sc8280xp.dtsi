@@ -1006,6 +1006,10 @@
 				interconnects = <&clk_virt MASTER_QUP_CORE_2 0 &clk_virt SLAVE_QUP_CORE_2 0>,
 						<&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_QUP_2 0>;
 				interconnect-names = "qup-core", "qup-config";
+
+				pinctrl-0 = <&qup_uart17_default>;
+				pinctrl-names = "default";
+
 				status = "disabled";
 			};
 
@@ -1475,6 +1479,10 @@
 				interconnects = <&clk_virt MASTER_QUP_CORE_0 0 &clk_virt SLAVE_QUP_CORE_0 0>,
 						<&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_QUP_0 0>;
 				interconnect-names = "qup-core", "qup-config";
+
+				pinctrl-0 = <&qup_uart2_default>;
+				pinctrl-names = "default";
+
 				status = "disabled";
 			};
 
@@ -5795,6 +5803,72 @@
 					function = "cci_i2c";
 					drive-strength = <2>;
 					bias-pull-down;
+				};
+			};
+
+			qup_i2c12_data_clk: qup-i2c12-data-clk-state {
+				pins = "gpio0", "gpio1";
+				function = "qup12";
+			};
+
+			qup_i2c21_data_clk: qup-i2c21-data-clk-state {
+				pins = "gpio81", "gpio82";
+				function = "qup21";
+			};
+
+			qup_uart2_default: qup-uart2-default-state {
+				cts-pins {
+					pins = "gpio121";
+					function = "qup2";
+					bias-bus-hold;
+				};
+
+				rts-pins {
+					pins = "gpio122";
+					function = "qup2";
+					drive-strength = <2>;
+					bias-disable;
+				};
+
+				tx-pins {
+					pins = "gpio123";
+					function = "qup2";
+					drive-strength = <2>;
+					bias-disable;
+				};
+
+				rx-pins {
+					pins = "gpio124";
+					function = "qup2";
+					bias-pull-up;
+				};
+			};
+
+			qup_uart17_default: qup-uart17-default-state {
+				cts-pins {
+					pins = "gpio61";
+					function = "qup17";
+					bias-bus-hold;
+				};
+
+				rts-pins {
+					pins = "gpio62";
+					function = "qup17";
+					drive-strength = <2>;
+					bias-disable;
+				};
+
+				tx-pins {
+					pins = "gpio63";
+					function = "qup17";
+					drive-strength = <2>;
+					bias-disable;
+				};
+
+				rx-pins {
+					pins = "gpio64";
+					function = "qup17";
+					bias-pull-up;
 				};
 			};
 
