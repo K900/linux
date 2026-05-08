@@ -28,6 +28,8 @@
 #include "core.h"
 #include "../host/xhci.h"
 #include "../host/xhci-plat.h"
+
+#define GADGET_DEV_NAME_PREFIX	"gadget."
 #include "cdnsp-sky1.h"
 
 /*
@@ -880,12 +882,61 @@ static const struct acpi_device_id cdnsp_sky1_acpi_match[] = {
 };
 MODULE_DEVICE_TABLE(acpi, cdnsp_sky1_acpi_match);
 
+static int cdnsp_sky1_find_cdns(struct device *dev, void *data)
+{
+	struct cdns **cdns_ptr = data;
+
+	if (dev->of_node && of_device_is_compatible(dev->of_node, "cdns,usbssp")) {
+		*cdns_ptr = dev_get_drvdata(dev);
+		return 1;
+	}
+
+	if (acpi_match_device(cdns_sky1_sub_match, dev)) {
+		*cdns_ptr = dev_get_drvdata(dev);
+		return 1;
+	}
+	return 0;
+}
+
+static int cdnsp_sky1_find_gadget_match(struct device *dev, void *data)
+{
+	struct device **gadget_dev = data;
+	const char *name = dev_name(dev);
+
+	/*
+	 * The gadget device is registered on the gadget bus with name
+	 * "gadget.%d" (see usb_add_gadget_udc -> dev_set_name).
+	 * It sits on the gadget bus and has the function driver bound to it.
+	 */
+	if (name && !strncmp(name, GADGET_DEV_NAME_PREFIX,
+				strlen(GADGET_DEV_NAME_PREFIX))) {
+		*gadget_dev = dev;
+		return 1;
+	}
+	return 0;
+}
+
 static void cdnsp_sky1_shutdown(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct cdnsp_sky1 *data = dev_get_drvdata(dev);
+	struct cdns *cdns = NULL;
+	struct device *gadget_dev = NULL;
 
 	if (!device_may_wakeup(dev)) {
+		/*
+		 * Find the cdns3 child device, then find its gadget device
+		 * and release the function driver before disabling clocks.
+		 * This ensures all register accesses in gadget_unbind_driver
+		 * complete before clocks are turned off.
+		 */
+		device_for_each_child(dev, &cdns, cdnsp_sky1_find_cdns);
+		if (cdns)
+			device_for_each_child(cdns->dev, &gadget_dev,
+					      cdnsp_sky1_find_gadget_match);
+		if (gadget_dev)
+			device_release_driver(gadget_dev);
+
 		dev_dbg(dev, "at %s, reset controller\n", __func__);
 		reset_control_assert(data->reset);
 		reset_control_assert(data->preset);
