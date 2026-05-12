@@ -1,0 +1,260 @@
+From 1b763ed0ac19756804c8c961a0ba30aac31bdc75 Mon Sep 17 00:00:00 2001
+From: Ben Greear <greearb@candelatech.com>
+Date: Mon, 2 Feb 2026 10:13:52 -0800
+Subject: [PATCH 2/3] iwlwifi: SKB UAF debugging and sanity checks.
+
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ .../net/wireless/intel/iwlwifi/iwl-utils.c    |  6 +++++
+ drivers/net/wireless/intel/iwlwifi/mld/agg.c  |  4 +++-
+ .../net/wireless/intel/iwlwifi/mld/mac80211.c |  6 +++++
+ drivers/net/wireless/intel/iwlwifi/mld/mld.c  |  6 +++++
+ drivers/net/wireless/intel/iwlwifi/mld/rx.c   | 24 +++++++++++++++++++
+ drivers/net/wireless/intel/iwlwifi/mld/sta.c  | 17 +++++++++++--
+ drivers/net/wireless/intel/iwlwifi/mld/sta.h  |  4 ++++
+ drivers/net/wireless/intel/iwlwifi/mld/tx.c   |  6 +++++
+ .../intel/iwlwifi/pcie/gen1_2/tx-gen2.c       |  6 +++++
+ .../wireless/intel/iwlwifi/pcie/gen1_2/tx.c   | 11 +++++++++
+ 10 files changed, 87 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-utils.c b/drivers/net/wireless/intel/iwlwifi/iwl-utils.c
+index e58d76b3e720..28a4ffd0fdf7 100644
+--- a/drivers/net/wireless/intel/iwlwifi/iwl-utils.c
++++ b/drivers/net/wireless/intel/iwlwifi/iwl-utils.c
+@@ -24,6 +24,12 @@ int iwl_tx_tso_segment(struct sk_buff *skb, unsigned int num_subframes,
+ 	bool qos = ieee80211_is_data_qos(hdr->frame_control);
+ 	u16 ip_base_id = ipv4 ? ntohs(ip_hdr(skb)->id) : 0;
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("iwl-tx-tso-segment skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		return -ENOMEM; /* more like -E_USE_AFTER_FREE */
++	}
++
+ 	skb_shinfo(skb)->gso_size = num_subframes * mss;
+ 	memcpy(cb, skb->cb, sizeof(cb));
+ 
+diff --git a/drivers/net/wireless/intel/iwlwifi/mld/agg.c b/drivers/net/wireless/intel/iwlwifi/mld/agg.c
+index 83db9e8ceb08..262eb3daeecb 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mld/agg.c
++++ b/drivers/net/wireless/intel/iwlwifi/mld/agg.c
+@@ -496,7 +496,9 @@ static void iwl_mld_free_reorder_buffer(struct iwl_mld *mld,
+ 		 * sync internal DELBA notification should trigger a release
+ 		 * of all frames in the reorder buffer.
+ 		 */
+-		WARN_ON(1);
++		WARN_ON_ONCE(1);
++		IWL_ERR(mld, "free-reorder-buffer problem, rxq: %d  num-stored: %d, will purge frames\n",
++			i, reorder_buf->num_stored);
+ 
+ 		for (int j = 0; j < data->buf_size; j++)
+ 			__skb_queue_purge(&entries[j].frames);
+diff --git a/drivers/net/wireless/intel/iwlwifi/mld/mac80211.c b/drivers/net/wireless/intel/iwlwifi/mld/mac80211.c
+index d7afbadab5f5..de7acdb0daec 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mld/mac80211.c
++++ b/drivers/net/wireless/intel/iwlwifi/mld/mac80211.c
+@@ -1960,6 +1960,12 @@ static void iwl_mld_mac80211_flush(struct ieee80211_hw *hw,
+ 		if (IS_ERR_OR_NULL(link_sta))
+ 			continue;
+ 
++		if (WARN_ON_ONCE(((unsigned long)(link_sta)) < 8000)) {
++			IWL_ERR(mld, "ERROR:  link_sta[%i] is bad: 0x%px\n",
++				i, link_sta);
++			continue;
++		}
++
+ 		/* Check that the sta belongs to the given vif */
+ 		mld_sta = iwl_mld_sta_from_mac80211(link_sta->sta);
+ 		if (vif && (!mld_sta || (vif != mld_sta->vif)))
+diff --git a/drivers/net/wireless/intel/iwlwifi/mld/mld.c b/drivers/net/wireless/intel/iwlwifi/mld/mld.c
+index 74dd37b01d6f..d8fc2fe5c22b 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mld/mld.c
++++ b/drivers/net/wireless/intel/iwlwifi/mld/mld.c
+@@ -603,6 +603,12 @@ iwl_mld_free_skb(struct iwl_op_mode *op_mode, struct sk_buff *skb)
+ 	struct iwl_mld *mld = IWL_OP_MODE_GET_MLD(op_mode);
+ 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("iwl-mld-free-skb skb free-status: 0x%x != 0x%x (allocated)\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		return;
++	}
++
+ 	iwl_trans_free_tx_cmd(mld->trans, info->driver_data[1]);
+ 	ieee80211_free_txskb(mld->hw, skb);
+ }
+diff --git a/drivers/net/wireless/intel/iwlwifi/mld/rx.c b/drivers/net/wireless/intel/iwlwifi/mld/rx.c
+index eb36c96d0f31..a27aa13a44fa 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mld/rx.c
++++ b/drivers/net/wireless/intel/iwlwifi/mld/rx.c
+@@ -2239,6 +2239,12 @@ void iwl_mld_rx_mpdu(struct iwl_mld *mld, struct napi_struct *napi,
+ 		skb_reserve(skb, 2);
+ 	}
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("iwl-mld-rx-mpdu 0 skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		return;
++	}
++
+ 	rx_status = IEEE80211_SKB_RXCB(skb);
+ 
+ 	/* this is needed early */
+@@ -2254,6 +2260,12 @@ void iwl_mld_rx_mpdu(struct iwl_mld *mld, struct napi_struct *napi,
+ 	if (drop)
+ 		goto drop;
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("iwl-mld-rx-mpdu skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		goto out;
++	}
++
+ 	/* update aggregation data for monitor and stats sake */
+ 	if (phy_data.phy_info & IWL_RX_MPDU_PHY_AMPDU)
+ 		iwl_mld_rx_update_ampdu_data(mld, &phy_data, rx_status);
+@@ -2315,6 +2327,12 @@ void iwl_mld_rx_mpdu(struct iwl_mld *mld, struct napi_struct *napi,
+ 	if (iwl_mld_time_sync_frame(mld, skb, hdr->addr2))
+ 		goto out;
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("iwl-mld-rx-mpdu 2 skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		goto out;
++	}
++
+ 	reorder_res = iwl_mld_reorder(mld, napi, queue, sta, skb, mpdu_desc);
+ 	switch (reorder_res) {
+ 	case IWL_MLD_PASS_SKB:
+@@ -2328,6 +2346,12 @@ void iwl_mld_rx_mpdu(struct iwl_mld *mld, struct napi_struct *napi,
+ 		goto drop;
+ 	}
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("iwl-mld-rx-mpdu skb 3 free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		goto out;
++	}
++
+ 	mld->ethtool_stats.rx_pkts++;
+ 	mld->ethtool_stats.rx_bytes_nic += skb->len;
+ 	iwl_mld_pass_packet_to_mac80211(mld, napi, skb, queue, sta);
+diff --git a/drivers/net/wireless/intel/iwlwifi/mld/sta.c b/drivers/net/wireless/intel/iwlwifi/mld/sta.c
+index 754cf8f6d243..8e89ef23cf2b 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mld/sta.c
++++ b/drivers/net/wireless/intel/iwlwifi/mld/sta.c
+@@ -884,18 +884,31 @@ static void iwl_mld_count_mpdu(struct ieee80211_link_sta *link_sta, int queue,
+ 	struct iwl_mld *mld;
+ 	int total_mpdus = 0;
+ 
+-	if (WARN_ON(!link_sta))
++	if (WARN_ON(((unsigned long)(link_sta)) < 8000)) {
++		pr_err("mld-count-mpdu, bogus link-sta: 0x%px\n", link_sta);
+ 		return;
++	}
+ 
+ 	mld_sta = iwl_mld_sta_from_mac80211(link_sta->sta);
++	if (WARN_ON(((unsigned long)(mld_sta)) < 8000)) {
++		pr_err("mld-count-mpdu, bogus mld-sta: 0x%px\n", mld_sta);
++		return;
++	}
++
+ 	if (!mld_sta->mpdu_counters)
+ 		return;
+ 
+ 	mld_vif = iwl_mld_vif_from_mac80211(mld_sta->vif);
++	if (WARN_ON(((unsigned long)(mld_vif)) < 8000)) {
++		pr_err("mld-count-mpdu, bogus mld-vif: 0x%px\n", mld_vif);
++		return;
++	}
+ 	mld_link = iwl_mld_link_dereference_check(mld_vif, link_sta->link_id);
+ 
+-	if (WARN_ON_ONCE(!mld_link))
++	if (WARN_ON_ONCE(((unsigned long)(mld_link)) < 8000)) {
++		pr_err("mld-count-mpdu, bogus mld-link: 0x%px\n", mld_link);
+ 		return;
++	}
+ 
+ 	queue_counter = &mld_sta->mpdu_counters[queue];
+ 
+diff --git a/drivers/net/wireless/intel/iwlwifi/mld/sta.h b/drivers/net/wireless/intel/iwlwifi/mld/sta.h
+index c66eaf574ebf..2742e328568c 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mld/sta.h
++++ b/drivers/net/wireless/intel/iwlwifi/mld/sta.h
+@@ -152,6 +152,10 @@ struct iwl_mld_sta {
+ static inline struct iwl_mld_sta *
+ iwl_mld_sta_from_mac80211(struct ieee80211_sta *sta)
+ {
++	if (WARN_ON(((unsigned long)(sta)) < 8000)) {
++		pr_err("mld-sta-from-mac80211, bogus sta: 0x%px\n", sta);
++		return NULL;
++	}
+ 	return (void *)sta->drv_priv;
+ }
+ 
+diff --git a/drivers/net/wireless/intel/iwlwifi/mld/tx.c b/drivers/net/wireless/intel/iwlwifi/mld/tx.c
+index c3ad2d401ab2..7efa521e1c6a 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mld/tx.c
++++ b/drivers/net/wireless/intel/iwlwifi/mld/tx.c
+@@ -1530,6 +1530,12 @@ static void iwl_mld_tx_reclaim_txq(struct iwl_mld *mld, int txq, int index,
+ 
+ 		iwl_trans_free_tx_cmd(mld->trans, info->driver_data[1]);
+ 
++		if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++			pr_err("iwl-tx-reclaim-txq skb free-status: 0x%x != 0x%x\n",
++			       skb->free_status, SKB_ALREADY_ALLOCATED);
++			continue;
++		}
++
+ 		memset(&info->status, 0, sizeof(info->status));
+ 
+ 		/* Packet was transmitted successfully, failures come as single
+diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/tx-gen2.c b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/tx-gen2.c
+index 27f4973791d0..f2e4cebd5c9e 100644
+--- a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/tx-gen2.c
++++ b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/tx-gen2.c
+@@ -732,6 +732,12 @@ int iwl_txq_gen2_tx(struct iwl_trans *trans, struct sk_buff *skb,
+ 		      "TX on unused queue %d\n", txq_id))
+ 		return -EINVAL;
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("iwl-txq-gen2-tx freed skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		return -ENOMEM; /* more like -E_USE_AFTER_FREE */
++	}
++
+ 	if (skb_is_nonlinear(skb) &&
+ 	    skb_shinfo(skb)->nr_frags > IWL_TRANS_PCIE_MAX_FRAGS(trans_pcie) &&
+ 	    __skb_linearize(skb))
+diff --git a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/tx.c b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/tx.c
+index a5a99b80ede3..0ce37369c608 100644
+--- a/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/tx.c
++++ b/drivers/net/wireless/intel/iwlwifi/pcie/gen1_2/tx.c
+@@ -2129,6 +2129,12 @@ int iwl_trans_pcie_tx(struct iwl_trans *trans, struct sk_buff *skb,
+ 		      "TX on unused queue %d\n", txq_id))
+ 		return -EINVAL;
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("iwl-tx-pcie-tx freed skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		return -ENOMEM; /* more like -E_USE_AFTER_FREE */
++	}
++
+ 	if (skb_is_nonlinear(skb) &&
+ 	    skb_shinfo(skb)->nr_frags > IWL_TRANS_PCIE_MAX_FRAGS(trans_pcie) &&
+ 	    __skb_linearize(skb))
+@@ -2407,6 +2413,11 @@ void iwl_pcie_reclaim(struct iwl_trans *trans, int txq_id, int ssn,
+ 			      read_ptr, txq_read_ptr, txq_id))
+ 			continue;
+ 
++		if (WARN_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED,
++			      "Already freed SKB: %pX free-status: 0x%x at %d (%d) on queue %d\n",
++			      skb, skb->free_status, read_ptr, txq_read_ptr, txq_id))
++			continue;
++
+ 		iwl_pcie_free_tso_pages(trans, skb, cmd_meta);
+ 
+ 		__skb_queue_tail(skbs, skb);
+-- 
+2.52.0
+

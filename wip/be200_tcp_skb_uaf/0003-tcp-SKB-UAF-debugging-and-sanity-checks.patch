@@ -1,0 +1,110 @@
+From d8cf4ea0e6156a3259e3ed6089dd68b6c32973b9 Mon Sep 17 00:00:00 2001
+From: Ben Greear <greearb@candelatech.com>
+Date: Wed, 18 Feb 2026 11:31:45 -0800
+Subject: [PATCH 3/3] tcp: SKB UAF debugging and sanity checks
+
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+ include/net/tcp.h     |  6 ++++++
+ net/ipv4/tcp_input.c  | 28 ++++++++++++++++++++++++++++
+ net/ipv4/tcp_output.c |  7 +++++++
+ 3 files changed, 41 insertions(+)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 978eea2d5df0..e5a7d5ae4dce 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -333,6 +333,12 @@ static inline void tcp_wmem_free_skb(struct sock *sk, struct sk_buff *skb)
+ 		sk_mem_uncharge(sk, skb->truesize);
+ 	else
+ 		sk_mem_uncharge(sk, SKB_TRUESIZE(skb_end_offset(skb)));
++
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("tcp-wmem-free-skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		return;
++	}
+ 	__kfree_skb(skb);
+ }
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index cba89733d121..887cf9d2c4a9 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1854,6 +1854,12 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *prev,
+ 	u32 start_seq = TCP_SKB_CB(skb)->seq;	/* start of newly-SACKed */
+ 	u32 end_seq = start_seq + shifted;	/* end of newly-SACKed */
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("tcp-shifted-skb skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		return false;
++	}
++
+ 	BUG_ON(!pcount);
+ 
+ 	/* Adjust counters and hints for the newly sacked sequence
+@@ -3625,6 +3631,14 @@ static int tcp_clean_rtx_queue(struct sock *sk, const struct sk_buff *ack_skb,
+ 		u8 sacked = scb->sacked;
+ 		u32 acked_pcount;
+ 
++		if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++			pr_err("tcp-clean-rtx-queue free-status: 0x%x != 0x%x\n",
++			       skb->free_status, SKB_ALREADY_ALLOCATED);
++			tcp_rtx_queue_unlink_and_free(skb, sk);
++			skb = NULL;
++			break;
++		}
++
+ 		/* Determine how many packets and what bytes were acked, tso and else */
+ 		if (after(scb->end_seq, tp->snd_una)) {
+ 			if (tcp_skb_pcount(skb) == 1 ||
+@@ -3691,6 +3705,14 @@ static int tcp_clean_rtx_queue(struct sock *sk, const struct sk_buff *ack_skb,
+ 
+ 		tcp_ack_tstamp(sk, skb, ack_skb, prior_snd_una);
+ 
++		if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++			pr_err("tcp-clean-rtx-queue 2 free-status: 0x%x != 0x%x\n",
++			       skb->free_status, SKB_ALREADY_ALLOCATED);
++			tcp_rtx_queue_unlink_and_free(skb, sk);
++			skb = NULL;
++			break;
++		}
++
+ 		next = skb_rb_next(skb);
+ 		if (unlikely(skb == tp->retransmit_skb_hint))
+ 			tp->retransmit_skb_hint = NULL;
+@@ -4261,6 +4283,12 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	u32 ecn_count = 0;	  /* Did we receive ECE/an AccECN ACE update? */
+ 	u32 prior_fack;
+ 
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("tcp-ack skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		return -EINVAL;
++	}
++
+ 	sack_state.first_sackt = 0;
+ 	sack_state.rate = &rs;
+ 	sack_state.sack_delivered = 0;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index d6913e822af9..6b54c6a81032 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1528,6 +1528,13 @@ static int __tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
+ 	int err;
+ 
+ 	BUG_ON(!skb || !tcp_skb_pcount(skb));
++
++	if (WARN_ON_ONCE(skb->free_status != SKB_ALREADY_ALLOCATED)) {
++		pr_err("tcp-transmit-skb free-status: 0x%x != 0x%x\n",
++		       skb->free_status, SKB_ALREADY_ALLOCATED);
++		return -EINVAL;
++	}
++
+ 	tp = tcp_sk(sk);
+ 	prior_wstamp = tp->tcp_wstamp_ns;
+ 	tp->tcp_wstamp_ns = max(tp->tcp_wstamp_ns, tp->tcp_clock_cache);
+-- 
+2.52.0
+
