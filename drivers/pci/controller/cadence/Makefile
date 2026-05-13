@@ -11,3 +11,5 @@ obj-$(CONFIG_PCI_J721E) += pci-j721e.o
 obj-$(CONFIG_PCIE_SG2042_HOST) += pcie-sg2042.o
 obj-$(CONFIG_PCI_SKY1_HOST) += pci-sky1.o
 obj-$(CONFIG_PCI_SKY1_HOST) += pci-sky1-acpi.o
+obj-$(CONFIG_PCI_SKY1_HOST) += pci-sky1-cix.o
+obj-$(CONFIG_PCI_SKY1_HOST) += pci-sky1-debugfs.o
