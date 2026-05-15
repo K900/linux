@@ -5075,13 +5075,16 @@ EXPORT_SYMBOL(ieee80211_ap_probereq_get);
 
 static void ieee80211_report_disconnect(struct ieee80211_sub_if_data *sdata,
 					const u8 *buf, size_t len, bool tx,
-					u16 reason, bool reconnect)
+					u16 reason, bool reconnect, const char* dbg)
 {
 	struct ieee80211_event event = {
 		.type = MLME_EVENT,
 		.u.mlme.data = tx ? DEAUTH_TX_EVENT : DEAUTH_RX_EVENT,
 		.u.mlme.reason = reason,
 	};
+
+	sdata_info(sdata, "report-disconnect, tx: %d reason: %d  reconnect: %d  dbg: %s\n",
+		   tx, reason, reconnect, dbg);
 
 	if (tx)
 		cfg80211_tx_mlme_mgmt(sdata->dev, buf, len, reconnect);
@@ -5140,7 +5143,7 @@ static void __ieee80211_disconnect(struct ieee80211_sub_if_data *sdata)
 
 	ieee80211_report_disconnect(sdata, frame_buf, sizeof(frame_buf), true,
 				    WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY,
-				    ifmgd->reconnect);
+				    ifmgd->reconnect, __func__);
 	ifmgd->reconnect = false;
 }
 
@@ -5726,7 +5729,7 @@ static void ieee80211_rx_mgmt_deauth(struct ieee80211_sub_if_data *sdata,
 		ieee80211_set_disassoc(sdata, 0, 0, false, NULL);
 
 		ieee80211_report_disconnect(sdata, (u8 *)mgmt, len, false,
-					    reason_code, false);
+					    reason_code, false, "rx-mgmt-deauth");
 		return;
 	}
 
@@ -5774,7 +5777,7 @@ static void ieee80211_rx_mgmt_disassoc(struct ieee80211_sub_if_data *sdata,
 	ieee80211_set_disassoc(sdata, 0, 0, false, NULL);
 
 	ieee80211_report_disconnect(sdata, (u8 *)mgmt, len, false, reason_code,
-				    false);
+				    false, __func__);
 }
 
 static bool ieee80211_twt_req_supported(struct ieee80211_sub_if_data *sdata,
@@ -8498,7 +8501,7 @@ static void ieee80211_rx_mgmt_beacon(struct ieee80211_link_data *link,
 		ieee80211_report_disconnect(sdata, deauth_buf,
 					    sizeof(deauth_buf), true,
 					    WLAN_REASON_DEAUTH_LEAVING,
-					    false);
+					    false, "rx-mgt-beacon, config_bw failed");
 		goto free;
 	}
 
@@ -8991,7 +8994,7 @@ void ieee80211_sta_connection_lost(struct ieee80211_sub_if_data *sdata,
 			       tx, frame_buf);
 
 	ieee80211_report_disconnect(sdata, frame_buf, sizeof(frame_buf), true,
-				    reason, false);
+				    reason, false, __func__);
 }
 
 static int ieee80211_auth(struct ieee80211_sub_if_data *sdata)
@@ -10098,13 +10101,13 @@ int ieee80211_mgd_auth(struct ieee80211_sub_if_data *sdata,
 			   "disconnect from AP %pM for new auth to %pM\n",
 			   sdata->vif.cfg.ap_addr, auth_data->ap_addr);
 		ieee80211_set_disassoc(sdata, IEEE80211_STYPE_DEAUTH,
-				       WLAN_REASON_UNSPECIFIED,
+				       WLAN_REASON_REAUTH,
 				       false, frame_buf);
 
 		ieee80211_report_disconnect(sdata, frame_buf,
 					    sizeof(frame_buf), true,
-					    WLAN_REASON_UNSPECIFIED,
-					    false);
+					    WLAN_REASON_REAUTH,
+					    false, "mgd-auth, but already connected");
 	}
 
 	/* needed for transmitting the auth frame(s) properly */
@@ -10501,7 +10504,7 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 		ieee80211_report_disconnect(sdata, frame_buf,
 					    sizeof(frame_buf), true,
 					    WLAN_REASON_UNSPECIFIED,
-					    false);
+					    false, "mgd-assoc, already associated");
 	}
 
 	memset(sdata->u.mgd.userspace_selectors, 0,
@@ -10902,7 +10905,7 @@ int ieee80211_mgd_deauth(struct ieee80211_sub_if_data *sdata,
 		ieee80211_destroy_auth_data(sdata, false);
 		ieee80211_report_disconnect(sdata, frame_buf,
 					    sizeof(frame_buf), true,
-					    req->reason_code, false);
+					    req->reason_code, false, "abort auth, mgd-deauth");
 		drv_mgd_complete_tx(sdata->local, sdata, &info);
 		return 0;
 	}
@@ -10924,7 +10927,7 @@ int ieee80211_mgd_deauth(struct ieee80211_sub_if_data *sdata,
 		ieee80211_destroy_assoc_data(sdata, ASSOC_ABANDON);
 		ieee80211_report_disconnect(sdata, frame_buf,
 					    sizeof(frame_buf), true,
-					    req->reason_code, false);
+					    req->reason_code, false, "abort assoc, mgd-deauth");
 		drv_mgd_complete_tx(sdata->local, sdata, &info);
 		return 0;
 	}
@@ -10940,7 +10943,7 @@ int ieee80211_mgd_deauth(struct ieee80211_sub_if_data *sdata,
 				       req->reason_code, tx, frame_buf);
 		ieee80211_report_disconnect(sdata, frame_buf,
 					    sizeof(frame_buf), true,
-					    req->reason_code, false);
+					    req->reason_code, false, "mgd-deauth");
 		return 0;
 	}
 
@@ -10966,7 +10969,7 @@ int ieee80211_mgd_disassoc(struct ieee80211_sub_if_data *sdata,
 			       frame_buf);
 
 	ieee80211_report_disconnect(sdata, frame_buf, sizeof(frame_buf), true,
-				    req->reason_code, false);
+				    req->reason_code, false, "mgd-disassoc");
 
 	return 0;
 }
