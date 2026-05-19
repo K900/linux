@@ -16,6 +16,7 @@
 #include <linux/pcs/pcs-xpcs-regmap.h>
 #include <linux/pcs/pcs-xpcs.h>
 #include <linux/phy.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/stmmac.h>
 #include <linux/types.h>
@@ -760,6 +761,11 @@ static int tc956x_dwmac_probe(struct auxiliary_device *adev,
 				    "failed to initialize stmmac resources\n");
 		goto err_put_mdio;
 	}
+
+	/* Per-port MAC comes from a board EEPROM nvmem cell on the PCI node */
+	ret = device_get_mac_address(dev->parent, td->res.mac);
+	if (ret == -EPROBE_DEFER)
+		goto err_put_mdio;
 
 	/* Put the MAC in a known initial state, then enable it */
 	tc956x_mac_init_state(td);
