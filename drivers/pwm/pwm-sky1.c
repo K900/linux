@@ -140,8 +140,10 @@ static int __maybe_unused sky1_pwm_suspend(struct device *dev)
 {
 	struct pwm_chip *chip = dev_get_drvdata(dev);
 	struct pwm_sky1_chip *sky1 = to_pwm_sky1_chip(chip);
+	struct pwm_device *pwm = &chip->pwms[0];
 
-	pwm_sky1_clk_disable_unprepare(sky1);
+	if (pwm->state.enabled)
+		pwm_sky1_clk_disable_unprepare(sky1);
 	pinctrl_pm_select_sleep_state(dev);
 
 	return 0;
@@ -151,11 +153,14 @@ static int __maybe_unused sky1_pwm_resume(struct device *dev)
 {
 	struct pwm_chip *chip = dev_get_drvdata(dev);
 	struct pwm_sky1_chip *sky1 = to_pwm_sky1_chip(chip);
+	struct pwm_device *pwm = &chip->pwms[0];
 	int ret;
 
-	ret = pwm_sky1_clk_prepare_enable(sky1);
-	if (ret)
-		return ret;
+	if (pwm->state.enabled) {
+		ret = pwm_sky1_clk_prepare_enable(sky1);
+		if (ret)
+			return ret;
+	}
 
 	pinctrl_pm_select_default_state(dev);
 
