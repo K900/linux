@@ -1912,10 +1912,16 @@ static const struct acpi_device_id panthor_acpi_match[] = {
 MODULE_DEVICE_TABLE(acpi, panthor_acpi_match);
 #endif
 
-static DEFINE_RUNTIME_DEV_PM_OPS(panthor_pm_ops,
-				 panthor_device_suspend,
-				 panthor_device_resume,
-				 NULL);
+/*
+ * System sleep: noirq runs pm_runtime_force_{suspend,resume} (see
+ * panthor_device_{suspend,resume}_noirq). Sky1 reset/qchannel is done in
+ * resume_noirq before clocks are re-enabled via runtime resume.
+ */
+static const struct dev_pm_ops panthor_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(panthor_device_suspend_noirq,
+				      panthor_device_resume_noirq)
+	RUNTIME_PM_OPS(panthor_device_suspend, panthor_device_resume, NULL)
+};
 
 static struct platform_driver panthor_driver = {
 	.probe = panthor_probe,

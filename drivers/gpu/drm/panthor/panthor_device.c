@@ -435,6 +435,46 @@ static void panthor_device_free_page(struct drm_device *ddev, void *data)
 	__free_page(data);
 }
 
+/*
+ * Sky1 steps 3–5 after power domain is back (probe and system resume noirq).
+ * Must not re-request MMIO; mappings are established once at probe.
+ */
+static int panthor_device_sky1_hw_power_on(struct panthor_device *ptdev)
+{
+	int ret;
+
+	if (!panthor_is_sky1(ptdev))
+		return 0;
+
+	if (ptdev->gpu_reset) {
+		ret = reset_control_assert(ptdev->gpu_reset);
+		if (ret) {
+			dev_err(ptdev->base.dev, "GPU reset assert failed: %d\n", ret);
+			return ret;
+		}
+
+		usleep_range(10, 20);
+
+		ret = reset_control_deassert(ptdev->gpu_reset);
+		if (ret) {
+			dev_err(ptdev->base.dev, "GPU reset deassert failed: %d\n", ret);
+			return ret;
+		}
+	}
+
+	if (!IS_ERR_OR_NULL(ptdev->sky1_rcsu_reg)) {
+		u32 pgctrl;
+
+		pgctrl = readl(ptdev->sky1_rcsu_reg + 0x218);
+		pgctrl |= BIT(0); /* QCHANNEL_CLOCK_GATE_ENABLE */
+		writel(pgctrl, ptdev->sky1_rcsu_reg + 0x218);
+
+		dev_dbg(ptdev->base.dev, "qchannel clock gating enabled\n");
+	}
+
+	return 0;
+}
+
 int panthor_device_init(struct panthor_device *ptdev)
 {
 	u32 *dummy_page_virt;
@@ -555,34 +595,9 @@ int panthor_device_init(struct panthor_device *ptdev)
 	 * 4. IP Reset de-assert
 	 * 5. Qchannel clock gating enable
 	 */
-	if (panthor_is_sky1(ptdev)) {
-		if (ptdev->gpu_reset) {
-			ret = reset_control_assert(ptdev->gpu_reset);
-			if (ret) {
-				dev_err(ptdev->base.dev, "GPU reset assert failed: %d\n", ret);
-				goto err_rpm_put;
-			}
-
-			usleep_range(10, 20);
-
-			ret = reset_control_deassert(ptdev->gpu_reset);
-			if (ret) {
-				dev_err(ptdev->base.dev, "GPU reset deassert failed: %d\n", ret);
-				goto err_rpm_put;
-			}
-
-		}
-
-		if (ptdev->sky1_rcsu_reg) {
-			u32 pgctrl;
-
-			pgctrl = readl(ptdev->sky1_rcsu_reg + 0x218);
-			pgctrl |= BIT(0);  /* QCHANNEL_CLOCK_GATE_ENABLE */
-			writel(pgctrl, ptdev->sky1_rcsu_reg + 0x218);
-
-			dev_dbg(ptdev->base.dev, "qchannel clock gating enabled\n");
-		}
-	}
+	ret = panthor_device_sky1_hw_power_on(ptdev);
+	if (ret)
+		goto err_rpm_put;
 
 	ret = panthor_hw_init(ptdev);
 	if (ret)
@@ -937,4 +952,23 @@ int panthor_device_suspend(struct device *dev)
 	clk_disable_unprepare(ptdev->clks.core);
 	atomic_set(&ptdev->pm.state, PANTHOR_DEVICE_PM_STATE_SUSPENDED);
 	return 0;
+}
+
+int panthor_device_suspend_noirq(struct device *dev)
+{
+	return pm_runtime_force_suspend(dev);
+}
+
+int panthor_device_resume_noirq(struct device *dev)
+{
+	struct panthor_device *ptdev = dev_get_drvdata(dev);
+	int ret;
+
+	if (panthor_device_is_initialized(ptdev)) {
+		ret = panthor_device_sky1_hw_power_on(ptdev);
+		if (ret)
+			return ret;
+	}
+
+	return pm_runtime_force_resume(dev);
 }
