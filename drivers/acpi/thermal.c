@@ -620,16 +620,17 @@ static int acpi_thermal_register_thermal_zone(struct acpi_thermal *tz,
 					      unsigned int trip_count,
 					      int passive_delay)
 {
+	const char *tz_type = acpi_device_bid(tz->device);
 	int result;
 
 	if (trip_count)
 		tz->thermal_zone = thermal_zone_device_register_with_trips(
-					"acpitz", trip_table, trip_count, tz,
+					tz_type, trip_table, trip_count, tz,
 					&acpi_thermal_zone_ops, NULL, passive_delay,
 					tz->polling_frequency * 100);
 	else
 		tz->thermal_zone = thermal_tripless_zone_device_register(
-					"acpitz", tz, &acpi_thermal_zone_ops, NULL);
+					tz_type, tz, &acpi_thermal_zone_ops, NULL);
 
 	if (IS_ERR(tz->thermal_zone))
 		return PTR_ERR(tz->thermal_zone);
