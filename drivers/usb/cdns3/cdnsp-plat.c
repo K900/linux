@@ -341,8 +341,10 @@ static int cdnsp_controller_resume(struct device *dev, pm_message_t msg)
 
 	cdnsp_set_platform_suspend(cdns->dev, false, false);
 
-	spin_lock_irqsave(&cdns->lock, flags);
+	/* cdns_resume() may sleep; do not invoke it under cdns->lock. */
 	cdns_resume(cdns);
+
+	spin_lock_irqsave(&cdns->lock, flags);
 	cdns->in_lpm = false;
 	spin_unlock_irqrestore(&cdns->lock, flags);
 	cdns_set_active(cdns, !PMSG_IS_AUTO(msg));

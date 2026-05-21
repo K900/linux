@@ -204,12 +204,10 @@ static int __maybe_unused cdnsp_pci_suspend(struct device *dev)
 static int __maybe_unused cdnsp_pci_resume(struct device *dev)
 {
 	struct cdns *cdns = dev_get_drvdata(dev);
-	unsigned long flags;
 	int ret;
 
-	spin_lock_irqsave(&cdns->lock, flags);
+	/* cdns_resume() may sleep; must not run under cdns->lock. */
 	ret = cdns_resume(cdns);
-	spin_unlock_irqrestore(&cdns->lock, flags);
 	cdns_set_active(cdns, 1);
 
 	return ret;
