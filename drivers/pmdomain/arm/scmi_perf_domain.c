@@ -112,15 +112,31 @@ static int match_proto_reg(struct acpi_device *adev, void *data)
 static struct fwnode_handle *scmi_perf_find_proto_fwnode(struct scmi_device *sdev)
 {
 	struct acpi_device *parent_adev;
+	struct fwnode_handle *fw = dev_fwnode(&sdev->dev);
 	struct proto_fwnode_match match = {
 		.protocol_id = sdev->protocol_id,
 		.result = NULL,
 	};
+	u32 reg;
 
 	if (sdev->dev.of_node)
 		return NULL;
 
-	parent_adev = to_acpi_device_node(dev_fwnode(&sdev->dev));
+	/*
+	 * Under ACPI the SCMI perf protocol device is created on the protocol
+	 * child node (e.g. \_SB.SCMI.DVFS with reg = SCMI_PROTOCOL_PERF).
+	 * Consumers reference that same node in power-domains; the provider
+	 * must be registered on its fwnode, not on a sibling search starting
+	 * from the protocol device as if it were the SCMI parent.
+	 */
+	if (fw && !fwnode_property_read_u32(fw, "reg", &reg) &&
+	    reg == sdev->protocol_id)
+		return fw;
+
+	/* Fallback: walk SCMI controller children (legacy / unusual layout). */
+	parent_adev = ACPI_COMPANION(sdev->dev.parent);
+	if (!parent_adev)
+		parent_adev = to_acpi_device_node(dev_fwnode(sdev->dev.parent));
 	if (!parent_adev)
 		return NULL;
 

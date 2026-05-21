@@ -118,6 +118,18 @@ int dev_pm_domain_attach(struct device *dev, u32 flags)
 }
 EXPORT_SYMBOL_GPL(dev_pm_domain_attach);
 
+/*
+ * dev_pm_domain_attach() may already have set a PM domain on @dev (typically
+ * acpi_general_pm_domain on ACPI platform devices).  attach_by_{id,name} still
+ * need to work in that case: they create a separate virtual device for an
+ * additional domain listed in power-domain-names / _DSD, not replace @dev's
+ * existing domain.
+ */
+static bool dev_pm_domain_attach_rejects_extra(struct device *dev)
+{
+	return dev->pm_domain && !has_acpi_companion(dev);
+}
+
 /**
  * dev_pm_domain_attach_by_id - Associate a device with one of its PM domains.
  * @dev: The device used to lookup the PM domain.
@@ -147,7 +159,7 @@ EXPORT_SYMBOL_GPL(dev_pm_domain_attach);
 struct device *dev_pm_domain_attach_by_id(struct device *dev,
 					  unsigned int index)
 {
-	if (dev->pm_domain)
+	if (dev_pm_domain_attach_rejects_extra(dev))
 		return ERR_PTR(-EEXIST);
 
 	return genpd_dev_pm_attach_by_id(dev, index);
@@ -164,7 +176,7 @@ EXPORT_SYMBOL_GPL(dev_pm_domain_attach_by_id);
 struct device *dev_pm_domain_attach_by_name(struct device *dev,
 					    const char *name)
 {
-	if (dev->pm_domain)
+	if (dev_pm_domain_attach_rejects_extra(dev))
 		return ERR_PTR(-EEXIST);
 
 	return genpd_dev_pm_attach_by_name(dev, name);

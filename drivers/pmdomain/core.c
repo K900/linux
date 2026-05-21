@@ -3582,8 +3582,11 @@ struct device *genpd_dev_pm_attach_by_id(struct device *dev,
 
 	/* Try to attach the device to the PM domain at the specified index. */
 	if (use_acpi)
+	{
+		virt_dev->fwnode = fwnode_handle_get(dev_fwnode(dev));
 		ret = __genpd_dev_pm_attach_acpi(virt_dev, dev, index,
 						 num_domains, false);
+	}
 	else
 		ret = __genpd_dev_pm_attach(virt_dev, dev, index,
 					    num_domains, false);
