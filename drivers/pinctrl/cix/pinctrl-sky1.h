@@ -6,29 +6,43 @@
 #ifndef __DRIVERS_PINCTRL_SKY1_H
 #define __DRIVERS_PINCTRL_SKY1_H
 
-struct sky1_pinctrl_group {
+#include <linux/pinctrl/pinconf-generic.h>
+#include <linux/pinctrl/pinmux.h>
+
+/**
+ * struct sky1_pin - describes a single SKY1 pin
+ * @pin_id: the pin id of this pin
+ * @offest: the iomux register offset
+ * @configs: the mux and config value for pin
+ */
+struct sky1_pin {
+	unsigned int pin_id;
+	unsigned int offset;
+	unsigned long configs;
+};
+
+/**
+ * sky1_pin_reg contains 32 bits
+ * bit7:bit8 for function select
+ * bit0:bit6 for pad configuration
+ */
+typedef u32 sky1_pin_reg;
+
+/**
+ * struct sky1_pin_group - describes a Sky1 pin group
+ * @name: the name of this specific pin group
+ * @npins: the number of pins in this group array, i.e. the number of
+ *	elements in .pins so we can iterate over that array
+ * @pins: an array of pins, this is one group of pins sharing same property.
+ * @data: driver specific data
+ */
+struct sky1_pin_group {
 	const char *name;
-	unsigned long config;
-	unsigned int pin;
-};
-
-struct sky1_pin_desc {
-	const struct pinctrl_pin_desc pin;
-	const char * const *func_group;
-	unsigned int nfunc;
-};
-
-struct sky1_pinctrl_soc_info {
-	const struct sky1_pin_desc *pins;
 	unsigned int npins;
+	const unsigned int *pins;
+	void *data;
 };
 
-#define SKY_PINFUNCTION(_pin, _func)				\
-((struct sky1_pin_desc) {					\
-		.pin = _pin,					\
-		.func_group = _func##_group,			\
-		.nfunc = ARRAY_SIZE(_func##_group),		\
-	})
 /**
  * @dev: a pointer back to containing device
  * @base: the offset to the controller in virtual memory
@@ -38,9 +52,19 @@ struct sky1_pinctrl {
 	struct pinctrl_dev *pctl;
 	void __iomem *base;
 	const struct sky1_pinctrl_soc_info *info;
-	struct sky1_pinctrl_group *groups;
-	const char **grp_names;
+	sky1_pin_reg *pin_regs;
+	unsigned int group_index;
+	struct mutex mutex;
+	/* Pin groups */
+	unsigned int ngroups;
 };
+
+struct sky1_pinctrl_soc_info {
+	const struct pinctrl_pin_desc *pins;
+	unsigned int npins;
+};
+
+#define SKY1_PINCTRL_PIN(pin) PINCTRL_PIN(pin, #pin)
 
 int sky1_base_pinctrl_probe(struct platform_device *pdev,
 			const struct sky1_pinctrl_soc_info *info);
