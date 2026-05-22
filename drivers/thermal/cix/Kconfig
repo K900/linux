@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config CIX_THERMAL
+	bool "CIX thermal IPA support"
+	depends on ARCH_CIX || COMPILE_TEST
+	depends on THERMAL && THERMAL_GOV_POWER_ALLOCATOR
+	depends on CPU_FREQ && ENERGY_MODEL
+	depends on ACPI_CPPC_CPUFREQ
+	help
+	  Power allocator (IPA) support for CIX platforms, including the
+	  cpu-ipa MMIO driver for per-CPU static/dynamic power, ACPI thermal
+	  zone methods (SSTP, SWIT), CPPC OPP data, and processor cooling
+	  device power callbacks.
+
+	  If unsure, say Y on CIX Sky1 systems using the power_allocator
+	  thermal governor.

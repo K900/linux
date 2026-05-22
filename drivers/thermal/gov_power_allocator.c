@@ -534,6 +534,18 @@ static void get_governor_trips(struct thermal_zone_device *tz,
 		params->trip_switch_on = NULL;
 		params->trip_max = last_active;
 	}
+
+	/*
+	 * ACPI may register passive trips out of IPA order (target before
+	 * switch-on). Swap when the first passive trip is hotter than the last.
+	 */
+	if (params->trip_switch_on && params->trip_max &&
+	    params->trip_switch_on->temperature > params->trip_max->temperature) {
+		const struct thermal_trip *tmp = params->trip_switch_on;
+
+		params->trip_switch_on = params->trip_max;
+		params->trip_max = tmp;
+	}
 }
 
 static void reset_pid_controller(struct power_allocator_params *params)

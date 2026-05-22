@@ -465,6 +465,11 @@ depends on ARCH_EXYNOS || COMPILE_TEST
 source "drivers/thermal/samsung/Kconfig"
 endmenu
 
+menu "Cix thermal drivers"
+depends on ARCH_CIX || COMPILE_TEST
+source "drivers/thermal/cix/Kconfig"
+endmenu
+
 menu "STMicroelectronics thermal drivers"
 depends on (ARCH_STI || ARCH_STM32) && THERMAL_OF
 source "drivers/thermal/st/Kconfig"
