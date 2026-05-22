@@ -524,6 +524,10 @@ int acpi_get_psd_map(unsigned int cpu, struct cppc_cpudata *cpu_data)
 	else if (pdomain->coord_type == DOMAIN_COORD_TYPE_SW_ANY)
 		cpu_data->shared_type = CPUFREQ_SHARED_TYPE_ANY;
 
+#ifdef CONFIG_CIX_THERMAL
+	cpu_data->perf_domain = pdomain->domain;
+#endif
+
 	for_each_possible_cpu(i) {
 		if (i == cpu)
 			continue;

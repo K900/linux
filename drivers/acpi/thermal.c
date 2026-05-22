@@ -47,7 +47,12 @@
 
 #define ACPI_THERMAL_TRIP_PASSIVE	(-1)
 
+#ifdef CONFIG_CIX_THERMAL
+#define ACPI_THERMAL_MAX_NR_TRIPS	(ACPI_THERMAL_MAX_ACTIVE + 4)
+#define TEMP_MIN_DECIK			2180
+#else
 #define ACPI_THERMAL_MAX_NR_TRIPS	(ACPI_THERMAL_MAX_ACTIVE + 3)
+#endif
 
 /*
  * This exception is thrown out in two cases:
@@ -87,6 +92,9 @@ static struct workqueue_struct *acpi_thermal_pm_queue;
 
 struct acpi_thermal_trip {
 	unsigned long temp_dk;
+#ifdef CONFIG_CIX_THERMAL
+	unsigned long switch_on_temp_dk;
+#endif
 	struct acpi_handle_list devices;
 };
 
@@ -119,6 +127,9 @@ struct acpi_thermal {
 	struct work_struct thermal_check_work;
 	struct mutex thermal_check_lock;
 	refcount_t thermal_check_count;
+#ifdef CONFIG_CIX_THERMAL
+	unsigned long sustainable_power;
+#endif
 };
 
 /* --------------------------------------------------------------------------
@@ -146,6 +157,41 @@ static int acpi_thermal_get_temperature(struct acpi_thermal *tz)
 
 	return 0;
 }
+
+#ifdef CONFIG_CIX_THERMAL
+static int acpi_thermal_get_sustainable_power(struct acpi_thermal *tz)
+{
+	acpi_status status;
+	unsigned long long tmp;
+
+	if (!tz)
+		return -EINVAL;
+
+	status = acpi_evaluate_integer(tz->device->handle, "SSTP", NULL, &tmp);
+	if (ACPI_FAILURE(status))
+		return -ENODEV;
+
+	tz->sustainable_power = tmp;
+	acpi_handle_debug(tz->device->handle, "Sustainable power is %lu mW\n",
+			  tz->sustainable_power);
+
+	return 0;
+}
+
+static void acpi_thermal_init_switch_on_temp(struct acpi_thermal *tz,
+					   struct acpi_thermal_trip *acpi_trip)
+{
+	acpi_status status;
+	unsigned long long tmp;
+
+	status = acpi_evaluate_integer(tz->device->handle, "SWIT", NULL, &tmp);
+	if (ACPI_FAILURE(status) || tmp > acpi_trip->temp_dk ||
+	    tmp < TEMP_MIN_DECIK)
+		acpi_trip->switch_on_temp_dk = THERMAL_TEMP_INVALID;
+	else
+		acpi_trip->switch_on_temp_dk = tmp;
+}
+#endif
 
 static int acpi_thermal_get_polling_frequency(struct acpi_thermal *tz)
 {
@@ -451,10 +497,17 @@ static bool acpi_thermal_init_trip(struct acpi_thermal *tz, int index)
 		goto fail;
 
 	acpi_trip->temp_dk = temp;
+#ifdef CONFIG_CIX_THERMAL
+	if (index == ACPI_THERMAL_TRIP_PASSIVE)
+		acpi_thermal_init_switch_on_temp(tz, acpi_trip);
+#endif
 	return true;
 
 fail:
 	acpi_trip->temp_dk = THERMAL_TEMP_INVALID;
+#ifdef CONFIG_CIX_THERMAL
+	acpi_trip->switch_on_temp_dk = THERMAL_TEMP_INVALID;
+#endif
 	return false;
 }
 
@@ -621,16 +674,21 @@ static int acpi_thermal_register_thermal_zone(struct acpi_thermal *tz,
 					      int passive_delay)
 {
 	const char *tz_type = acpi_device_bid(tz->device);
+	struct thermal_zone_params tzp = {};
 	int result;
+
+#ifdef CONFIG_CIX_THERMAL
+	tzp.sustainable_power = tz->sustainable_power;
+#endif
 
 	if (trip_count)
 		tz->thermal_zone = thermal_zone_device_register_with_trips(
 					tz_type, trip_table, trip_count, tz,
-					&acpi_thermal_zone_ops, NULL, passive_delay,
+					&acpi_thermal_zone_ops, &tzp, passive_delay,
 					tz->polling_frequency * 100);
 	else
 		tz->thermal_zone = thermal_tripless_zone_device_register(
-					tz_type, tz, &acpi_thermal_zone_ops, NULL);
+					tz_type, tz, &acpi_thermal_zone_ops, &tzp);
 
 	if (IS_ERR(tz->thermal_zone))
 		return PTR_ERR(tz->thermal_zone);
@@ -864,8 +922,25 @@ static int acpi_thermal_probe(struct platform_device *pdev)
 		trip++;
 	}
 
+#ifdef CONFIG_CIX_THERMAL
+	acpi_trip = &tz->trips.passive.trip;
+	if (acpi_thermal_trip_valid(acpi_trip) &&
+	    acpi_trip->switch_on_temp_dk != THERMAL_TEMP_INVALID) {
+		trip->type = THERMAL_TRIP_PASSIVE;
+		trip->temperature = acpi_thermal_temp(tz, acpi_trip->switch_on_temp_dk);
+		trip->priv = acpi_trip;
+		trip++;
+	}
+#endif
+
 	if (trip == trip_table)
 		pr_warn(FW_BUG "No valid trip points!\n");
+
+#ifdef CONFIG_CIX_THERMAL
+	result = acpi_thermal_get_sustainable_power(tz);
+	if (result)
+		goto free_memory;
+#endif
 
 	result = acpi_thermal_register_thermal_zone(tz, trip_table,
 						    trip - trip_table,
