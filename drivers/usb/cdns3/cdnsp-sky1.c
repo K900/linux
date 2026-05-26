@@ -460,6 +460,16 @@ static int cdnsp_sky1_drd_init(struct cdnsp_sky1 *data)
 	return 0;
 }
 
+static int cdns_sky1_platform_reset(struct device *dev)
+{
+	struct device *parent = dev->parent;
+	struct cdnsp_sky1 *data = dev_get_drvdata(parent);
+
+	if (data)
+		return cdnsp_sky1_drd_init(data);
+	return 0;
+}
+
 /*
  * Note: Mainline doesn't have platform_reset and platform_u3_disable hooks
  * in struct cdns3_platform_data. These vendor extensions are not needed:
@@ -720,6 +730,7 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	/* Note: mainline only supports platform_suspend, not platform_reset/platform_u3_disable */
 	cdns_sky1_pdata->platform_suspend = cdns_sky1_platform_suspend;
+	cdns_sky1_pdata->platform_reset = cdns_sky1_platform_reset;
 
 	/*
 	 * Only enable runtime PM D3 for OTG (USB-C) controllers where the

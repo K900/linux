@@ -74,6 +74,17 @@ static void cdns_exit_roles(struct cdns *cdns)
 	cdns_drd_exit(cdns);
 }
 
+static int cdnsp_platform_reset(struct device *dev)
+{
+	struct cdns *cdns = dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (cdns->pdata && cdns->pdata->platform_reset)
+		ret = cdns->pdata->platform_reset(dev);
+
+	return ret;
+}
+
 /**
  * cdns_core_init_role - initialize role of operation
  * @cdns: Pointer to cdns structure
@@ -386,6 +397,14 @@ static int cdns_role_set(struct usb_role_switch *sw, enum usb_role role)
 	}
 
 	cdns_role_stop(cdns);
+
+	/* Reset controller before starting new role to ensure clean PHY state
+	 * This is critical for Type-C hotplug where orientation flip needs
+	 * to be re-applied to PHY registers.
+	 */
+	if (role != USB_ROLE_NONE)
+		cdnsp_platform_reset(cdns->dev);
+
 	ret = cdns_role_start(cdns, role);
 	if (ret)
 		dev_err(cdns->dev, "set role %d has failed\n", role);
