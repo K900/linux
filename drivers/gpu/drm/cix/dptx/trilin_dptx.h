@@ -239,6 +239,13 @@ struct trilin_dp_mode {
 	const char *fmt;
 };
 
+struct trilin_dp_last_mode {
+	bool valid;
+	int clock;
+	u32 hdisplay;
+	u32 vdisplay;
+};
+
 /**
  * struct trilin_dp_config - Configuration of DisplayPort from DTS
  * @misc0: misc0 configuration (per DP v1.2 spec)
@@ -467,6 +474,7 @@ struct trilin_dp {
 	u8 edp_dpcd[EDP_DISPLAY_CTL_CAP_SIZE];
 
 	struct trilin_dp_link_config link_config;
+	struct trilin_dp_last_mode last_mode;
 	struct trilin_dp_mode mode;
 	struct trilin_dp_link_caps caps;
 	u8 train_set[TRILIN_DPTX_MAX_LANES];
@@ -573,6 +581,8 @@ int trilin_dp_panel_setup_hdr_sdp(struct trilin_dp *dp,
 int trilin_dp_max_rate(int link_rate, u8 lane_num, u8 bpp);
 int trilin_dp_mode_configure(struct trilin_dp *dp, int pclock, u8 current_bw,
 			     u8 bpp, bool downshift);
+void trilin_dp_record_last_mode(struct trilin_dp *dp,
+				const struct drm_display_mode *mode);
 void trilin_dp_dump_regs(struct seq_file *m, struct trilin_dp *dp);
 void trilin_dp_connector_debugfs_init(struct drm_connector *connector,
 				      struct dentry *root);

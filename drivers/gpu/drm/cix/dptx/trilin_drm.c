@@ -775,6 +775,13 @@ static void trilin_dp_encoder_disable(struct drm_encoder *encoder,
 		return;
 	}
 
+	/*
+	 * Userspace tore down the pipeline; slow replug should not reuse a
+	 * stale mode in hpd_plug_link_train. Fast replug still works because
+	 * mutter often has not disabled yet when HPD fires.
+	 */
+	dp->last_mode.valid = false;
+
 	DP_DEBUG("end\n");
 }
 
@@ -1070,6 +1077,8 @@ int trilin_dp_encoder_compute_config(struct drm_encoder *encoder,
 	if (ret < 0)
 		return -EINVAL;
 
+	trilin_dp_record_last_mode(dp, adjusted_mode);
+
 	conn->config.format = format;
 	conn->config.colorspace = colorspace;
 	conn->config.bpc = bpc;
@@ -1200,6 +1209,7 @@ void trilin_dp_encoder_atomic_mode_set(
 	struct drm_display_mode *adjusted_mode = &crtc_state->adjusted_mode;
 
 	DP_INFO("set mode: %s %d", adjusted_mode->name, adjusted_mode->clock);
+	trilin_dp_record_last_mode(dp, adjusted_mode);
 	if (dp->force_pixel_per_cycle != 0) {
 		dp->pixel_per_cycle = dp->force_pixel_per_cycle;
 	} else {
