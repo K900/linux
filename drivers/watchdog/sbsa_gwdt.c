@@ -226,7 +226,7 @@ static int sbsa_gwdt_keepalive(struct watchdog_device *wdd)
 	 * Writing WRR for an explicit watchdog refresh.
 	 * You can write anyting (like 0).
 	 */
-	writel(0, gwdt->refresh_base + SBSA_GWDT_WRR);
+	writel(1, gwdt->refresh_base + SBSA_GWDT_WRR);
 
 	return 0;
 }
