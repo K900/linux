@@ -318,6 +318,8 @@ static ssize_t iwl_dbgfs_fw_ver_read(struct iwl_fw_runtime *fwrt,
 			 fwrt->trans->info.name);
 	pos += scnprintf(pos, endpos - pos, "Bus: %s\n",
 			 fwrt->dev->bus->name);
+	pos += scnprintf(pos, endpos - pos, "BusName: %s\n",
+			 dev_name(fwrt->dev));
 
 	return pos - buf;
 }
