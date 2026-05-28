@@ -1737,11 +1737,30 @@ void trilin_dp_panel_hw_cfg(struct trilin_dp *dp,
 {
 	struct trilin_connector *conn = dp_panel->connector;
 	struct drm_connector *base = &conn->base;
-	struct drm_crtc *crtc = base->state->crtc;
-	struct drm_crtc_state *crtc_state = crtc->state;
-	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	struct drm_display_mode *mode;
 
-	if (mode == NULL) {
+	if (!base->state) {
+		DP_ERR("connector state is NULL\n");
+		return;
+	}
+
+	crtc = base->state->crtc;
+	if (!crtc) {
+		DP_ERR("crtc is NULL\n");
+		return;
+	}
+
+	crtc_state = crtc->state;
+	if (!crtc_state) {
+		DP_ERR("crtc_state is NULL\n");
+		return;
+	}
+
+	mode = &crtc_state->adjusted_mode;
+
+	if (!mode) {
 		DP_ERR("Fatal Error: mode is null");
 		return;
 	}
