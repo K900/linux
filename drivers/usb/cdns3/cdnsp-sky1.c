@@ -937,6 +937,21 @@ static void cdnsp_sky1_shutdown(struct platform_device *pdev)
 		if (gadget_dev)
 			device_release_driver(gadget_dev);
 
+		if (cdns && cdns->host_dev) {
+			struct usb_hcd *hcd = platform_get_drvdata(cdns->host_dev);
+
+			if (hcd && hcd->irq > 0) {
+				disable_irq(hcd->irq);
+				synchronize_irq(hcd->irq);
+				/*
+				 * Clear HCD_FLAG_HW_ACCESSIBLE before disable_irq.
+				 * This prevents usb_hcd_irq from calling xhci_irq
+				 * (which reads USBSTS) after clocks are disabled.
+				 */
+				clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
+			}
+		}
+
 		dev_dbg(dev, "at %s, reset controller\n", __func__);
 		reset_control_assert(data->reset);
 		reset_control_assert(data->preset);
