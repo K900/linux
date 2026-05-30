@@ -25,6 +25,9 @@
 #include <linux/vmalloc.h>
 #include <linux/workqueue.h>
 #include <linux/zlib.h>
+#if IS_ENABLED(CONFIG_PLAT_BBOX)
+#include <linux/soc/cix/rdr_platform.h>
+#endif
 
 #include "internal.h"
 
@@ -708,6 +711,14 @@ void pstore_get_backend_records(struct pstore_info *psi,
 			if (rc != -EEXIST || !quiet)
 				failed++;
 		}
+#if IS_ENABLED(CONFIG_PLAT_BBOX)
+		/*
+		 * Mirror each pstore record (DMESG/CONSOLE/...) into the cix
+		 * blackbox reserved memory pool so rdr can write them out as
+		 * cleartext under /var/log/cix/bbox/.../ on the next boot.
+		 */
+		logmem_add(record->type, record->buf, record->size);
+#endif
 	}
 	if (psi->close)
 		psi->close(psi);

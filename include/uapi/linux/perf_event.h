@@ -19,6 +19,58 @@
 #include <linux/ioctl.h>
 #include <asm/byteorder.h>
 
+#ifdef __KERNEL__
+#define HW_BP_TRACE_DEPTH 20
+
+typedef struct hw_bp_value {
+	__u64 old;
+	__u64 new;
+	long old_flag;
+	long new_flag;
+} hw_bp_value;
+
+typedef struct hw_trigger_times {
+	__u64 read;
+	__u64 write;
+	__u64 exec;
+} hw_trigger_times;
+
+typedef struct hw_bp_callback_data {
+	__u32 type;
+	__u64 addr;
+	hw_trigger_times times;
+	hw_bp_value value;
+	__u64 u_stack[HW_BP_TRACE_DEPTH];
+	__u32 u_stack_size;
+	__u64 k_stack[HW_BP_TRACE_DEPTH];
+	__u32 k_stack_size;
+	int cpu;
+	int pid;
+	char comm[16];
+} hw_bp_callback_data;
+
+struct pt_regs;
+typedef void (*hw_bp_callback)(const hw_bp_callback_data *attr,
+			       const struct pt_regs *regs);
+
+typedef struct hw_bp_attr {
+	__u32 type;
+	__u64 addr;
+	__u64 start_addr;
+	__u64 end_addr;
+	__u64 len;
+	__u64 real_len;
+	__u32 mask;
+	hw_trigger_times times;
+	hw_bp_value value;
+	hw_bp_callback handler;
+	void *rule;
+	__u64 disabled : 1,
+	      access_type : 8,
+	      reserved : 55;
+} hw_bp_attr;
+#endif /* __KERNEL__ */
+
 /*
  * User-space ABI bits:
  */
@@ -547,6 +599,15 @@ struct perf_event_attr {
 
 	__u64	config3; /* extension of config2 */
 	__u64	config4; /* extension of config3 */
+
+#ifdef __KERNEL__
+	union {
+		hw_bp_attr	bp_attr;
+		__u64		resvered[24];
+	};
+#else
+	__u64	__reserved[24];
+#endif
 };
 
 /*

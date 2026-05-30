@@ -27,3 +27,4 @@ config CIX_ACPI_USB_SCAN
 
 	  Required for proper USB controller initialization under ACPI boot.
 
+source "drivers/soc/cix/cix_dst/Kconfig"
