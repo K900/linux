@@ -1741,6 +1741,13 @@ static int optee_probe(struct platform_device *pdev)
 	u32 sec_caps;
 	int rc;
 
+	/*
+	 * Don't probe during shutdown to avoid deadlock. If we're shutting
+	 * down, we won't get a response from the secure world.
+	 */
+	if (system_state > SYSTEM_RUNNING)
+		return -ENODEV;
+
 	invoke_fn = get_invoke_func(&pdev->dev);
 	if (IS_ERR(invoke_fn))
 		return PTR_ERR(invoke_fn);
