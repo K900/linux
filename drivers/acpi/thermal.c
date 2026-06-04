@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/thermal.h>
 #include <linux/acpi.h>
+#include <linux/devfreq_cooling.h>
 #include <linux/workqueue.h>
 #include <linux/uaccess.h>
 #include <linux/units.h>
@@ -611,6 +612,14 @@ static void acpi_thermal_zone_device_critical(struct thermal_zone_device *therma
 	thermal_zone_device_critical(thermal);
 }
 
+/*
+ * Check if a cooling device type matches a given prefix string.
+ */
+static bool check_cdev_type(struct thermal_cooling_device *cdev, const char *type)
+{
+	return cdev->type && !strncmp(cdev->type, type, strlen(type));
+}
+
 static bool acpi_thermal_should_bind_cdev(struct thermal_zone_device *thermal,
 					  const struct thermal_trip *trip,
 					  struct thermal_cooling_device *cdev,
@@ -619,6 +628,28 @@ static bool acpi_thermal_should_bind_cdev(struct thermal_zone_device *thermal,
 	struct acpi_thermal_trip *acpi_trip = trip->priv;
 	struct acpi_device *cdev_adev = cdev->devdata;
 	int i;
+
+	/*
+	 * For devfreq cooling devices, cdev->devdata points to a private
+	 * struct devfreq_cooling_device, not to an acpi_device. Resolve the
+	 * underlying ACPI device by walking dfc->devfreq->dev.parent->fwnode.
+	 */
+	if (check_cdev_type(cdev, "devfreq")) {
+		struct devfreq_cooling_device *dfc = cdev->devdata;
+
+		if (dfc && dfc->devfreq && dfc->devfreq->dev.parent &&
+		    dfc->devfreq->dev.parent->fwnode)
+			cdev_adev = to_acpi_device_node(dfc->devfreq->dev.parent->fwnode);
+		else
+			cdev_adev = NULL;
+	}
+
+	pr_debug("ACPI thermal bind check: tz=%s cdev=%s type=%s trip_type=%d cdev_adev=%s\n",
+		 dev_name(thermal_zone_device(thermal)),
+		 dev_name(&cdev->device),
+		 cdev->type ? cdev->type : "(null)",
+		 trip->type,
+		 cdev_adev ? dev_name(&cdev_adev->dev) : "(null)");
 
 	/* Skip critical and hot trips. */
 	if (!acpi_trip)
