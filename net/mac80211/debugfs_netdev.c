@@ -110,8 +110,15 @@ static ssize_t ieee80211_if_read_link_handler(struct wiphy *wiphy,
 					      void *data)
 {
 	struct ieee80211_if_read_link_data *d = data;
+	struct dentry *dentry = file->f_path.dentry;
+	ssize_t ret;
 
-	return d->format(d->link, buf, bufsize);
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+	ret = d->format(d->link, buf, bufsize);
+	debugfs_file_put(dentry);
+
+	return ret;
 }
 
 static ssize_t ieee80211_if_read_link(
@@ -120,14 +127,21 @@ static ssize_t ieee80211_if_read_link(
 	size_t count, loff_t *ppos,
 	ssize_t (*format)(const struct ieee80211_link_data *link, char *, int))
 {
+	struct dentry *dentry = file->f_path.dentry;
 	struct ieee80211_link_data *link = file->private_data;
 	struct ieee80211_if_read_link_data data = {
 		.format = format,
 		.link = link,
 	};
 	char buf[200];
+	struct wiphy *wiphy;
 
-	return wiphy_locked_debugfs_read(link->sdata->local->hw.wiphy,
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+	wiphy = link->sdata->local->hw.wiphy;
+	debugfs_file_put(dentry);
+
+	return wiphy_locked_debugfs_read(wiphy,
 					 file, buf, sizeof(buf),
 					 userbuf, count, ppos,
 					 ieee80211_if_read_link_handler,
@@ -146,8 +160,15 @@ static ssize_t ieee80211_if_write_link_handler(struct wiphy *wiphy,
 					       void *data)
 {
 	struct ieee80211_if_write_sdata_data *d = data;
+	struct dentry *dentry = file->f_path.dentry;
+	ssize_t ret;
 
-	return d->write(d->sdata, buf, count);
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+	ret = d->write(d->sdata, buf, count);
+	debugfs_file_put(dentry);
+
+	return ret;
 }
 
 static ssize_t ieee80211_if_write_link(
@@ -156,6 +177,7 @@ static ssize_t ieee80211_if_write_link(
 	size_t count, loff_t *ppos,
 	ssize_t (*write)(struct ieee80211_link_data *link, const char *, int))
 {
+	struct dentry *dentry = file->f_path.dentry;
 	struct ieee80211_link_data *link = file->private_data;
 	struct ieee80211_if_write_link_data data = {
 		.write = write,
@@ -163,7 +185,14 @@ static ssize_t ieee80211_if_write_link(
 	};
 	char buf[64];
 
-	return wiphy_locked_debugfs_write(link->sdata->local->hw.wiphy,
+	struct wiphy *wiphy;
+
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+	wiphy = link->sdata->local->hw.wiphy;
+	debugfs_file_put(dentry);
+
+	return wiphy_locked_debugfs_write(wiphy,
 					  file, buf, sizeof(buf),
 					  userbuf, count,
 					  ieee80211_if_write_link_handler,
