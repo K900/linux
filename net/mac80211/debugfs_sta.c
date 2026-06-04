@@ -587,10 +587,18 @@ static const struct debugfs_short_fops link_sta_ ##name## _ops = {		\
 static ssize_t link_sta_addr_read(struct file *file, char __user *userbuf,
 				  size_t count, loff_t *ppos)
 {
-	struct link_sta_info *link_sta = file->private_data;
+	struct dentry *dentry = file->f_path.dentry;
+	struct link_sta_info *link_sta;
 	u8 mac[MAC_ADDR_STR_LEN + 2];
 
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+
+	link_sta = file->private_data;
+
 	snprintf(mac, sizeof(mac), "%pM\n", link_sta->pub->addr);
+
+	debugfs_file_put(dentry);
 
 	return simple_read_from_buffer(userbuf, count, ppos, mac,
 				       MAC_ADDR_STR_LEN + 1);
@@ -606,17 +614,24 @@ static ssize_t link_sta_ht_capa_read(struct file *file, char __user *userbuf,
 	if (_cond) \
 			p += scnprintf(p, bufsz + buf - p, "\t" _str "\n"); \
 	} while (0)
+	struct dentry *dentry = file->f_path.dentry;
 	char *buf, *p;
 	int i;
 	ssize_t bufsz = 512;
-	struct link_sta_info *link_sta = file->private_data;
-	struct ieee80211_sta_ht_cap *htc = &link_sta->pub->ht_cap;
+	struct link_sta_info *link_sta;
+	struct ieee80211_sta_ht_cap *htc;
 	ssize_t ret;
 
 	buf = kzalloc(bufsz, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 	p = buf;
+
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+
+	link_sta = file->private_data;
+	htc = &link_sta->pub->ht_cap;
 
 	p += scnprintf(p, bufsz + buf - p, "ht %ssupported\n",
 			htc->ht_supported ? "" : "not ");
@@ -683,6 +698,8 @@ static ssize_t link_sta_ht_capa_read(struct file *file, char __user *userbuf,
 				htc->mcs.tx_params);
 	}
 
+	debugfs_file_put(dentry);
+
 	ret = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
 	kfree(buf);
 	return ret;
@@ -692,12 +709,21 @@ LINK_STA_OPS(ht_capa);
 static ssize_t link_sta_vht_capa_do_read(struct wiphy *wiphy, struct file *file,
                                          char *buf, size_t bufsz, void *data)
 {
-	struct link_sta_info *link_sta = data;
-	struct ieee80211_sta_vht_cap *vhtc = &link_sta->pub->vht_cap;
-	struct cfg80211_chan_def *chandef = &link_sta->sta->sdata->vif.bss_conf.chanreq.oper;
-	struct ieee80211_sub_if_data *sdata = link_sta->sta->sdata;
+	struct dentry *dentry = file->f_path.dentry;
+	struct link_sta_info *link_sta;
+	struct ieee80211_sta_vht_cap *vhtc;
+	struct cfg80211_chan_def *chandef;
+	struct ieee80211_sub_if_data *sdata;
 	struct ieee80211_link_data *link;
 	char *p;
+
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+
+	link_sta = data;
+	vhtc = &link_sta->pub->vht_cap;
+	chandef = &link_sta->sta->sdata->vif.bss_conf.chanreq.oper;
+	sdata = link_sta->sta->sdata;
 	p = buf;
 
 	link = wiphy_dereference(wiphy, sdata->link[link_sta->link_id]);
@@ -884,14 +910,17 @@ static ssize_t link_sta_vht_capa_do_read(struct wiphy *wiphy, struct file *file,
 #undef PFLAG
 	}
 
+	debugfs_file_put(dentry);
+
 	return p - buf;
 }
 
 static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
 				      size_t count, loff_t *ppos)
 {
-	struct link_sta_info *link_sta = file->private_data;
-	struct wiphy *wiphy = link_sta->sta->local->hw.wiphy;
+	struct dentry *dentry = file->f_path.dentry;
+	struct link_sta_info *link_sta;
+	struct wiphy *wiphy;
 	char *buf;
 	ssize_t ret;
 	ssize_t bufsz = 512;
@@ -899,6 +928,14 @@ static ssize_t link_sta_vht_capa_read(struct file *file, char __user *userbuf,
 	buf = kzalloc(bufsz, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
+
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+
+	link_sta = file->private_data;
+	wiphy = link_sta->sta->local->hw.wiphy;
+
+	debugfs_file_put(dentry);
 
 	ret = wiphy_locked_debugfs_read(wiphy, file, buf, bufsz, userbuf, count, ppos,
 	                                link_sta_vht_capa_do_read, link_sta);
@@ -912,11 +949,12 @@ LINK_STA_OPS(vht_capa);
 static ssize_t link_sta_he_capa_read(struct file *file, char __user *userbuf,
 				     size_t count, loff_t *ppos)
 {
+	struct dentry *dentry = file->f_path.dentry;
 	char *buf, *p;
 	size_t buf_sz = PAGE_SIZE;
-	struct link_sta_info *link_sta = file->private_data;
-	struct ieee80211_sta_he_cap *hec = &link_sta->pub->he_cap;
-	struct ieee80211_he_mcs_nss_supp *nss = &hec->he_mcs_nss_supp;
+	struct link_sta_info *link_sta;
+	struct ieee80211_sta_he_cap *hec;
+	struct ieee80211_he_mcs_nss_supp *nss;
 	u8 ppe_size;
 	u8 *cap;
 	int i;
@@ -926,6 +964,13 @@ static ssize_t link_sta_he_capa_read(struct file *file, char __user *userbuf,
 	if (!buf)
 		return -ENOMEM;
 	p = buf;
+
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+
+	link_sta = file->private_data;
+	hec = &link_sta->pub->he_cap;
+	nss = &hec->he_mcs_nss_supp;
 
 	p += scnprintf(p, buf_sz + buf - p, "HE %ssupported\n",
 		       hec->has_he ? "" : "not ");
@@ -1276,6 +1321,7 @@ static ssize_t link_sta_he_capa_read(struct file *file, char __user *userbuf,
 	p += scnprintf(p, buf_sz + buf - p, "\n");
 
 out:
+	debugfs_file_put(dentry);
 	ret = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
 	kfree(buf);
 	return ret;
@@ -1285,13 +1331,14 @@ LINK_STA_OPS(he_capa);
 static ssize_t link_sta_eht_capa_read(struct file *file, char __user *userbuf,
 				      size_t count, loff_t *ppos)
 {
+	struct dentry *dentry = file->f_path.dentry;
 	char *buf, *p;
 	size_t buf_sz = PAGE_SIZE;
-	struct link_sta_info *link_sta = file->private_data;
-	struct ieee80211_sta_eht_cap *bec = &link_sta->pub->eht_cap;
-	struct ieee80211_eht_cap_elem_fixed *fixed = &bec->eht_cap_elem;
-	struct ieee80211_eht_mcs_nss_supp *nss = &bec->eht_mcs_nss_supp;
-	struct ieee80211_eht_mcs_nss_supp *nss_sta = &link_sta->pub->sta_eht_cap.eht_mcs_nss_supp;
+	struct link_sta_info *link_sta;
+	struct ieee80211_sta_eht_cap *bec;
+	struct ieee80211_eht_cap_elem_fixed *fixed;
+	struct ieee80211_eht_mcs_nss_supp *nss;
+	struct ieee80211_eht_mcs_nss_supp *nss_sta;
 	u8 *cap;
 	int i;
 	ssize_t ret;
@@ -1301,6 +1348,15 @@ static ssize_t link_sta_eht_capa_read(struct file *file, char __user *userbuf,
 	if (!buf)
 		return -ENOMEM;
 	p = buf;
+
+	if (debugfs_file_get(dentry) != 0)
+		return -ENOENT;
+
+	link_sta = file->private_data;
+	bec = &link_sta->pub->eht_cap;
+	fixed = &bec->eht_cap_elem;
+	nss = &bec->eht_mcs_nss_supp;
+	nss_sta = &link_sta->pub->sta_eht_cap.eht_mcs_nss_supp;
 
 	p += scnprintf(p, buf_sz + buf - p, "EHT %ssupported\n",
 		       bec->has_eht ? "" : "not ");
@@ -1477,6 +1533,7 @@ static ssize_t link_sta_eht_capa_read(struct file *file, char __user *userbuf,
 	}
 
 out:
+	debugfs_file_put(dentry);
 	ret = simple_read_from_buffer(userbuf, count, ppos, buf, p - buf);
 	kfree(buf);
 	return ret;
