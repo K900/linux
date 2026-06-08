@@ -66,6 +66,7 @@ enum thermal_notify_event {
  * @temperature: temperature value in miliCelsius
  * @hysteresis: relative hysteresis in miliCelsius
  * @type: trip point type
+ * @switch_on_temp: temperature for IPA governor to start operating
  * @priv: pointer to driver data associated with this trip
  * @flags: flags representing binary properties of the trip
  */
@@ -73,6 +74,7 @@ struct thermal_trip {
 	int temperature;
 	int hysteresis;
 	enum thermal_trip_type type;
+	int switch_on_temp;
 	u8 flags;
 	void *priv;
 };

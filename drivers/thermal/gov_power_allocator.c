@@ -97,6 +97,11 @@ struct power_allocator_params {
 	struct power_actor *power;
 };
 
+static int trip_switch_on_temp(const struct thermal_trip *trip)
+{
+	return trip->switch_on_temp > 0 ? trip->switch_on_temp : trip->temperature;
+}
+
 static bool power_actor_is_valid(struct thermal_instance *instance)
 {
 	return cdev_is_power_actor(instance->cdev);
@@ -154,8 +159,18 @@ static void estimate_pid_constants(struct thermal_zone_device *tz,
 	u32 temperature_threshold = control_temp;
 	s32 k_i;
 
-	if (trip_switch_on)
-		temperature_threshold -= trip_switch_on->temperature;
+	/*
+	 * When there is only one passive trip point, trip_switch_on and
+	 * control_temp may point to the same temperature. In that case, fall
+	 * back to using control_temp as the threshold so that default PID
+	 * constants are still estimated.
+	 */
+	if (trip_switch_on) {
+		int switch_on_temp = trip_switch_on_temp(trip_switch_on);
+
+		if (switch_on_temp < control_temp)
+			temperature_threshold -= switch_on_temp;
+	}
 
 	/*
 	 * estimate_pid_constants() tries to find appropriate default
@@ -508,6 +523,10 @@ static void get_governor_trips(struct thermal_zone_device *tz,
 	for_each_trip_desc(tz, td) {
 		const struct thermal_trip *trip = &td->trip;
 
+		pr_debug("thermal_zone%d: trip type=%d, temp=%d mC, hyst=%d mC, switch_on=%d mC\n",
+			 tz->id, trip->type, trip->temperature, trip->hysteresis,
+			 trip->switch_on_temp);
+
 		switch (trip->type) {
 		case THERMAL_TRIP_PASSIVE:
 			if (!first_passive) {
@@ -528,7 +547,11 @@ static void get_governor_trips(struct thermal_zone_device *tz,
 		params->trip_switch_on = first_passive;
 		params->trip_max = last_passive;
 	} else if (first_passive) {
-		params->trip_switch_on = NULL;
+		if (first_passive->switch_on_temp > 0 &&
+		    first_passive->switch_on_temp < first_passive->temperature)
+			params->trip_switch_on = first_passive;
+		else
+			params->trip_switch_on = NULL;
 		params->trip_max = first_passive;
 	} else {
 		params->trip_switch_on = NULL;
@@ -537,15 +560,26 @@ static void get_governor_trips(struct thermal_zone_device *tz,
 
 	/*
 	 * ACPI may register passive trips out of IPA order (target before
-	 * switch-on). Swap when the first passive trip is hotter than the last.
+	 * switch-on). Swap when the switch-on temperature is hotter than the
+	 * control temperature.
 	 */
 	if (params->trip_switch_on && params->trip_max &&
-	    params->trip_switch_on->temperature > params->trip_max->temperature) {
+	    (trip_switch_on_temp(params->trip_switch_on) >
+	     params->trip_max->temperature ||
+	     params->trip_switch_on->temperature > params->trip_max->temperature)) {
 		const struct thermal_trip *tmp = params->trip_switch_on;
 
 		params->trip_switch_on = params->trip_max;
 		params->trip_max = tmp;
 	}
+
+	if (params->trip_switch_on)
+		pr_debug("thermal_zone%d: IPA switch_on=%d mC, control=%d mC\n",
+			 tz->id, trip_switch_on_temp(params->trip_switch_on),
+			 params->trip_max ? params->trip_max->temperature : -1);
+	else if (params->trip_max)
+		pr_debug("thermal_zone%d: IPA control=%d mC\n",
+			 tz->id, params->trip_max->temperature);
 }
 
 static void reset_pid_controller(struct power_allocator_params *params)
@@ -785,14 +819,18 @@ static void power_allocator_manage(struct thermal_zone_device *tz)
 {
 	struct power_allocator_params *params = tz->governor_data;
 	const struct thermal_trip *trip = params->trip_switch_on;
+	int switch_on_temp;
 
 	lockdep_assert_held(&tz->lock);
 
-	if (trip && tz->temperature < trip->temperature) {
-		reset_pid_controller(params);
-		allow_maximum_power(tz);
-		params->update_cdevs = false;
-		return;
+	if (trip) {
+		switch_on_temp = trip_switch_on_temp(trip);
+		if (tz->temperature < switch_on_temp) {
+			reset_pid_controller(params);
+			allow_maximum_power(tz);
+			params->update_cdevs = false;
+			return;
+		}
 	}
 
 	if (!params->trip_max)

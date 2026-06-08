@@ -45,9 +45,15 @@ static int cpufreq_thermal_reduction_pctg __read_mostly = 20;
 
 static DEFINE_PER_CPU(unsigned int, cpufreq_thermal_reduction_step);
 
+#ifdef CONFIG_ARCH_CIX
+#define reduction_step(cpu) \
+	per_cpu(cpufreq_thermal_reduction_step, cpu)
+#else
 #define reduction_step(cpu) \
 	per_cpu(cpufreq_thermal_reduction_step, phys_package_first_cpu(cpu))
+#endif
 
+#ifndef CONFIG_ARCH_CIX
 /*
  * Emulate "per package data" using per cpu data (which should really be
  * provided elsewhere)
@@ -65,6 +71,7 @@ static int phys_package_first_cpu(int cpu)
 			return i;
 	return 0;
 }
+#endif
 
 #ifdef CONFIG_CIX_THERMAL
 static unsigned int cix_get_static_power(unsigned int cpu)
@@ -164,10 +171,25 @@ static bool cpu_has_cpufreq(unsigned int cpu)
 
 static int cpufreq_get_max_state(unsigned int cpu)
 {
+#ifndef CONFIG_CIX_THERMAL
 	if (!cpu_has_cpufreq(cpu))
 		return 0;
 
 	return cpufreq_thermal_max_step;
+#else
+	struct cpufreq_policy *policy __free(put_cpufreq_policy) =
+		cpufreq_cpu_get(cpu);
+	const struct cppc_cpudata *cpu_data;
+
+	if (!policy)
+		return cpufreq_thermal_max_step;
+
+	cpu_data = policy->driver_data;
+	if (cpu_data && cpu_data->opp_level_num > 1)
+		return cpu_data->opp_level_num - 1;
+
+	return cpufreq_thermal_max_step;
+#endif
 }
 
 static int cpufreq_get_cur_state(unsigned int cpu)

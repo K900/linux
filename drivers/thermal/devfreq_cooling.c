@@ -271,9 +271,14 @@ static int devfreq_cooling_power2state(struct thermal_cooling_device *cdev,
 	freq = status.current_frequency;
 
 	if (dfc->power_ops && dfc->power_ops->get_real_power) {
+#ifdef CONFIG_CIX_THERMAL
+		/* CIX power model already accounts for utilization. */
+		est_power = power;
+#else
 		/* Scale for resource utilization */
 		est_power = power * dfc->res_util;
 		est_power /= SCALE_ERROR_MITIGATION;
+#endif
 	} else {
 		/* Scale dynamic power for utilization */
 		_normalize_load(&status);

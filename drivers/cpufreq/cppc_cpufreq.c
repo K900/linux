@@ -635,7 +635,7 @@ static void cix_cppc_cpufreq_register_em(struct cpufreq_policy *policy)
 
 	em_dev_register_perf_domain(get_cpu_device(policy->cpu),
 				    cix_get_perf_level_count(policy), &em_cb,
-				    cpu_data->shared_cpu_map, 0);
+				    cpu_data->shared_cpu_map, 1);
 }
 
 static void populate_efficiency_class(void)
@@ -704,15 +704,14 @@ static int cppc_opp_init(struct cpufreq_policy *policy)
 {
 	struct acpi_object_list input;
 	union acpi_object params[2];
-	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
-	acpi_status status;
 	struct cppc_perf_caps *perf_caps;
 	struct cppc_cpudata *cpu_data;
 	struct device *cpu_dev;
 	acpi_handle handle;
-	union acpi_object *package;
-	u32 *data;
-	int i;
+	u32 level_index = 0;
+	u32 total_opps = 0;
+	u32 num_remaining;
+	int ret = 0;
 
 	cpu_data = policy->driver_data;
 	if (!cpu_data) {
@@ -721,15 +720,6 @@ static int cppc_opp_init(struct cpufreq_policy *policy)
 	}
 
 	perf_caps = &cpu_data->perf_caps;
-
-	params[0].type = ACPI_TYPE_INTEGER;
-	params[0].integer.value = cpu_data->perf_domain;
-	params[1].type = ACPI_TYPE_INTEGER;
-	params[1].integer.value = 0;
-
-	input.count = 2;
-	input.pointer = params;
-
 	cpu_dev = get_cpu_device(policy->cpu);
 	handle = ACPI_HANDLE(cpu_dev);
 	if (!handle) {
@@ -737,41 +727,86 @@ static int cppc_opp_init(struct cpufreq_policy *policy)
 		return -EINVAL;
 	}
 
-	status = acpi_evaluate_object(handle, "\\_SB.PMMX.PEFG", &input, &buffer);
-	if (ACPI_FAILURE(status)) {
-		pr_err("Failed to call PEFG: %s\n", acpi_format_exception(status));
-		goto out;
-	}
+	do {
+		struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
+		union acpi_object *package;
+		acpi_status status;
+		u32 num_returned;
+		u32 *data;
+		int i;
 
-	package = buffer.pointer;
-	if (!package || package->type != ACPI_TYPE_BUFFER) {
-		pr_err("cppc_opp_init: cpu:%d, no buffer returned\n", cpu_dev->id);
-		goto out;
-	}
+		params[0].type = ACPI_TYPE_INTEGER;
+		params[0].integer.value = cpu_data->perf_domain;
+		params[1].type = ACPI_TYPE_INTEGER;
+		params[1].integer.value = level_index;
 
-	data = (u32 *)package->buffer.pointer;
+		input.count = 2;
+		input.pointer = params;
 
-	cpu_data->opp_level_num = data[1];
+		status = acpi_evaluate_object(handle, "\\_SB.PMMX.PEFG", &input, &buffer);
+		if (ACPI_FAILURE(status)) {
+			pr_err("Failed to call PEFG: %s\n", acpi_format_exception(status));
+			return -ENODATA;
+		}
+
+		package = buffer.pointer;
+		if (!package || package->type != ACPI_TYPE_BUFFER ||
+		    package->buffer.length < 2 * sizeof(u32)) {
+			pr_err("%s: cpu:%d, invalid buffer returned\n", __func__,
+			       cpu_dev->id);
+			ret = -ENODATA;
+			goto free_buffer;
+		}
+
+		data = (u32 *)package->buffer.pointer;
+		num_returned = data[1] & 0xfff;
+		num_remaining = (data[1] >> 16) & 0xffff;
+
+		if (!num_returned)
+			goto free_buffer;
+
+		if (package->buffer.length <
+		    (2 + num_returned * 3) * sizeof(u32)) {
+			pr_err("%s: cpu:%d, truncated OPP buffer\n", __func__,
+			       cpu_dev->id);
+			ret = -ENODATA;
+			goto free_buffer;
+		}
+
+		if (total_opps + num_returned > MAX_OPP_LEVELS) {
+			pr_warn("%s: cpu:%d, too many performance levels: %u > %u\n",
+				__func__, cpu_dev->id, total_opps + num_returned,
+				MAX_OPP_LEVELS);
+			num_returned = MAX_OPP_LEVELS - total_opps;
+		}
+
+		for (i = 0; i < num_returned; i++) {
+			u32 index = 2 + i * 3;
+
+			cpu_data->opp[total_opps].perf = data[index];
+			cpu_data->opp[total_opps].power = data[index + 1];
+			cpu_data->opp[total_opps].freq =
+				cppc_perf_to_khz(perf_caps,
+						 cpu_data->opp[total_opps].perf);
+			total_opps++;
+		}
+
+		level_index += num_returned;
+
+free_buffer:
+		kfree(buffer.pointer);
+		if (ret || total_opps >= MAX_OPP_LEVELS)
+			break;
+	} while (num_remaining > 0);
+
+	cpu_data->opp_level_num = total_opps;
 	if (!cpu_data->opp_level_num) {
-		pr_warn("cppc_opp_init: cpu:%d, no performance levels found\n",
+		pr_warn("%s: cpu:%d, no performance levels found\n", __func__,
 			cpu_dev->id);
-		goto out;
-	}
-	if (cpu_data->opp_level_num > MAX_OPP_LEVELS) {
-		pr_warn("cppc_opp_init: cpu:%d, too many performance levels: %d\n",
-			cpu_dev->id, cpu_data->opp_level_num);
-		goto out;
-	}
-	for (i = 0; i < cpu_data->opp_level_num; i++) {
-		cpu_data->opp[i].perf = data[2 + i * 3];
-		cpu_data->opp[i].power = data[3 + i * 3];
-		cpu_data->opp[i].freq = cppc_perf_to_khz(perf_caps,
-							 cpu_data->opp[i].perf);
+		return ret ?: -ENODATA;
 	}
 
-out:
-	kfree(buffer.pointer);
-	return 0;
+	return ret;
 }
 #endif
 
@@ -931,6 +966,7 @@ static unsigned int cix_cppc_cpufreq_get_rate(unsigned int cpu)
 }
 #endif
 
+#ifndef CONFIG_ARCH_CIX
 static int cppc_get_perf_ctrs_sample(int cpu,
 				     struct cppc_perf_fb_ctrs *fb_ctrs_t0,
 				     struct cppc_perf_fb_ctrs *fb_ctrs_t1)
@@ -946,7 +982,6 @@ static int cppc_get_perf_ctrs_sample(int cpu,
 	return cppc_get_perf_ctrs(cpu, fb_ctrs_t1);
 }
 
-#ifndef CONFIG_ARCH_CIX
 static unsigned int cppc_cpufreq_get_rate(unsigned int cpu)
 {
 	struct cpufreq_policy *policy __free(put_cpufreq_policy) = cpufreq_cpu_get(cpu);

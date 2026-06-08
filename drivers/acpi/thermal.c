@@ -937,6 +937,12 @@ static int acpi_thermal_probe(struct platform_device *pdev)
 
 		trip->type = THERMAL_TRIP_PASSIVE;
 		trip->temperature = acpi_thermal_temp(tz, acpi_trip->temp_dk);
+#ifdef CONFIG_CIX_THERMAL
+		if (acpi_trip->switch_on_temp_dk != THERMAL_TEMP_INVALID &&
+		    acpi_trip->switch_on_temp_dk < acpi_trip->temp_dk)
+			trip->switch_on_temp =
+				acpi_thermal_temp(tz, acpi_trip->switch_on_temp_dk);
+#endif
 		trip->priv = acpi_trip;
 		trip++;
 	}
@@ -956,9 +962,11 @@ static int acpi_thermal_probe(struct platform_device *pdev)
 #ifdef CONFIG_CIX_THERMAL
 	acpi_trip = &tz->trips.passive.trip;
 	if (acpi_thermal_trip_valid(acpi_trip) &&
-	    acpi_trip->switch_on_temp_dk != THERMAL_TEMP_INVALID) {
+	    acpi_trip->switch_on_temp_dk != THERMAL_TEMP_INVALID &&
+	    acpi_trip->switch_on_temp_dk < acpi_trip->temp_dk) {
 		trip->type = THERMAL_TRIP_PASSIVE;
 		trip->temperature = acpi_thermal_temp(tz, acpi_trip->switch_on_temp_dk);
+		trip->switch_on_temp = trip->temperature;
 		trip->priv = acpi_trip;
 		trip++;
 	}
