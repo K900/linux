@@ -262,7 +262,6 @@ int cdns_pcie_host_map_dma_ranges(struct cdns_pcie_rc *rc,
 {
 	struct cdns_pcie *pcie = &rc->pcie;
 	struct device *dev = pcie->dev;
-	struct device_node *np = dev->of_node;
 	struct pci_host_bridge *bridge;
 	struct resource_entry *entry;
 	u32 no_bar_nbits = 32;
@@ -273,7 +272,7 @@ int cdns_pcie_host_map_dma_ranges(struct cdns_pcie_rc *rc,
 		return -ENOMEM;
 
 	if (list_empty(&bridge->dma_ranges)) {
-		of_property_read_u32(np, "cdns,no-bar-match-nbits",
+		device_property_read_u32(dev, "cdns,no-bar-match-nbits",
 				     &no_bar_nbits);
 		err = pci_host_ib_config(rc, RP_NO_BAR, 0x0, (u64)1 << no_bar_nbits, 0);
 		if (err)

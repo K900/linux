@@ -895,7 +895,7 @@ static void sky1_pcie_link_set_speed(struct sky1_pcie *pcie, u32 link_gen)
 	void __iomem *reg_base;
 	u8 offset;
 
-	reg_base = pcie->reg_base + CDNS_PCIE_RP_BASE;
+	reg_base = pcie->reg_base + CDNS_PCIE_HPA_RP_BASE;
 	offset = cdns_pcie_find_capability(reg_base, PCI_CAP_ID_EXP);
 	dev_info(pcie->dev, "PCI_CAP_ID_EXP: 0x%x\n", offset);
 
@@ -937,7 +937,7 @@ static void sky1_pcie_set_speed_retrain(struct sky1_pcie *pcie)
 	u8 offset;
 	char *speed;
 
-	reg_base = pcie->reg_base + CDNS_PCIE_RP_BASE;
+	reg_base = pcie->reg_base + CDNS_PCIE_HPA_RP_BASE;
 	offset = cdns_pcie_find_capability(reg_base, PCI_CAP_ID_EXP);
 	val = readl(reg_base + offset + PCI_EXP_LNKCTL);
 	val |= PCI_EXP_LNKCTL_RL;
@@ -1116,7 +1116,7 @@ static ssize_t sky1_pcie_compliance_write(struct file *file,
 	ret = kstrtoint_from_user(user_buf, count, 0, &type);
 	if (!ret) {
 		dev_info(pcie->dev, "type: %d\n", type);
-		reg_base = pcie->reg_base + CDNS_PCIE_RP_BASE;
+		reg_base = pcie->reg_base + CDNS_PCIE_HPA_RP_BASE;
 		offset = cdns_pcie_find_capability(reg_base, PCI_CAP_ID_EXP);
 		dev_info(pcie->dev, "PCI_CAP_ID_EXP: 0x%x\n", offset);
 		val = readl(reg_base + offset + PCI_EXP_LNKCTL2);

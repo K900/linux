@@ -14,6 +14,46 @@
 #include "pcie-cadence-lga-regs.h"
 #include "pcie-cadence-hpa-regs.h"
 
+/*
+ * Local Management Registers
+ */
+#define CDNS_PCIE_IP_REG_BANK_BASE		0x1000
+#define CDNS_PCIE_IP_CFG_CTRL_REG_BANK_BASE 	0x4c00
+#define CDNS_PCIE_IP_AXI_SLAVE_BASE		0x9000
+#define CDNS_PCIE_IP_AXI_MASTER_COMMON_BASE	0xb000
+
+enum cdns_pcie_msg_routing {
+	/* Route to Root Complex */
+	MSG_ROUTING_TO_RC,
+
+	/* Use Address Routing */
+	MSG_ROUTING_BY_ADDR,
+
+	/* Use ID Routing */
+	MSG_ROUTING_BY_ID,
+
+	/* Route as Broadcast Message from Root Complex */
+	MSG_ROUTING_BCAST,
+
+	/* Local message; terminate at receiver (INTx messages) */
+	MSG_ROUTING_LOCAL,
+
+	/* Gather & route to Root Complex (PME_TO_Ack message) */
+	MSG_ROUTING_GATHER,
+};
+
+enum cdns_pcie_msg_code {
+	MSG_CODE_PME_TURN_OFF	= 0x15,
+	MSG_CODE_ASSERT_INTA	= 0x20,
+	MSG_CODE_ASSERT_INTB	= 0x21,
+	MSG_CODE_ASSERT_INTC	= 0x22,
+	MSG_CODE_ASSERT_INTD	= 0x23,
+	MSG_CODE_DEASSERT_INTA	= 0x24,
+	MSG_CODE_DEASSERT_INTB	= 0x25,
+	MSG_CODE_DEASSERT_INTC	= 0x26,
+	MSG_CODE_DEASSERT_INTD	= 0x27,
+};
+
 enum cdns_pcie_rp_bar {
 	RP_BAR_UNDEFINED = -1,
 	RP_BAR0,
@@ -441,6 +481,7 @@ static inline bool cdns_pcie_link_up(struct cdns_pcie *pcie)
 int cdns_pcie_host_link_setup(struct cdns_pcie_rc *rc);
 int cdns_pcie_host_init(struct cdns_pcie_rc *rc);
 int cdns_pcie_host_setup(struct cdns_pcie_rc *rc);
+int cdns_pcie_hpa_host_restore(struct cdns_pcie_rc *rc);
 void cdns_pcie_host_disable(struct cdns_pcie_rc *rc);
 void __iomem *cdns_pci_map_bus(struct pci_bus *bus, unsigned int devfn,
 			       int where);
@@ -457,6 +498,11 @@ static inline int cdns_pcie_host_init(struct cdns_pcie_rc *rc)
 }
 
 static inline int cdns_pcie_host_setup(struct cdns_pcie_rc *rc)
+{
+	return 0;
+}
+
+static inline int cdns_pcie_hpa_host_restore(struct cdns_pcie_rc *rc)
 {
 	return 0;
 }
@@ -498,6 +544,8 @@ static inline int cdns_pcie_hpa_ep_setup(struct cdns_pcie_ep *ep)
 
 #endif
 
+u8 sky1_cdns_pcie_find_capability(void __iomem *addr, u8 cap);
+u16 sky1_cdns_pcie_find_ext_capability(void __iomem *addr, u16 cap);
 u8   cdns_pcie_find_capability(struct cdns_pcie *pcie, u8 cap);
 u16  cdns_pcie_find_ext_capability(struct cdns_pcie *pcie, u8 cap);
 bool cdns_pcie_linkup(struct cdns_pcie *pcie);
