@@ -274,6 +274,11 @@ struct mt792x_hif_ops {
 	int (*fw_own)(struct mt792x_dev *dev);
 };
 
+struct mt792x_pcie_reg {
+	u32 imask;
+	u32 pm;
+};
+
 struct mt792x_dev {
 	union { /* must be first */
 		struct mt76_dev mt76;
@@ -309,6 +314,7 @@ struct mt792x_dev {
 	struct mt76_connac_coredump coredump;
 	const struct mt792x_hif_ops *hif_ops;
 	const struct mt792x_irq_map *irq_map;
+	const struct mt792x_pcie_reg *pcie_reg;
 
 	struct work_struct ipv6_ns_work;
 	struct delayed_work mlo_pm_work;
