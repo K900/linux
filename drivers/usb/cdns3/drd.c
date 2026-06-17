@@ -184,6 +184,8 @@ int cdns_drd_host_on(struct cdns *cdns)
 	/* Enable host mode. */
 	writel(OTGCMD_HOST_BUS_REQ | OTGCMD_OTG_DIS,
 	       &cdns->otg_regs->cmd);
+	/* flush posted write to avoid polling on stale register */
+	val = readl(&cdns->otg_regs->cmd);
 
 	if (cdns->version == CDNSP_CONTROLLER_V2)
 		ready_bit = OTGSTS_CDNSP_XHCI_READY;

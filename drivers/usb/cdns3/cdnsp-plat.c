@@ -324,6 +324,13 @@ static int cdnsp_controller_resume(struct device *dev, pm_message_t msg)
 		return 0;
 
 	if (cdns_power_is_lost(cdns)) {
+		/* Re-initialize DRD controller completely after power lost.
+		 * This does: reset assert, clocks re-enable, AXI/XEC config,
+		 * reset deassert - same sequence as probe.
+		 */
+		if (cdns->pdata && cdns->pdata->platform_reset)
+			cdns->pdata->platform_reset(cdns->dev);
+
 		phy_exit(cdns->usb2_phy);
 		ret = phy_init(cdns->usb2_phy);
 		if (ret)
