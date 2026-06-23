@@ -1760,6 +1760,13 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 	u8 link_id = u32_get_bits(info->control.flags,
 				  IEEE80211_TX_CTRL_MLO_LINK);
 
+	if (unlikely(WARN_ON_ONCE(IS_NON_CANONICAL(mphy)))) {
+		dev_err(dev->mt76.dev,
+			"%s: Bad phy pointer from hw->priv: %px",
+			__func__, mphy);
+		return;
+	}
+
 	rcu_read_lock();
 
 	/* Use primary link_id if the value from mac80211 is set to
@@ -1807,10 +1814,22 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 		if (mvif->mt76.roc_phy &&
 		    (info->flags & IEEE80211_TX_CTL_TX_OFFCHAN)) {
 			mphy = mvif->mt76.roc_phy;
+			if (unlikely(WARN_ON_ONCE(IS_NON_CANONICAL(mphy)))) {
+				dev_err(dev->mt76.dev,
+					"%s: Bad phy pointer from roc_phy: %px",
+					__func__, mphy);
+				goto unlock;
+			}
 			if (mphy->roc_link)
 				wcid = mphy->roc_link->wcid;
 		} else if (mlink) {
 			mphy = mt76_vif_link_phy(mlink);
+			if (unlikely(WARN_ON_ONCE(IS_NON_CANONICAL(mphy)))) {
+				dev_err(dev->mt76.dev,
+					"%s: Bad phy pointer from channel context: %px",
+					__func__, mphy);
+				goto unlock;
+			}
 		}
 	}
 

@@ -39,6 +39,12 @@
 
 #include <uapi/linux/kernel.h>
 
+#ifdef CONFIG_X86_64
+#define IS_NON_CANONICAL(addr) ((((int64_t)(addr) >> 47) != 0) && (((int64_t)(addr) >> 47) != -1))
+#else
+#define IS_NON_CANONICAL(addr) false
+#endif
+
 struct completion;
 struct user;
 
