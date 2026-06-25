@@ -360,7 +360,11 @@ static void linlondp_platform_remove(struct platform_device *pdev)
 {
 	if (device_property_read_bool(&pdev->dev, "cix,linlon-dpu-slave") ||
 	    linlondp_acpi_is_cluster_dpu_slave(&pdev->dev))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
 		return linlondp_dpu_slave_remove(pdev);
+#else
+		linlondp_dpu_slave_remove(pdev);
+#endif
 	component_master_del(&pdev->dev, &linlondp_master_ops);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
 	return 0;

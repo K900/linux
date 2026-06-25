@@ -32,6 +32,7 @@
 #include <linux/platform_device.h>
 #include <linux/aperture.h>
 #include <linux/pm_runtime.h>
+#include <linux/version.h>
 #if IS_ENABLED(CONFIG_ACPI)
 #include <linux/pm.h>
 #endif
@@ -46,7 +47,15 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_connector.h>
 #include <drm/drm_fb_helper.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
 #include <drm/drm_fbdev_generic.h>
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
+#include <drm/drm_fbdev_ttm.h>
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 14, 0)
+#include <drm/drm_client_setup.h>
+#else
+#include <drm/clients/drm_client_setup.h>
+#endif
 #include <drm/drm_module.h>
 #include <drm/drm_modeset_helper.h>
 #include <drm/drm_probe_helper.h>
@@ -157,7 +166,13 @@ static int linlondp_cluster_bind(struct device *dev)
 	}
 
 	if (enable_fb)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
 		drm_fbdev_generic_setup(&cl->kms->base, 32);
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(6, 13, 0)
+		drm_fbdev_ttm_setup(&cl->kms->base, 32);
+#else
+		drm_client_setup(&cl->kms->base, NULL);
+#endif
 
 	if (cl->mdevs[0]->enabled_by_gop)
 		pm_runtime_set_active(d0);
@@ -502,10 +517,16 @@ static int linlondp_cluster_probe(struct platform_device *pdev)
 	return -ENODEV;
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
 static int linlondp_cluster_remove(struct platform_device *pdev)
+#else
+static void linlondp_cluster_remove(struct platform_device *pdev)
+#endif
 {
 	component_master_del(&pdev->dev, &linlondp_cluster_master_ops);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
 	return 0;
+#endif
 }
 
 /*
