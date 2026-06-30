@@ -6,6 +6,16 @@
 config BINARY_PRINTF
 	def_bool n
 
+menu "CT Options"
+
+config CT_DBG
+	bool "Bake in CT debugging"
+	default n
+	help
+	  Bakes in debugging that would affect kernel performance in CT kernels.
+
+endmenu
+
 menu "Library routines"
 
 config LINEAR_RANGES
