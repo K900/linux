@@ -231,6 +231,26 @@ mt76_debug_lvl_get(void *data, u64 *val)
 DEFINE_DEBUGFS_ATTRIBUTE(fops_debug_lvl, mt76_debug_lvl_get,
 			 mt76_debug_lvl_set, "%lld\n");
 
+#ifdef CONFIG_CT_DBG
+static int mt76_dma_map_counters(struct seq_file *s, void *data)
+{
+	struct mt76_dev *dev = dev_get_drvdata(s->private);
+	u64 mapped_count, unmapped_count;
+
+	/* Individual reads are atomic, but they should be in sync with each other here */
+	mutex_lock(&dev->mutex);
+	mapped_count = atomic64_read(&dev->map_counter);
+	unmapped_count = atomic64_read(&dev->unmap_counter);
+	mutex_unlock(&dev->mutex);
+
+	seq_printf(s, "mapped: %lld\n", mapped_count);
+	seq_printf(s, "unmapped: %lld\n", unmapped_count);
+	seq_printf(s, "difference: %lld\n", mapped_count - unmapped_count);
+
+	return 0;
+}
+#endif
+
 static int
 mt76_version(struct seq_file *s, void *data)
 {
@@ -392,6 +412,10 @@ mt76_register_debugfs_fops(struct mt76_phy *phy,
 				    mt76_rx_queues_read);
 	debugfs_create_devm_seqfile(dev->dev, "dfs-info", dir,
 				    mt76_dfs_info_read);
+
+#ifdef CONFIG_CT_DBG
+	debugfs_create_devm_seqfile(dev->dev, "dma_counters", dir, mt76_dma_map_counters);
+#endif
 
 	return dir;
 }

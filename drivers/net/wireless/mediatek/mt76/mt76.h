@@ -1165,6 +1165,11 @@ struct mt76_dev {
 	};
 
 	atomic_t bus_hung;
+
+#ifdef CONFIG_CT_DBG
+	atomic64_t map_counter;
+	atomic64_t unmap_counter;
+#endif
 };
 
 /* per-phy stats.  */
@@ -2617,5 +2622,13 @@ mt76_txq_dbg(struct mt76_dev *dev, struct mt76_txq *mtxq, u32 dbg_mask, const ch
 	dev_info(dev->dev, "%s: %pV", prefix_buf, &vaf);
 	va_end(args);
 }
+
+#ifdef CONFIG_CT_DBG
+#define MT76_COUNT_DMA_MAP(dev) atomic64_inc(&(dev)->map_counter)
+#define MT76_COUNT_DMA_UNMAP(dev) atomic64_inc(&(dev)->unmap_counter)
+#else
+#define MT76_COUNT_DMA_MAP(dev)
+#define MT76_COUNT_DMA_UNMAP(dev)
+#endif
 
 #endif
