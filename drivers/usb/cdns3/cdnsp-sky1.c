@@ -603,6 +603,12 @@ static int cdnsp_sky1_probe(struct platform_device *pdev)
 	int ret;
 	struct cdns3_platform_data *cdns_sky1_pdata;
 
+	if (ACPI_COMPANION(dev)) {
+		ret = cdnsp_sky1_check_phy_deps(dev);
+		if (ret)
+			return ret;
+	}
+
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
