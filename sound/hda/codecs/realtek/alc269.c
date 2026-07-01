@@ -4155,6 +4155,12 @@ enum {
 	ALC236_FIXUP_HP_DMIC,
 	ALC256_FIXUP_HONOR_MRB_XXX_M1020_AUDIO,
 	ALC245_FIXUP_HP_ENVY_X360_15_FH0XXX,
+	ALC256_FIXUP_CIX_SKY1_EVB,
+	ALC256_FIXUP_CIX_SKY1_EVB_COEF,
+	ALC256_FIXUP_CIX_SKY1_ORION_O6,
+	ALC256_FIXUP_CIX_SKY1_ORION_O6_COEF,
+	ALC269_FIXUP_CIX_SKY1_ORAPI_6P,
+	ALC269_FIXUP_CIX_SKY1_ORAPI_6P_COEF,
 };
 
 /* A special fixup for Lenovo C940 and Yoga Duet 7;
@@ -6727,6 +6733,141 @@ static const struct hda_fixup alc269_fixups[] = {
 		.v.func = cs35l41_fixup_i2c_two,
 		.chained = true,
 		.chain_id = ALC245_FIXUP_HP_X360_MUTE_LEDS
+	},
+	/* CIX Sky1 boards: model-name matched (cix,model), shared codec SSID. */
+	[ALC256_FIXUP_CIX_SKY1_EVB] = {
+		.type = HDA_FIXUP_PINS,
+		.v.pins = (const struct hda_pintbl[]) {
+			{ 0x12, 0x90a60130 }, /* DMIC */
+			{ 0x13, 0x40000000 }, /* DMIC */
+			{ 0x14, 0x90170110 }, /* Front (Port-D) */
+			{ 0x18, 0x411111f0 }, /* NPC */
+			{ 0x19, 0x04a11040 }, /* MIC2 (Port-F) */
+			{ 0x1a, 0x411111f0 }, /* LINE1 (Port-C) */
+			{ 0x1b, 0x411111f0 }, /* LINE2 (Port-E) */
+			{ 0x1d, 0x4068996d }, /* BEEP-IN */
+			{ 0x1e, 0x411111f0 }, /* S/PDIF-OUT */
+			{ 0x21, 0x04211020 }, /* HP1-OUT (Port-I) */
+			{ }
+		},
+		.chained = true,
+		.chain_id = ALC256_FIXUP_CIX_SKY1_EVB_COEF
+	},
+	[ALC256_FIXUP_CIX_SKY1_EVB_COEF] = {
+		.type = HDA_FIXUP_VERBS,
+		.v.verbs = (const struct hda_verb[]) {
+			/* 1bit reset */
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x1a },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0xc00b },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x1a },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x800b },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x10 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0020 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x38 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x6981 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x08 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x6a6c },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x1b },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0a4b },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x3c },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0354 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x3c },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0314 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x46 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0004 },
+			{ 0x57, AC_VERB_SET_COEF_INDEX, 0x03 },
+			{ 0x57, AC_VERB_SET_PROC_COEF,  0x09a3 },
+			{ }
+		}
+	},
+	[ALC256_FIXUP_CIX_SKY1_ORION_O6] = {
+		.type = HDA_FIXUP_PINS,
+		.v.pins = (const struct hda_pintbl[]) {
+			{ 0x12, 0x40000000 }, /* DMIC */
+			{ 0x13, 0x411111f0 }, /* DMIC */
+			{ 0x14, 0x90170110 }, /* Front (Port-D) */
+			{ 0x18, 0x411111f0 }, /* NPC */
+			{ 0x19, 0x01a11030 }, /* MIC2 (Port-F) */
+			{ 0x1a, 0x02a19040 }, /* LINE1 (Port-C) */
+			{ 0x1b, 0x02014020 }, /* LINE2 (Port-E) */
+			{ 0x1d, 0x4045c069 }, /* BEEP-IN */
+			{ 0x1e, 0x411111f0 }, /* S/PDIF-OUT */
+			{ 0x21, 0x0121101f }, /* HP1-OUT (Port-I) */
+			{ }
+		},
+		.chained = true,
+		.chain_id = ALC256_FIXUP_CIX_SKY1_ORION_O6_COEF
+	},
+	[ALC256_FIXUP_CIX_SKY1_ORION_O6_COEF] = {
+		.type = HDA_FIXUP_VERBS,
+		.v.verbs = (const struct hda_verb[]) {
+			/* 1bit reset */
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x1a },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0xc00b },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x1a },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x800b },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x10 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0020 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x38 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x6981 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x08 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x6a4c },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x1b },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0a4b },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x3c },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0354 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x3c },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0314 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x46 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0004 },
+			{ 0x57, AC_VERB_SET_COEF_INDEX, 0x03 },
+			{ 0x57, AC_VERB_SET_PROC_COEF,  0x09a3 },
+			{ }
+		}
+	},
+	[ALC269_FIXUP_CIX_SKY1_ORAPI_6P] = {
+		.type = HDA_FIXUP_PINS,
+		.v.pins = (const struct hda_pintbl[]) {
+			{ 0x12, 0x40000000 }, /* DMIC */
+			{ 0x14, 0x90170110 }, /* SPEAKER-OUT (Port-D) */
+			{ 0x15, 0x0421101f }, /* HP-OUT (Port-A) */
+			{ 0x17, 0x411111f0 }, /* MONO-OUT (Port-H) */
+			{ 0x18, 0x04a11020 }, /* MIC1 (Port-B) */
+			{ 0x19, 0x90a7012f }, /* MIC2 (Port-F) */
+			{ 0x1a, 0x411111f0 }, /* LINE1 (Port-C) */
+			{ 0x1b, 0x411111f0 }, /* LINE2 (Port-E) */
+			{ 0x1d, 0x40538205 }, /* PC-BEEP */
+			{ 0x1e, 0x411111f0 }, /* S/PDIF-OUT */
+			{ }
+		},
+		.chained = true,
+		.chain_id = ALC269_FIXUP_CIX_SKY1_ORAPI_6P_COEF
+	},
+	[ALC269_FIXUP_CIX_SKY1_ORAPI_6P_COEF] = {
+		.type = HDA_FIXUP_VERBS,
+		.v.verbs = (const struct hda_verb[]) {
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x18 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0184 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x1c },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0800 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x24 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0000 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x04 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0080 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x08 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x0300 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x0c },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x3f00 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x15 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x8002 },
+			{ 0x20, AC_VERB_SET_COEF_INDEX, 0x15 },
+			{ 0x20, AC_VERB_SET_PROC_COEF,  0x8002 },
+			{ 0x0c, AC_VERB_SET_AMP_GAIN_MUTE, 0x7080 },
+			{ 0x02, AC_VERB_SET_CHANNEL_STREAMID, 0x10 },
+			{ 0x0d, AC_VERB_SET_AMP_GAIN_MUTE, 0x7080 },
+			{ 0x03, AC_VERB_SET_CHANNEL_STREAMID, 0x10 },
+			{ }
+		}
 	}
 };
 
@@ -8073,6 +8214,9 @@ static const struct hda_model_fixup alc269_fixup_models[] = {
 	{.id = ALC2XX_FIXUP_HEADSET_MIC, .name = "alc2xx-fixup-headset-mic"},
 	{.id = ALC245_FIXUP_BASS_HP_DAC, .name = "alc245-fixup-bass-hp-dac"},
 	{.id = ALC256_FIXUP_HONOR_MRB_XXX_M1020_AUDIO, .name = "alc256-honor-mrb-xxx-m1020-audio"},
+	{.id = ALC256_FIXUP_CIX_SKY1_EVB, .name = "CIX SKY1 EVB HDA"},
+	{.id = ALC256_FIXUP_CIX_SKY1_ORION_O6, .name = "CIX SKY1 ORION O6 HDA"},
+	{.id = ALC269_FIXUP_CIX_SKY1_ORAPI_6P, .name = "CIX SKY1 ORAPI 6P HDA"},
 	{}
 };
 #define ALC225_STANDARD_PINS \
