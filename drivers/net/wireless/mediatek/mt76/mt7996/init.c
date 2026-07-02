@@ -37,6 +37,21 @@ static const struct ieee80211_iface_limit if_limits_global[] = {
 	}
 };
 
+static const struct ieee80211_iface_limit if_limits_global_7992[] = {
+	{
+		.max = 16 * (MT7996_MAX_RADIOS - 1),
+		.types = BIT(NL80211_IFTYPE_ADHOC)
+			 | BIT(NL80211_IFTYPE_AP)
+#ifdef CONFIG_MAC80211_MESH
+			 | BIT(NL80211_IFTYPE_MESH_POINT)
+#endif
+	},
+	{
+		.max = MT7996_MAX_INTERFACES * (MT7996_MAX_RADIOS - 1),
+		.types = BIT(NL80211_IFTYPE_STATION)
+	}
+};
+
 static const struct ieee80211_iface_combination if_comb_global = {
 	.limits = if_limits_global,
 	.n_limits = ARRAY_SIZE(if_limits_global),
@@ -51,9 +66,9 @@ static const struct ieee80211_iface_combination if_comb_global = {
 };
 
 static const struct ieee80211_iface_combination if_comb_global_7992 = {
-	.limits = if_limits_global,
-	.n_limits = 1,
-	.max_interfaces = 32,
+	.limits = if_limits_global_7992,
+	.n_limits = ARRAY_SIZE(if_limits_global_7992),
+	.max_interfaces = MT7996_MAX_INTERFACES * (MT7996_MAX_RADIOS - 1),
 	.num_different_channels = MT7996_MAX_RADIOS - 1,
 	.radar_detect_widths = BIT(NL80211_CHAN_WIDTH_20_NOHT) |
 			       BIT(NL80211_CHAN_WIDTH_20) |
