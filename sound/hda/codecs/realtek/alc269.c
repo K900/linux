@@ -2821,6 +2821,25 @@ static void alc256_fixup_chromebook(struct hda_codec *codec,
 	}
 }
 
+/*
+ * CIX Sky1 boards (EVB / Orion O6 / ORAPI 6P) share a codec SSID and rely on
+ * UCM profiles that reference the generic parser's input mux
+ * ("Input Source" / "Capture Source"). The parser's auto-mic heuristic would
+ * otherwise force a single ADC and suppress that mux (see
+ * check_auto_mic_availability() in generic.c). Disable it so the codec
+ * topology matches the 6.6 BSP driver, which set suppress_auto_mic for all
+ * CIX boards via the 0x10EC129E SSID quirk (alc_fixup_cix_phecda).
+ */
+static void alc256_fixup_cix_sky1_no_auto_mic(struct hda_codec *codec,
+					      const struct hda_fixup *fix,
+					      int action)
+{
+	struct alc_spec *spec = codec->spec;
+
+	if (action == HDA_FIXUP_ACT_PRE_PROBE)
+		spec->gen.suppress_auto_mic = true;
+}
+
 static void alc_fixup_disable_mic_vref(struct hda_codec *codec,
 				  const struct hda_fixup *fix, int action)
 {
@@ -4161,6 +4180,7 @@ enum {
 	ALC256_FIXUP_CIX_SKY1_ORION_O6_COEF,
 	ALC269_FIXUP_CIX_SKY1_ORAPI_6P,
 	ALC269_FIXUP_CIX_SKY1_ORAPI_6P_COEF,
+	ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC,
 };
 
 /* A special fixup for Lenovo C940 and Yoga Duet 7;
@@ -6778,7 +6798,9 @@ static const struct hda_fixup alc269_fixups[] = {
 			{ 0x57, AC_VERB_SET_COEF_INDEX, 0x03 },
 			{ 0x57, AC_VERB_SET_PROC_COEF,  0x09a3 },
 			{ }
-		}
+		},
+		.chained = true,
+		.chain_id = ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC
 	},
 	[ALC256_FIXUP_CIX_SKY1_ORION_O6] = {
 		.type = HDA_FIXUP_PINS,
@@ -6823,7 +6845,9 @@ static const struct hda_fixup alc269_fixups[] = {
 			{ 0x57, AC_VERB_SET_COEF_INDEX, 0x03 },
 			{ 0x57, AC_VERB_SET_PROC_COEF,  0x09a3 },
 			{ }
-		}
+		},
+		.chained = true,
+		.chain_id = ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC
 	},
 	[ALC269_FIXUP_CIX_SKY1_ORAPI_6P] = {
 		.type = HDA_FIXUP_PINS,
@@ -6867,7 +6891,13 @@ static const struct hda_fixup alc269_fixups[] = {
 			{ 0x0d, AC_VERB_SET_AMP_GAIN_MUTE, 0x7080 },
 			{ 0x03, AC_VERB_SET_CHANNEL_STREAMID, 0x10 },
 			{ }
-		}
+		},
+		.chained = true,
+		.chain_id = ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC
+	},
+	[ALC256_FIXUP_CIX_SKY1_NO_AUTO_MIC] = {
+		.type = HDA_FIXUP_FUNC,
+		.v.func = alc256_fixup_cix_sky1_no_auto_mic
 	}
 };
 
