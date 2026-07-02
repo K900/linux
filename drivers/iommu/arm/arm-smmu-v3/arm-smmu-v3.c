@@ -4730,7 +4730,7 @@ static void arm_smmu_setup_unique_irqs(struct arm_smmu_device *smmu)
 	}
 }
 
-static int arm_smmu_setup_irqs(struct arm_smmu_device *smmu)
+static int arm_smmu_setup_irqs(struct arm_smmu_device *smmu, bool resume)
 {
 	int ret, irq;
 	u32 irqen_flags = IRQ_CTRL_EVTQ_IRQEN | IRQ_CTRL_GERROR_IRQEN;
@@ -4743,21 +4743,33 @@ static int arm_smmu_setup_irqs(struct arm_smmu_device *smmu)
 		return ret;
 	}
 
-	irq = smmu->combined_irq;
-	if (irq) {
-		/*
-		 * Cavium ThunderX2 implementation doesn't support unique irq
-		 * lines. Use a single irq line for all the SMMUv3 interrupts.
-		 */
-		ret = devm_request_threaded_irq(smmu->dev, irq,
-					arm_smmu_combined_irq_handler,
-					arm_smmu_combined_irq_thread,
-					IRQF_ONESHOT,
-					"arm-smmu-v3-combined-irq", smmu);
-		if (ret < 0)
-			dev_warn(smmu->dev, "failed to enable combined irq\n");
-	} else
-		arm_smmu_setup_unique_irqs(smmu);
+	/*
+	 * IRQ handlers and MSI allocations are devm-managed and persist across
+	 * suspend/resume (suspend only clears CR0). On resume, skip re-requesting
+	 * the Linux IRQs and re-running MSI allocation; otherwise request_irq()
+	 * hits the still-registered handler (-EBUSY) and arm_smmu_setup_msis()
+	 * clobbers the *_IRQ_CFG0 registers when the MSI domain is transiently
+	 * absent (ITS not resumed yet). The SMMU was not power-cycled, so the
+	 * MSI address/data programmed at probe are still valid - just re-enable
+	 * IRQ_CTRL below.
+	 */
+	if (!resume) {
+		irq = smmu->combined_irq;
+		if (irq) {
+			/*
+			 * Cavium ThunderX2 implementation doesn't support unique irq
+			 * lines. Use a single irq line for all the SMMUv3 interrupts.
+			 */
+			ret = devm_request_threaded_irq(smmu->dev, irq,
+						arm_smmu_combined_irq_handler,
+						arm_smmu_combined_irq_thread,
+						IRQF_ONESHOT,
+						"arm-smmu-v3-combined-irq", smmu);
+			if (ret < 0)
+				dev_warn(smmu->dev, "failed to enable combined irq\n");
+		} else
+			arm_smmu_setup_unique_irqs(smmu);
+	}
 
 	if (smmu->features & ARM_SMMU_FEAT_PRI)
 		irqen_flags |= IRQ_CTRL_PRIQ_IRQEN;
@@ -4806,7 +4818,7 @@ static void arm_smmu_write_strtab(struct arm_smmu_device *smmu)
 	writel_relaxed(reg, smmu->base + ARM_SMMU_STRTAB_BASE_CFG);
 }
 
-static int arm_smmu_device_reset(struct arm_smmu_device *smmu)
+static int arm_smmu_device_reset(struct arm_smmu_device *smmu, bool resume)
 {
 	int ret;
 	u32 reg, enables;
@@ -4910,7 +4922,7 @@ static int arm_smmu_device_reset(struct arm_smmu_device *smmu)
 		}
 	}
 
-	ret = arm_smmu_setup_irqs(smmu);
+	ret = arm_smmu_setup_irqs(smmu, resume);
 	if (ret) {
 		dev_err(smmu->dev, "failed to setup irqs\n");
 		return ret;
@@ -5476,7 +5488,7 @@ static int __maybe_unused arm_smmu_resume(struct device *dev)
 {
 	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
 
-	arm_smmu_device_reset(smmu);
+	arm_smmu_device_reset(smmu, true);
 
 	return 0;
 }
@@ -5568,7 +5580,7 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	arm_smmu_rmr_install_bypass_ste(smmu);
 
 	/* Reset the device */
-	ret = arm_smmu_device_reset(smmu);
+	ret = arm_smmu_device_reset(smmu, false);
 	if (ret)
 		goto err_disable;
 
