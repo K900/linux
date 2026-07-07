@@ -5593,13 +5593,13 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 
 	err = nl80211_parse_key(info, &key);
 	if (err) {
-		pr_info("new-key:  parse failed: %d\n", err);
+		pr_info("%s: new-key:  parse failed: %d\n", wdev->netdev->name, err);
 		return err;
 	}
 
 	if (!key.p.key) {
 		GENL_SET_ERR_MSG(info, "no key");
-		pr_info("new-key:  key.p.key is NULL\n");
+		pr_info("%s: new-key:  key.p.key is NULL\n", wdev->netdev->name);
 		return -EINVAL;
 	}
 
@@ -5617,7 +5617,7 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 	if (key.type != NL80211_KEYTYPE_PAIRWISE &&
 	    key.type != NL80211_KEYTYPE_GROUP) {
 		GENL_SET_ERR_MSG(info, "key type not pairwise or group");
-		pr_info("new-key: invalid key type: %d\n", key.type);
+		pr_info("%s: new-key: invalid key type: %d\n", wdev->netdev->name, key.type);
 		return -EINVAL;
 	}
 
@@ -5632,7 +5632,7 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 					   key.type == NL80211_KEYTYPE_PAIRWISE,
 					   mac_addr)) {
 		GENL_SET_ERR_MSG(info, "key setting validation failed");
-		pr_info("new-key:  validate settings failed\n");
+		pr_info("%s: new-key:  validate settings failed\n", wdev->netdev->name);
 		return -EINVAL;
 	}
 
@@ -5650,10 +5650,10 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 				    mac_addr, &key.p);
 		if (err) {
 			GENL_SET_ERR_MSG(info, "key addition failed");
-			pr_info("new-key:  rdev-add-key failed: %d\n", err);
+			pr_info("%s: new-key:  rdev-add-key failed: %d\n", wdev->netdev->name, err);
 		}
 	} else {
-		pr_info("new-key:  key-allowed failed: %d\n", err);
+		pr_info("%s: new-key:  key-allowed failed: %d\n", wdev->netdev->name, err);
 	}
 
 	return err;
@@ -9072,8 +9072,10 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 	    wdev->iftype != NL80211_IFTYPE_NAN_DATA)
 		return -EINVAL;
 
-	if (!rdev->ops->change_station)
+	if (!rdev->ops->change_station) {
+		pr_err("%s: new-station failed, op not supported.\n", dev->name);
 		return -EOPNOTSUPP;
+	}
 
 	/*
 	 * AID and listen_interval properties can be set only for unassociated
@@ -9098,8 +9100,10 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 	else
 		params.support_p2p_ps = -1;
 
-	if (!info->attrs[NL80211_ATTR_MAC])
+	if (!info->attrs[NL80211_ATTR_MAC]) {
+		pr_err("%s: new-station failed, MAC not specified.\n", dev->name);
 		return -EINVAL;
+	}
 
 	params.link_sta_params.link_id =
 		nl80211_link_id_or_invalid(info->attrs);
@@ -9144,8 +9148,10 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 			nla_len(info->attrs[NL80211_ATTR_STA_EXT_CAPABILITY]);
 	}
 
-	if (parse_station_flags(info, wdev->iftype, &params))
+	if (parse_station_flags(info, wdev->iftype, &params)) {
+		pr_err("%s: new-station failed, parse-station-flags failed.\n", dev->name);
 		return -EINVAL;
+	}
 
 	if (info->attrs[NL80211_ATTR_STA_PLINK_ACTION])
 		params.plink_action =
@@ -9197,12 +9203,16 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 
 	/* Include parameters for TDLS peer (will check later) */
 	err = nl80211_set_station_tdls(info, &params);
-	if (err)
+	if (err) {
+		pr_err("%s: new-station failed, set_station_tdls failed.\n", dev->name);
 		return err;
+	}
 
 	params.vlan = get_vlan(info, rdev);
-	if (IS_ERR(params.vlan))
+	if (IS_ERR(params.vlan)) {
+		pr_err("%s: new-station failed, get_vlan failed failed.\n", dev->name);
 		return PTR_ERR(params.vlan);
+	}
 
 	switch (wdev->iftype) {
 	case NL80211_IFTYPE_AP:
@@ -9217,6 +9227,7 @@ static int nl80211_set_station(struct sk_buff *skb, struct genl_info *info)
 		break;
 	default:
 		err = -EOPNOTSUPP;
+		pr_err("%s: new-station failed, invalid iftype: %d\n", dev->name, dev->ieee80211_ptr->iftype);
 		goto out_put_vlan;
 	}
 
@@ -9245,11 +9256,15 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 	if (!dev && wdev->iftype != NL80211_IFTYPE_NAN)
 		return -EINVAL;
 
-	if (!rdev->ops->add_station)
+	if (!rdev->ops->add_station) {
+		pr_err("%s: new-station failed, op not supported.\n", dev->name);
 		return -EOPNOTSUPP;
+	}
 
-	if (!info->attrs[NL80211_ATTR_MAC])
+	if (!info->attrs[NL80211_ATTR_MAC]) {
+		pr_err("%s: new-station failed, MAC not specified.\n", dev->name);
 		return -EINVAL;
+	}
 
 	if (wdev->iftype == NL80211_IFTYPE_NAN ||
 	    wdev->iftype == NL80211_IFTYPE_NAN_DATA) {
@@ -9266,15 +9281,21 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 				return -EINVAL;
 		}
 	} else {
-		if (!info->attrs[NL80211_ATTR_STA_LISTEN_INTERVAL])
+		if (!info->attrs[NL80211_ATTR_STA_LISTEN_INTERVAL]) {
+			pr_err("%s: new-station failed, no listen interval specified.\n", dev->name);
 			return -EINVAL;
+		}
 
-		if (!info->attrs[NL80211_ATTR_STA_SUPPORTED_RATES])
+		if (!info->attrs[NL80211_ATTR_STA_SUPPORTED_RATES]) {
+			pr_err("%s: new-station failed, no supported rates specified.\n", dev->name);
 			return -EINVAL;
+		}
 
 		if (!info->attrs[NL80211_ATTR_STA_AID] &&
-		    !info->attrs[NL80211_ATTR_PEER_AID])
+		    !info->attrs[NL80211_ATTR_PEER_AID]) {
+			pr_err("%s: new-station failed, no AID specified.\n", dev->name);
 			return -EINVAL;
+		}
 	}
 
 	params.link_sta_params.link_id =
@@ -9413,15 +9434,21 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 		return err;
 
 	err = nl80211_parse_sta_channel_info(info, &params);
-	if (err)
+	if (err) {
+		pr_err("%s: new-station failed, parse-sta-channel-info failed.\n", dev->name);
 		return err;
+	}
 
 	err = nl80211_parse_sta_wme(info, &params);
-	if (err)
+	if (err) {
+		pr_err("%s: new-station failed, parse-sta-wme failed.\n", dev->name);
 		return err;
+	}
 
-	if (parse_station_flags(info, wdev->iftype, &params))
+	if (parse_station_flags(info, wdev->iftype, &params)) {
+		pr_err("%s: new-station failed, parse-station-flags failed.\n", dev->name);
 		return -EINVAL;
+	}
 
 	/* HT/VHT requires QoS, but if we don't have that just ignore HT/VHT
 	 * as userspace might just pass through the capabilities from the IEs
@@ -9436,8 +9463,10 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 		if (params.link_sta_params.he_capa_len ||
 		    params.link_sta_params.he_6ghz_capa ||
 		    params.link_sta_params.eht_capa_len ||
-		    params.link_sta_params.uhr_capa_len)
+		    params.link_sta_params.uhr_capa_len) {
+			pr_err("%s: new-station failed, HE/EHT requires WME.\n", dev->name);
 			return -EINVAL;
+		}
 	}
 
 	if (wdev->iftype == NL80211_IFTYPE_NAN ||
@@ -9469,16 +9498,20 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 
 		/* TDLS peers cannot be added */
 		if ((params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)) ||
-		    info->attrs[NL80211_ATTR_PEER_AID])
+		    info->attrs[NL80211_ATTR_PEER_AID]) {
+			pr_err("%s: new-station failed, TDLS peer cannot be added.\n", dev->name);
 			return -EINVAL;
+		}
 		/* but don't bother the driver with it */
 		params.sta_flags_mask &= ~BIT(NL80211_STA_FLAG_TDLS_PEER);
 
 		/* allow authenticated/associated only if driver handles it */
 		if (!(rdev->wiphy.features &
 				NL80211_FEATURE_FULL_AP_CLIENT_STATE) &&
-		    params.sta_flags_mask & auth_assoc)
+		    params.sta_flags_mask & auth_assoc) {
+			pr_err("%s: new-station failed, driver does not allow auth/assoc.\n", dev->name);
 			return -EINVAL;
+		}
 
 		if (!wiphy_ext_feature_isset(&rdev->wiphy,
 					     NL80211_EXT_FEATURE_SPP_AMSDU_SUPPORT) &&
@@ -9502,20 +9535,26 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 
 		/* must be last in here for error handling */
 		params.vlan = get_vlan(info, rdev);
-		if (IS_ERR(params.vlan))
+		if (IS_ERR(params.vlan)) {
+			pr_err("%s: new-station failed, get-vlan failed.\n", dev->name);
 			return PTR_ERR(params.vlan);
+		}
 		break;
 	case NL80211_IFTYPE_MESH_POINT:
 		/* ignore uAPSD data */
 		params.sta_modify_mask &= ~STATION_PARAM_APPLY_UAPSD;
 
 		/* associated is disallowed */
-		if (params.sta_flags_mask & BIT(NL80211_STA_FLAG_ASSOCIATED))
+		if (params.sta_flags_mask & BIT(NL80211_STA_FLAG_ASSOCIATED)) {
+			pr_err("%s: new-station failed, MESH associated not allowed.\n", dev->name);
 			return -EINVAL;
+		}
 		/* TDLS peers cannot be added */
 		if ((params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)) ||
-		    info->attrs[NL80211_ATTR_PEER_AID])
+		    info->attrs[NL80211_ATTR_PEER_AID]) {
+			pr_err("%s: new-station failed, MESH tdls cannot be added.\n", dev->name);
 			return -EINVAL;
+		}
 		break;
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_P2P_CLIENT:
@@ -9525,17 +9564,25 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 		/* these are disallowed */
 		if (params.sta_flags_mask &
 				(BIT(NL80211_STA_FLAG_ASSOCIATED) |
-				 BIT(NL80211_STA_FLAG_AUTHENTICATED)))
+				 BIT(NL80211_STA_FLAG_AUTHENTICATED))) {
+			pr_err("%s: new-station failed, P2P:  associated not allowed.\n", dev->name);
 			return -EINVAL;
+		}
 		/* Only TDLS peers can be added */
-		if (!(params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER)))
+		if (!(params.sta_flags_set & BIT(NL80211_STA_FLAG_TDLS_PEER))) {
+			pr_err("%s: new-station failed, only TDLS peers supported.\n", dev->name);
 			return -EINVAL;
+		}
 		/* Can only add if TDLS ... */
-		if (!(rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_TDLS))
+		if (!(rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_TDLS)) {
+			pr_err("%s: new-station failed, doesn't support TDLS.\n", dev->name);
 			return -EOPNOTSUPP;
+		}
 		/* ... with external setup is supported */
-		if (!(rdev->wiphy.flags & WIPHY_FLAG_TDLS_EXTERNAL_SETUP))
+		if (!(rdev->wiphy.flags & WIPHY_FLAG_TDLS_EXTERNAL_SETUP)) {
+			pr_err("%s: new-station failed, no TDLS external supported.\n", dev->name);
 			return -EOPNOTSUPP;
+		}
 		/*
 		 * Older wpa_supplicant versions always mark the TDLS peer
 		 * as authorized, but it shouldn't yet be.
@@ -9548,6 +9595,7 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 		params.nmi_mac = nla_data(info->attrs[NL80211_ATTR_NAN_NMI_MAC]);
 		break;
 	default:
+		pr_err("%s: new-station failed, invalid type: %d\n", dev->name, dev->ieee80211_ptr->iftype);
 		return -EOPNOTSUPP;
 	}
 
@@ -9574,6 +9622,9 @@ static int nl80211_new_station(struct sk_buff *skb, struct genl_info *info)
 
 	err = rdev_add_station(rdev, wdev, mac_addr, &params);
 out:
+	if (err)
+		pr_err("%s: new-station failed, rdev-add-station failed: %d\n", dev->name, err);
+
 	dev_put(params.vlan);
 	return err;
 }
@@ -10046,23 +10097,32 @@ static int nl80211_set_bss(struct sk_buff *skb, struct genl_info *info)
 	if (info->attrs[NL80211_ATTR_P2P_OPPPS]) {
 		u8 tmp;
 
-		if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO)
+		if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO) {
+			pr_err("%s: new-station failed, P2P_OPPPS issue.\n", dev->name);
 			return -EINVAL;
+		}
 		tmp = nla_get_u8(info->attrs[NL80211_ATTR_P2P_OPPPS]);
 		if (tmp && !(bss_param_support & WIPHY_BSS_PARAM_P2P_OPPPS))
 			return -EINVAL;
 		params.p2p_opp_ps = tmp;
 		if (params.p2p_opp_ps &&
-		    !(rdev->wiphy.bss_param_support & WIPHY_BSS_PARAM_P2P_OPPPS))
+		    !(rdev->wiphy.bss_param_support & WIPHY_BSS_PARAM_P2P_OPPPS) &&
+		    !(rdev->wiphy.features & NL80211_FEATURE_P2P_GO_OPPPS)) {
+			pr_err("%s: new-station failed, P2P_OPPPS PS issue.\n", dev->name);
 			return -EINVAL;
+		}
 	}
 
-	if (!rdev->ops->change_bss)
+	if (!rdev->ops->change_bss) {
+		pr_err("%s: new-station failed, change-bss not supported.\n", dev->name);
 		return -EOPNOTSUPP;
+	}
 
 	if (dev->ieee80211_ptr->iftype != NL80211_IFTYPE_AP &&
-	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO)
+	    dev->ieee80211_ptr->iftype != NL80211_IFTYPE_P2P_GO) {
+		pr_err("%s: new-station failed, not AP, not P2P-GO.\n", dev->name);
 		return -EOPNOTSUPP;
+	}
 
 	changed &= rdev->wiphy.bss_param_support;
 	if (!changed)
