@@ -206,9 +206,11 @@ mt76_connac_txp_skb_unmap_fw(struct mt76_dev *mdev,
 	struct device *dev = is_connac_v1(mdev) ? mdev->dev : mdev->dma_dev;
 	int i;
 
-	for (i = 0; i < txp->nbuf; i++)
+	for (i = 0; i < txp->nbuf; i++) {
 		dma_unmap_single(dev, le32_to_cpu(txp->buf[i]),
 				 le16_to_cpu(txp->len[i]), DMA_TO_DEVICE);
+		MT76_COUNT_DMA_UNMAP(mdev, le32_to_cpu(txp->buf[i]));
+	}
 }
 
 static void
@@ -233,6 +235,7 @@ mt76_connac_txp_skb_unmap_hw(struct mt76_dev *dev,
 		len &= MT_TXD_LEN_MASK;
 		dma_unmap_single(dev->dev, le32_to_cpu(ptr->buf0), len,
 				 DMA_TO_DEVICE);
+		MT76_COUNT_DMA_UNMAP(dev, le32_to_cpu(ptr->buf0));
 		if (last)
 			break;
 
@@ -241,6 +244,7 @@ mt76_connac_txp_skb_unmap_hw(struct mt76_dev *dev,
 		len &= MT_TXD_LEN_MASK;
 		dma_unmap_single(dev->dev, le32_to_cpu(ptr->buf1), len,
 				 DMA_TO_DEVICE);
+		MT76_COUNT_DMA_UNMAP(dev, le32_to_cpu(ptr->buf1));
 		if (last)
 			break;
 	}
