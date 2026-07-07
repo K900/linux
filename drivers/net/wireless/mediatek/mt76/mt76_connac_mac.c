@@ -199,9 +199,8 @@ void mt76_connac_write_hw_txp(struct mt76_dev *dev,
 }
 EXPORT_SYMBOL_GPL(mt76_connac_write_hw_txp);
 
-static void
-mt76_connac_txp_skb_unmap_fw(struct mt76_dev *mdev,
-			     struct mt76_connac_fw_txp *txp)
+void mt76_connac_txp_skb_unmap_fw(struct mt76_dev *mdev,
+				  struct mt76_connac_fw_txp *txp)
 {
 	struct device *dev = is_connac_v1(mdev) ? mdev->dev : mdev->dma_dev;
 	int i;
@@ -212,10 +211,10 @@ mt76_connac_txp_skb_unmap_fw(struct mt76_dev *mdev,
 		MT76_COUNT_DMA_UNMAP(mdev, le32_to_cpu(txp->buf[i]));
 	}
 }
+EXPORT_SYMBOL_GPL(mt76_connac_txp_skb_unmap_fw);
 
-static void
-mt76_connac_txp_skb_unmap_hw(struct mt76_dev *dev,
-			     struct mt76_connac_hw_txp *txp)
+void mt76_connac_txp_skb_unmap_hw(struct mt76_dev *dev,
+				  struct mt76_connac_hw_txp *txp)
 {
 	u32 last_mask;
 	int i;
@@ -249,6 +248,7 @@ mt76_connac_txp_skb_unmap_hw(struct mt76_dev *dev,
 			break;
 	}
 }
+EXPORT_SYMBOL_GPL(mt76_connac_txp_skb_unmap_hw);
 
 void mt76_connac_txp_skb_unmap(struct mt76_dev *dev,
 			       struct mt76_txwi_cache *t)

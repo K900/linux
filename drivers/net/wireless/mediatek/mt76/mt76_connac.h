@@ -452,6 +452,10 @@ s8 mt76_connac_get_rate_power_limit(struct mt76_phy *phy,
 void mt76_connac_write_hw_txp(struct mt76_dev *dev,
 			      struct mt76_tx_info *tx_info,
 			      void *txp_ptr, u32 id);
+void mt76_connac_txp_skb_unmap_fw(struct mt76_dev *mdev,
+				  struct mt76_connac_fw_txp *txp);
+void mt76_connac_txp_skb_unmap_hw(struct mt76_dev *dev,
+				  struct mt76_connac_hw_txp *txp);
 void mt76_connac_txp_skb_unmap(struct mt76_dev *dev,
 			       struct mt76_txwi_cache *txwi);
 void mt76_connac_tx_complete_skb(struct mt76_dev *mdev,
