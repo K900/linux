@@ -814,7 +814,8 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 	txctl.txq = sc->tx.txq_map[skb_get_queue_mapping(skb)];
 	txctl.sta = control->sta;
 
-	ath_dbg(common, XMIT, "transmitting packet, skb: %p\n", skb);
+	ath_dbg(common, XMIT, "transmitting packet, skb: %p  dur/id: 0x%x\n",
+		skb, hdr->duration_id);
 
 	if (ath_tx_start(hw, skb, &txctl) != 0) {
 		ath_dbg(common, XMIT, "TX failed\n");

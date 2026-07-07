@@ -2129,16 +2129,25 @@ static bool ieee80211_validate_radiotap_len(struct sk_buff *skb)
 		(struct ieee80211_radiotap_header *)skb->data;
 
 	/* check for not even having the fixed radiotap header part */
-	if (unlikely(skb->len < sizeof(struct ieee80211_radiotap_header)))
+	if (unlikely(skb->len < sizeof(struct ieee80211_radiotap_header))) {
+		pr_info("parse-tx-radiotap:  len too small: %d < %d\n",
+			skb->len, (int)(sizeof(struct ieee80211_radiotap_header)));
 		return false; /* too short to be possibly valid */
+	}
 
 	/* is it a header version we can trust to find length from? */
-	if (unlikely(rthdr->it_version))
+	if (unlikely(rthdr->it_version)) {
+		pr_info("parse-tx-radiotap:  it_version is not zero %d\n",
+			rthdr->it_version);
 		return false; /* only version 0 is supported */
+	}
 
 	/* does the skb contain enough to deliver on the alleged length? */
-	if (unlikely(skb->len < ieee80211_get_radiotap_len(skb->data)))
+	if (unlikely(skb->len < ieee80211_get_radiotap_len(skb->data))) {
+		pr_info("parse-tx-radiotap:  too short for rt len: %d < %d\n",
+			skb->len, ieee80211_get_radiotap_len(skb->data));
 		return false; /* skb too short for claimed rt header extent */
+	}
 
 	return true;
 }
@@ -2198,8 +2207,10 @@ bool ieee80211_parse_tx_radiotap(struct sk_buff *skb,
 				 * because it will be recomputed and added
 				 * on transmission
 				 */
-				if (skb->len < (iterator._max_length + FCS_LEN))
+				if (skb->len < (iterator._max_length + FCS_LEN)) {
+					pr_info("parse-tx-radiotap:  fcs bad\n");
 					return false;
+				}
 
 				skb_trim(skb, skb->len - FCS_LEN);
 			}
@@ -2311,8 +2322,10 @@ bool ieee80211_parse_tx_radiotap(struct sk_buff *skb,
 		}
 	}
 
-	if (ret != -ENOENT) /* ie, if we didn't simply run out of fields */
+	if (ret != -ENOENT) { /* ie, if we didn't simply run out of fields */
+		pr_info("parse-tx-radiotap:  ret != ENOENT\n");
 		return false;
+	}
 
 	if (rate_found) {
 		struct ieee80211_supported_band *sband =
@@ -2382,8 +2395,10 @@ netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
 		      IEEE80211_TX_CTL_INJECTED;
 
 	/* Sanity-check the length of the radiotap header */
-	if (!ieee80211_validate_radiotap_len(skb))
+	if (!ieee80211_validate_radiotap_len(skb)) {
+		pr_info("validate-radiotap-len failed.\n");
 		goto fail;
+	}
 
 	/* we now know there is a radiotap header with a length we can use */
 	len_rthdr = ieee80211_get_radiotap_len(skb->data);
@@ -2402,14 +2417,18 @@ netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
 	skb_set_network_header(skb, len_rthdr);
 	skb_set_transport_header(skb, len_rthdr);
 
-	if (skb->len < len_rthdr + 2)
+	if (skb->len < len_rthdr + 2) {
+		pr_info("monitor start xmit, len too small: %d\n", skb->len);
 		goto fail;
+	}
 
 	hdr = (struct ieee80211_hdr *)(skb->data + len_rthdr);
 	hdrlen = ieee80211_hdrlen(hdr->frame_control);
 
-	if (skb->len < len_rthdr + hdrlen)
+	if (skb->len < len_rthdr + hdrlen) {
+		pr_info("monitor start xmit, len2 too small: %d\n", skb->len);
 		goto fail;
+	}
 
 	/*
 	 * Initialize skb->protocol if the injected frame is a data frame
@@ -2470,8 +2489,10 @@ netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
 
 	if (chanctx_conf)
 		chandef = &chanctx_conf->def;
-	else
+	else {
+		pr_info("monitor start xmit, chandef not found\n");
 		goto fail_rcu;
+	}
 
 	/*
 	 * If driver/HW supports IEEE80211_CHAN_CAN_MONITOR we still
@@ -2498,8 +2519,10 @@ netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
 	 * monitor flag interfaces used for AP support.
 	 */
 	if (!cfg80211_reg_can_beacon(local->hw.wiphy, chandef,
-				     sdata->vif.type))
+				     sdata->vif.type)) {
+		pr_info("monitor start xmit, cannot beacon\n");
 		goto fail_rcu;
+	}
 
 	info->band = chandef->chan->band;
 
