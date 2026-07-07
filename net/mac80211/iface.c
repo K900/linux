@@ -1685,6 +1685,12 @@ static void ieee80211_iface_process_skb(struct ieee80211_local *local,
 		struct sta_info *sta;
 		int len = skb->len;
 
+		int barv = drv_consume_block_ack(local, sdata, skb);
+
+		/*pr_err("called drv_consume_blockack, rv: %d\n", barv);*/
+		if (barv == 0)
+			return;
+
 		sta = sta_info_get_bss(sdata, mgmt->sa);
 		if (sta) {
 			switch (mgmt->u.action.action_code) {
