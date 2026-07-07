@@ -2624,11 +2624,19 @@ mt76_txq_dbg(struct mt76_dev *dev, struct mt76_txq *mtxq, u32 dbg_mask, const ch
 }
 
 #ifdef CONFIG_CT_DBG
-#define MT76_COUNT_DMA_MAP(dev) atomic64_inc(&(dev)->map_counter)
-#define MT76_COUNT_DMA_UNMAP(dev) atomic64_inc(&(dev)->unmap_counter)
+#define MT76_COUNT_DMA_MAP(mdev, addr) \
+	do { \
+		atomic64_inc(&(mdev)->map_counter); \
+		mtk_dbg((mdev), TXV, "%s:%d: ENMAP %llx\n", __func__, __LINE__, (u64)addr); \
+	} while (0)
+#define MT76_COUNT_DMA_UNMAP(mdev, addr) \
+	do { \
+		atomic64_inc(&(mdev)->unmap_counter); \
+		mtk_dbg((mdev), TXV, "%s:%d: UNMAP %llx\n", __func__, __LINE__, (u64)addr); \
+	} while (0)
 #else
-#define MT76_COUNT_DMA_MAP(dev)
-#define MT76_COUNT_DMA_UNMAP(dev)
+#define MT76_COUNT_DMA_MAP(dev, addr)
+#define MT76_COUNT_DMA_UNMAP(dev, addr)
 #endif
 
 #endif
