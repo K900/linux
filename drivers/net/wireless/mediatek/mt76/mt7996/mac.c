@@ -1634,6 +1634,31 @@ mt7996_tx_check_aggr(struct ieee80211_link_sta *link_sta,
 }
 
 static void
+mt7996_connac_txp_skb_unmap(struct mt7996_dev *dev, struct mt76_txwi_cache *t)
+{
+	struct mt76_connac_txp_common *txp;
+	struct mt76_connac_txp_ptr *ptr;
+	__le32 *txwi;
+	u16 len;
+
+	txp = mt76_connac_txwi_to_txp(&dev->mt76, t);
+	txwi = (__le32 *)mt76_get_txwi_ptr(&dev->mt76, t);
+
+	if (le32_to_cpu(txwi[7]) & MT_TXD7_MAC_TXD) {
+		/* See mt7996_tx_prepare_skb for the specific setup logic here.
+		 * Generic unmap_hw fails here due to lacking ConnAC3 constants.
+		 */
+		ptr = &txp->hw.ptr[0];
+		len = le16_to_cpu(ptr->len0);
+		dma_unmap_single(dev->mt76.dev, le32_to_cpu(ptr->buf0), len,
+				 DMA_TO_DEVICE);
+		MT76_COUNT_DMA_UNMAP(&dev->mt76, le32_to_cpu(ptr->buf0));
+	} else {
+		mt76_connac_txp_skb_unmap_fw(&dev->mt76, &txp->fw);
+	}
+}
+
+static void
 mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 		 struct ieee80211_link_sta *link_sta,
 		 struct mt76_wcid *wcid, struct list_head *free_list,
@@ -1647,7 +1672,7 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
 	struct mt7996_phy *phy = &dev->phy;
 	struct mt76_mib_stats *mib = &phy->mib;
 
-	mt76_connac_txp_skb_unmap(mdev, t);
+	mt7996_connac_txp_skb_unmap(dev, t);
 	if (!t->skb)
 		goto out;
 
