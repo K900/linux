@@ -27,7 +27,7 @@ mt76_alloc_txwi(struct mt76_dev *dev)
 		kfree(txwi);
 		return NULL;
 	}
-	MT76_COUNT_DMA_MAP(dev);
+	MT76_COUNT_DMA_MAP(dev, addr);
 
 	t = (struct mt76_txwi_cache *)(txwi + dev->drv->txwi_size);
 	t->dma_addr = addr;
@@ -137,7 +137,7 @@ mt76_free_pending_txwi(struct mt76_dev *dev)
 		dma_unmap_single(dev->dma_dev, t->dma_addr, dev->drv->txwi_size,
 				 DMA_TO_DEVICE);
 		kfree(mt76_get_txwi_ptr(dev, t));
-		MT76_COUNT_DMA_UNMAP(dev);
+		MT76_COUNT_DMA_UNMAP(dev, t->dma_addr);
 	}
 	local_bh_enable();
 }
@@ -392,13 +392,13 @@ mt76_dma_tx_cleanup_idx(struct mt76_dev *dev, struct mt76_queue *q, int idx,
 	if (!e->skip_buf0) {
 		dma_unmap_single(dev->dma_dev, e->dma_addr[0], e->dma_len[0],
 				 DMA_TO_DEVICE);
-		MT76_COUNT_DMA_UNMAP(dev);
+		MT76_COUNT_DMA_UNMAP(dev, e->dma_addr[0]);
 	}
 
 	if (!e->skip_buf1) {
 		dma_unmap_single(dev->dma_dev, e->dma_addr[1], e->dma_len[1],
 				 DMA_TO_DEVICE);
-		MT76_COUNT_DMA_UNMAP(dev);
+		MT76_COUNT_DMA_UNMAP(dev, e->dma_addr[1]);
 	}
 
 	if (e->txwi == DMA_DUMMY_DATA)
@@ -662,7 +662,7 @@ mt76_dma_tx_queue_skb_raw(struct mt76_dev *dev, struct mt76_queue *q,
 		mtk_dbg(dev, WRN, "mt76-dma-tx-queue-skb-raw, dma mapping error\n");
 		goto error;
 	}
-	MT76_COUNT_DMA_MAP(dev);
+	MT76_COUNT_DMA_MAP(dev, addr);
 
 	buf.addr = addr;
 	buf.len = skb->len;
@@ -736,7 +736,7 @@ mt76_dma_tx_queue_skb(struct mt76_phy *phy, struct mt76_queue *q,
 	addr = dma_map_single(dev->dma_dev, skb->data, len, DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(dev->dma_dev, addr)))
 		goto free;
-	MT76_COUNT_DMA_MAP(dev);
+	MT76_COUNT_DMA_MAP(dev, addr);
 
 	tx_info.buf[n].addr = t->dma_addr;
 	tx_info.buf[n++].len = dev->drv->txwi_size;
@@ -751,7 +751,7 @@ mt76_dma_tx_queue_skb(struct mt76_phy *phy, struct mt76_queue *q,
 				      DMA_TO_DEVICE);
 		if (unlikely(dma_mapping_error(dev->dma_dev, addr)))
 			goto unmap;
-		MT76_COUNT_DMA_MAP(dev);
+		MT76_COUNT_DMA_MAP(dev, addr);
 
 		tx_info.buf[n].addr = addr;
 		tx_info.buf[n++].len = iter->len;
@@ -781,7 +781,7 @@ unmap:
 	for (n--; n > 0; n--) {
 		dma_unmap_single(dev->dma_dev, tx_info.buf[n].addr,
 				 tx_info.buf[n].len, DMA_TO_DEVICE);
-		MT76_COUNT_DMA_UNMAP(dev);
+		MT76_COUNT_DMA_UNMAP(dev, tx_info.buf[n].addr);
 	}
 
 free:
