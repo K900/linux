@@ -1179,11 +1179,23 @@ static void dp_improc_update(struct linlondp_component *c,
 		IPS_CTRL_CHD420 | IPS_CTRL_DITH;
 
 	/* config color format */
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	if (st->color_format == DRM_COLOR_FORMAT_YCBCR420)
+#else
+	if (st->color_format == BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420))
+#endif
 		ctrl |= IPS_CTRL_YUV | IPS_CTRL_CHD422 | IPS_CTRL_CHD420;
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	else if (st->color_format == DRM_COLOR_FORMAT_YCBCR422)
+#else
+	else if (st->color_format == BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422))
+#endif
 		ctrl |= IPS_CTRL_YUV | IPS_CTRL_CHD422;
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	else if (st->color_format == DRM_COLOR_FORMAT_YCBCR444)
+#else
+	else if (st->color_format == BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444))
+#endif
 		ctrl |= IPS_CTRL_YUV;
 
 	/* config dither */
@@ -1265,12 +1277,22 @@ static int dp_improc_init(struct dp_dev *dp, struct block_header *blk,
 
 	improc = to_improc(c);
 	improc->supported_color_depths = BIT(8) | BIT(10);
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	improc->supported_color_formats = DRM_COLOR_FORMAT_RGB444 |
 					  DRM_COLOR_FORMAT_YCBCR444 |
 					  DRM_COLOR_FORMAT_YCBCR422;
+#else
+	improc->supported_color_formats = BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444) |
+					  BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444) |
+					  BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422);
+#endif
 	value = linlondp_read32(reg, BLK_INFO);
 	if (value & IPS_INFO_CHD420)
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 		improc->supported_color_formats |= DRM_COLOR_FORMAT_YCBCR420;
+#else
+		improc->supported_color_formats |= BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
+#endif
 
 	improc->supports_csc = true;
 	improc->supports_gamma = true;

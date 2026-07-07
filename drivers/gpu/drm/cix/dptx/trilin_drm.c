@@ -825,14 +825,27 @@ static u8 trilin_dp_cal_bpp(u8 bpc, int format)
 	u8 bpp = bpc * 3;
 
 	switch (format) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 0)
 	case DRM_COLOR_FORMAT_RGB444:
 	case DRM_COLOR_FORMAT_YCBCR444:
+#else
+	case BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444):
+	case BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444):
+#endif
 		bpp = bpc * 3;
 		break;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 0)
 	case DRM_COLOR_FORMAT_YCBCR422:
+#else
+	case BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422):
+#endif
 		bpp = bpc * 2;
 		break;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 0)
 	case DRM_COLOR_FORMAT_YCBCR420:
+#else
+	case BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420):
+#endif
 		bpp = bpc * 3 / 2;
 		break;
 	default:
@@ -955,7 +968,11 @@ static bool compute_available_clock_rate(struct trilin_dp *dp,
 		struct drm_connector_state *connector_state, u8 suggest_bpc,
 		int clock, int color_format, int *rt_bpc, int *rt_bpp)
 {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	int min_bpc = (color_format == DRM_COLOR_FORMAT_RGB444) ? 6 : 8;
+#else
+	int min_bpc = (color_format == BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444)) ? 6 : 8;
+#endif
 	int bpc = max(suggest_bpc, min_bpc);
 	int bpp, max_pixel_clock;
 	u8 max_lanes = dp->link_config.max_lanes;
@@ -1007,17 +1024,30 @@ int trilin_dp_encoder_compute_config(struct drm_encoder *encoder,
 	u8 max_lanes = dp->link_config.max_lanes;
 	int link_rate = max_rate;
 
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	if (!(info_formats & DRM_COLOR_FORMAT_RGB444)) {
 		info_formats |= DRM_COLOR_FORMAT_RGB444;
+#else
+	if (!(info_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444))) {
+		info_formats |= BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444);
+#endif
 		DP_WARN("info_format=%0x, force support RGB444", info->color_formats);
 	}
 
 	const int COMMON_COLORS_FORMATS[] = {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 		DRM_COLOR_FORMAT_RGB444, DRM_COLOR_FORMAT_YCBCR422, DRM_COLOR_FORMAT_YCBCR420};
+#else
+		BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444), BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422), BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420)};
+#endif
 
 	if (drm_mode_is_420_only(info, adjusted_mode)) {
 		/* CEA YUV420-only timings must be driven as YCbCr 4:2:0 */
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 		color_format = DRM_COLOR_FORMAT_YCBCR420;
+#else
+		color_format = BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
+#endif
 		success = compute_available_clock_rate(dp, connector_state, suggest_bpc,
 			adjusted_mode->clock, color_format, &bpc, &bpp);
 		if (success)
@@ -1030,7 +1060,11 @@ int trilin_dp_encoder_compute_config(struct drm_encoder *encoder,
 					suggest_bpc, adjusted_mode->clock, color_format,
 					&bpc, &bpp);
 				if (success) {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 					if (color_format != DRM_COLOR_FORMAT_RGB444)
+#else
+					if (color_format != BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444))
+#endif
 						DP_INFO("Use YUV Format=0x%0x", color_format);
 					break;
 				}
@@ -1045,13 +1079,25 @@ int trilin_dp_encoder_compute_config(struct drm_encoder *encoder,
 	}
 
 	switch (color_format) {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	case DRM_COLOR_FORMAT_YCBCR444:
+#else
+	case BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444):
+#endif
 		format = TRILIN_DPSUB_FORMAT_YCBCR444;
 		break;
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	case DRM_COLOR_FORMAT_YCBCR422:
+#else
+	case BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422):
+#endif
 		format = TRILIN_DPSUB_FORMAT_YCBCR422;
 		break;
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	case DRM_COLOR_FORMAT_YCBCR420:
+#else
+	case BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420):
+#endif
 		format = TRILIN_DPSUB_FORMAT_YCBCR420;
 		break;
 	default:

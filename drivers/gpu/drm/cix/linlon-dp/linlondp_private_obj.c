@@ -7,6 +7,15 @@
 #include "linlondp_dev.h"
 #include "linlondp_kms.h"
 
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+/* drm_atomic_private_obj_init() became 3-arg in v7.1 and now allocates the
+ * initial private-object state via funcs->atomic_create_state(). Older
+ * kernels take a driver-allocated state as the 3rd argument instead, so the
+ * create_state helpers and to_component() below are only built on v7.1+.
+ */
+#define to_component(o) container_of((o), struct linlondp_component, obj)
+#endif
+
 static void linlondp_component_state_reset(struct linlondp_component_state *st)
 {
 	st->binding_user = NULL;
@@ -42,7 +51,28 @@ static void linlondp_layer_atomic_destroy_state(struct drm_private_obj *obj,
 	kfree(st);
 }
 
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+static struct drm_private_state *
+linlondp_layer_atomic_create_state(struct drm_private_obj *obj)
+{
+	struct linlondp_layer_state *st;
+
+	st = kzalloc_obj(*st, GFP_KERNEL);
+	if (!st)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_private_obj_create_state(obj, &st->base.obj);
+	linlondp_component_state_reset(&st->base);
+	st->base.component = to_component(obj);
+
+	return &st->base.obj;
+}
+#endif
+
 static const struct drm_private_state_funcs linlondp_layer_obj_funcs = {
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+	.atomic_create_state = linlondp_layer_atomic_create_state,
+#endif
 	.atomic_duplicate_state = linlondp_layer_atomic_duplicate_state,
 	.atomic_destroy_state = linlondp_layer_atomic_destroy_state,
 };
@@ -50,6 +80,7 @@ static const struct drm_private_state_funcs linlondp_layer_obj_funcs = {
 static int linlondp_layer_obj_add(struct linlondp_kms_dev *kms,
 				  struct linlondp_layer *layer)
 {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	struct linlondp_layer_state *st;
 
 	st = kzalloc(sizeof(*st), GFP_KERNEL);
@@ -59,6 +90,10 @@ static int linlondp_layer_obj_add(struct linlondp_kms_dev *kms,
 	st->base.component = &layer->base;
 	drm_atomic_private_obj_init(&kms->base, &layer->base.obj, &st->base.obj,
 				    &linlondp_layer_obj_funcs);
+#else
+	drm_atomic_private_obj_init(&kms->base, &layer->base.obj,
+				    &linlondp_layer_obj_funcs);
+#endif
 	return 0;
 }
 
@@ -84,7 +119,28 @@ linlondp_scaler_atomic_destroy_state(struct drm_private_obj *obj,
 	kfree(to_scaler_st(priv_to_comp_st(state)));
 }
 
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+static struct drm_private_state *
+linlondp_scaler_atomic_create_state(struct drm_private_obj *obj)
+{
+	struct linlondp_scaler_state *st;
+
+	st = kzalloc_obj(*st, GFP_KERNEL);
+	if (!st)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_private_obj_create_state(obj, &st->base.obj);
+	linlondp_component_state_reset(&st->base);
+	st->base.component = to_component(obj);
+
+	return &st->base.obj;
+}
+#endif
+
 static const struct drm_private_state_funcs linlondp_scaler_obj_funcs = {
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+	.atomic_create_state = linlondp_scaler_atomic_create_state,
+#endif
 	.atomic_duplicate_state = linlondp_scaler_atomic_duplicate_state,
 	.atomic_destroy_state = linlondp_scaler_atomic_destroy_state,
 };
@@ -92,6 +148,7 @@ static const struct drm_private_state_funcs linlondp_scaler_obj_funcs = {
 static int linlondp_scaler_obj_add(struct linlondp_kms_dev *kms,
 				   struct linlondp_scaler *scaler)
 {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	struct linlondp_scaler_state *st;
 
 	st = kzalloc(sizeof(*st), GFP_KERNEL);
@@ -99,8 +156,12 @@ static int linlondp_scaler_obj_add(struct linlondp_kms_dev *kms,
 		return -ENOMEM;
 
 	st->base.component = &scaler->base;
+	drm_atomic_private_obj_init(&kms->base, &scaler->base.obj, &st->base.obj,
+				    &linlondp_scaler_obj_funcs);
+#else
 	drm_atomic_private_obj_init(&kms->base, &scaler->base.obj,
-				    &st->base.obj, &linlondp_scaler_obj_funcs);
+				    &linlondp_scaler_obj_funcs);
+#endif
 	return 0;
 }
 
@@ -126,7 +187,28 @@ linlondp_compiz_atomic_destroy_state(struct drm_private_obj *obj,
 	kfree(to_compiz_st(priv_to_comp_st(state)));
 }
 
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+static struct drm_private_state *
+linlondp_compiz_atomic_create_state(struct drm_private_obj *obj)
+{
+	struct linlondp_compiz_state *st;
+
+	st = kzalloc_obj(*st, GFP_KERNEL);
+	if (!st)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_private_obj_create_state(obj, &st->base.obj);
+	linlondp_component_state_reset(&st->base);
+	st->base.component = to_component(obj);
+
+	return &st->base.obj;
+}
+#endif
+
 static const struct drm_private_state_funcs linlondp_compiz_obj_funcs = {
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+	.atomic_create_state = linlondp_compiz_atomic_create_state,
+#endif
 	.atomic_duplicate_state = linlondp_compiz_atomic_duplicate_state,
 	.atomic_destroy_state = linlondp_compiz_atomic_destroy_state,
 };
@@ -134,6 +216,7 @@ static const struct drm_private_state_funcs linlondp_compiz_obj_funcs = {
 static int linlondp_compiz_obj_add(struct linlondp_kms_dev *kms,
 				   struct linlondp_compiz *compiz)
 {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	struct linlondp_compiz_state *st;
 
 	st = kzalloc(sizeof(*st), GFP_KERNEL);
@@ -141,9 +224,12 @@ static int linlondp_compiz_obj_add(struct linlondp_kms_dev *kms,
 		return -ENOMEM;
 
 	st->base.component = &compiz->base;
+	drm_atomic_private_obj_init(&kms->base, &compiz->base.obj, &st->base.obj,
+				    &linlondp_compiz_obj_funcs);
+#else
 	drm_atomic_private_obj_init(&kms->base, &compiz->base.obj,
-				    &st->base.obj, &linlondp_compiz_obj_funcs);
-
+				    &linlondp_compiz_obj_funcs);
+#endif
 	return 0;
 }
 
@@ -169,7 +255,28 @@ linlondp_splitter_atomic_destroy_state(struct drm_private_obj *obj,
 	kfree(to_splitter_st(priv_to_comp_st(state)));
 }
 
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+static struct drm_private_state *
+linlondp_splitter_atomic_create_state(struct drm_private_obj *obj)
+{
+	struct linlondp_splitter_state *st;
+
+	st = kzalloc_obj(*st, GFP_KERNEL);
+	if (!st)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_private_obj_create_state(obj, &st->base.obj);
+	linlondp_component_state_reset(&st->base);
+	st->base.component = to_component(obj);
+
+	return &st->base.obj;
+}
+#endif
+
 static const struct drm_private_state_funcs linlondp_splitter_obj_funcs = {
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+	.atomic_create_state = linlondp_splitter_atomic_create_state,
+#endif
 	.atomic_duplicate_state = linlondp_splitter_atomic_duplicate_state,
 	.atomic_destroy_state = linlondp_splitter_atomic_destroy_state,
 };
@@ -177,6 +284,7 @@ static const struct drm_private_state_funcs linlondp_splitter_obj_funcs = {
 static int linlondp_splitter_obj_add(struct linlondp_kms_dev *kms,
 				     struct linlondp_splitter *splitter)
 {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	struct linlondp_splitter_state *st;
 
 	st = kzalloc(sizeof(*st), GFP_KERNEL);
@@ -184,10 +292,12 @@ static int linlondp_splitter_obj_add(struct linlondp_kms_dev *kms,
 		return -ENOMEM;
 
 	st->base.component = &splitter->base;
-	drm_atomic_private_obj_init(&kms->base, &splitter->base.obj,
-				    &st->base.obj,
+	drm_atomic_private_obj_init(&kms->base, &splitter->base.obj, &st->base.obj,
 				    &linlondp_splitter_obj_funcs);
-
+#else
+	drm_atomic_private_obj_init(&kms->base, &splitter->base.obj,
+				    &linlondp_splitter_obj_funcs);
+#endif
 	return 0;
 }
 
@@ -213,7 +323,28 @@ linlondp_merger_atomic_destroy_state(struct drm_private_obj *obj,
 	kfree(to_merger_st(priv_to_comp_st(state)));
 }
 
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+static struct drm_private_state *
+linlondp_merger_atomic_create_state(struct drm_private_obj *obj)
+{
+	struct linlondp_merger_state *st;
+
+	st = kzalloc_obj(*st, GFP_KERNEL);
+	if (!st)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_private_obj_create_state(obj, &st->base.obj);
+	linlondp_component_state_reset(&st->base);
+	st->base.component = to_component(obj);
+
+	return &st->base.obj;
+}
+#endif
+
 static const struct drm_private_state_funcs linlondp_merger_obj_funcs = {
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+	.atomic_create_state = linlondp_merger_atomic_create_state,
+#endif
 	.atomic_duplicate_state = linlondp_merger_atomic_duplicate_state,
 	.atomic_destroy_state = linlondp_merger_atomic_destroy_state,
 };
@@ -221,6 +352,7 @@ static const struct drm_private_state_funcs linlondp_merger_obj_funcs = {
 static int linlondp_merger_obj_add(struct linlondp_kms_dev *kms,
 				   struct linlondp_merger *merger)
 {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	struct linlondp_merger_state *st;
 
 	st = kzalloc(sizeof(*st), GFP_KERNEL);
@@ -228,9 +360,12 @@ static int linlondp_merger_obj_add(struct linlondp_kms_dev *kms,
 		return -ENOMEM;
 
 	st->base.component = &merger->base;
+	drm_atomic_private_obj_init(&kms->base, &merger->base.obj, &st->base.obj,
+				    &linlondp_merger_obj_funcs);
+#else
 	drm_atomic_private_obj_init(&kms->base, &merger->base.obj,
-				    &st->base.obj, &linlondp_merger_obj_funcs);
-
+				    &linlondp_merger_obj_funcs);
+#endif
 	return 0;
 }
 
@@ -256,7 +391,28 @@ linlondp_improc_atomic_destroy_state(struct drm_private_obj *obj,
 	kfree(to_improc_st(priv_to_comp_st(state)));
 }
 
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+static struct drm_private_state *
+linlondp_improc_atomic_create_state(struct drm_private_obj *obj)
+{
+	struct linlondp_improc_state *st;
+
+	st = kzalloc_obj(*st, GFP_KERNEL);
+	if (!st)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_private_obj_create_state(obj, &st->base.obj);
+	linlondp_component_state_reset(&st->base);
+	st->base.component = to_component(obj);
+
+	return &st->base.obj;
+}
+#endif
+
 static const struct drm_private_state_funcs linlondp_improc_obj_funcs = {
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+	.atomic_create_state = linlondp_improc_atomic_create_state,
+#endif
 	.atomic_duplicate_state = linlondp_improc_atomic_duplicate_state,
 	.atomic_destroy_state = linlondp_improc_atomic_destroy_state,
 };
@@ -264,6 +420,7 @@ static const struct drm_private_state_funcs linlondp_improc_obj_funcs = {
 static int linlondp_improc_obj_add(struct linlondp_kms_dev *kms,
 				   struct linlondp_improc *improc)
 {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	struct linlondp_improc_state *st;
 
 	st = kzalloc(sizeof(*st), GFP_KERNEL);
@@ -271,9 +428,12 @@ static int linlondp_improc_obj_add(struct linlondp_kms_dev *kms,
 		return -ENOMEM;
 
 	st->base.component = &improc->base;
+	drm_atomic_private_obj_init(&kms->base, &improc->base.obj, &st->base.obj,
+				    &linlondp_improc_obj_funcs);
+#else
 	drm_atomic_private_obj_init(&kms->base, &improc->base.obj,
-				    &st->base.obj, &linlondp_improc_obj_funcs);
-
+				    &linlondp_improc_obj_funcs);
+#endif
 	return 0;
 }
 
@@ -299,7 +459,28 @@ linlondp_timing_ctrlr_atomic_destroy_state(struct drm_private_obj *obj,
 	kfree(to_ctrlr_st(priv_to_comp_st(state)));
 }
 
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+static struct drm_private_state *
+linlondp_timing_ctrlr_atomic_create_state(struct drm_private_obj *obj)
+{
+	struct linlondp_timing_ctrlr_state *st;
+
+	st = kzalloc_obj(*st, GFP_KERNEL);
+	if (!st)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_private_obj_create_state(obj, &st->base.obj);
+	linlondp_component_state_reset(&st->base);
+	st->base.component = to_component(obj);
+
+	return &st->base.obj;
+}
+#endif
+
 static const struct drm_private_state_funcs linlondp_timing_ctrlr_obj_funcs = {
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+	.atomic_create_state = linlondp_timing_ctrlr_atomic_create_state,
+#endif
 	.atomic_duplicate_state = linlondp_timing_ctrlr_atomic_duplicate_state,
 	.atomic_destroy_state = linlondp_timing_ctrlr_atomic_destroy_state,
 };
@@ -307,7 +488,8 @@ static const struct drm_private_state_funcs linlondp_timing_ctrlr_obj_funcs = {
 static int linlondp_timing_ctrlr_obj_add(struct linlondp_kms_dev *kms,
 					 struct linlondp_timing_ctrlr *ctrlr)
 {
-	struct linlondp_compiz_state *st;
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
+	struct linlondp_timing_ctrlr_state *st;
 
 	st = kzalloc(sizeof(*st), GFP_KERNEL);
 	if (!st)
@@ -316,7 +498,10 @@ static int linlondp_timing_ctrlr_obj_add(struct linlondp_kms_dev *kms,
 	st->base.component = &ctrlr->base;
 	drm_atomic_private_obj_init(&kms->base, &ctrlr->base.obj, &st->base.obj,
 				    &linlondp_timing_ctrlr_obj_funcs);
-
+#else
+	drm_atomic_private_obj_init(&kms->base, &ctrlr->base.obj,
+				    &linlondp_timing_ctrlr_obj_funcs);
+#endif
 	return 0;
 }
 
@@ -343,7 +528,28 @@ linlondp_pipeline_atomic_destroy_state(struct drm_private_obj *obj,
 	kfree(priv_to_pipe_st(state));
 }
 
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+static struct drm_private_state *
+linlondp_pipeline_atomic_create_state(struct drm_private_obj *obj)
+{
+	struct linlondp_pipeline_state *st;
+
+	st = kzalloc_obj(*st, GFP_KERNEL);
+	if (!st)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_private_obj_create_state(obj, &st->obj);
+	st->active_comps = 0;
+	st->pipe = container_of(obj, struct linlondp_pipeline, obj);
+
+	return &st->obj;
+}
+#endif
+
 static const struct drm_private_state_funcs linlondp_pipeline_obj_funcs = {
+#if KERNEL_VERSION(7, 1, 0) <= LINUX_VERSION_CODE
+	.atomic_create_state = linlondp_pipeline_atomic_create_state,
+#endif
 	.atomic_duplicate_state = linlondp_pipeline_atomic_duplicate_state,
 	.atomic_destroy_state = linlondp_pipeline_atomic_destroy_state,
 };
@@ -351,6 +557,7 @@ static const struct drm_private_state_funcs linlondp_pipeline_obj_funcs = {
 static int linlondp_pipeline_obj_add(struct linlondp_kms_dev *kms,
 				     struct linlondp_pipeline *pipe)
 {
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	struct linlondp_pipeline_state *st;
 
 	st = kzalloc(sizeof(*st), GFP_KERNEL);
@@ -360,7 +567,10 @@ static int linlondp_pipeline_obj_add(struct linlondp_kms_dev *kms,
 	st->pipe = pipe;
 	drm_atomic_private_obj_init(&kms->base, &pipe->obj, &st->obj,
 				    &linlondp_pipeline_obj_funcs);
-
+#else
+	drm_atomic_private_obj_init(&kms->base, &pipe->obj,
+				    &linlondp_pipeline_obj_funcs);
+#endif
 	return 0;
 }
 

@@ -236,9 +236,15 @@ cix_virtual_bind(struct device *comp, struct device *master,
 	}
 
 	/*  Set supported color formats */
+#if KERNEL_VERSION(7, 1, 0) > LINUX_VERSION_CODE
 	connector->display_info.color_formats = DRM_COLOR_FORMAT_RGB444   |
 						DRM_COLOR_FORMAT_YCBCR422 |
 						DRM_COLOR_FORMAT_YCBCR420;
+#else
+	connector->display_info.color_formats = BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444)   |
+						BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422) |
+						BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
+#endif
 
 	return 0;
 }
