@@ -307,8 +307,13 @@ int ieee80211_radiotap_iterator_next(
 
 		if ((unsigned long)iterator->_arg -
 		    (unsigned long)iterator->_rtheader >
-		    (unsigned long)iterator->_max_length)
+		    (unsigned long)iterator->_max_length) {
+			pr_info("radiotap-iterator-next, instanity: %ld %ld %ld\n",
+				(unsigned long)iterator->_arg,
+				(unsigned long)iterator->_rtheader,
+				(unsigned long)iterator->_max_length);
 			return -EINVAL;
+		}
 
 		/* these special ones are valid in each bitmap word */
 		switch (iterator->_arg_index % 32) {
