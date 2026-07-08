@@ -15,6 +15,7 @@
 #include "hdcp2_tx_state.h"
 #include "hdcp2_key_drvn_tx.h"
 #include "dptx_aux_reg.h"
+#include "cix_hdcp_ioctl.h"
 
 #define TR_DPTX_AUX_CMD_READ 0x0900ul
 #define TR_DPTX_AUX_CMD_WRITE 0x0800ul

@@ -1142,7 +1142,7 @@ int trilin_dp_encoder_compute_config(struct drm_encoder *encoder,
 	return 0;
 }
 
-int trilin_dp_encoder_atomic_check(struct drm_encoder *encoder,
+static int trilin_dp_encoder_atomic_check(struct drm_encoder *encoder,
 				  struct drm_crtc_state *crtc_state,
 				  struct drm_connector_state *connector_state)
 {

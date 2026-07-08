@@ -160,7 +160,6 @@ static void trilin_link_rate_update(struct trilin_dp *dp, u32 reg)
 	union phy_configure_opts opts = { 0 };
 	struct trilin_phy_t *phy = &dp->phy;
 	u8 lanes, max_lanes = dp->link_config.max_lanes;
-	int ret;
 
 	if (IS_ERR_OR_NULL(phy->base)) {
 		lanes = max_lanes;
@@ -176,7 +175,7 @@ static void trilin_link_rate_update(struct trilin_dp *dp, u32 reg)
 	opts.dp.set_rate = 1;
 
 	if (phy->phy_ops)
-		ret = phy->phy_ops->configure(dp, &opts);
+		phy->phy_ops->configure(dp, &opts);
 }
 
 /**
@@ -734,7 +733,7 @@ end:
  *
  * Train the link by downshifting the link rate if training is not successful.
  */
-int trilin_dp_train_loop(struct trilin_dp *dp)
+static int trilin_dp_train_loop(struct trilin_dp *dp)
 {
 	struct trilin_dp_mode *mode = &dp->mode;
 	u8 bw_cur, bw = mode->bw_code;
@@ -1734,7 +1733,7 @@ int trilin_dp_panel_setup_hdr_sdp(struct trilin_dp *dp,
 	return 0;
 }
 
-void trilin_dp_panel_hw_cfg(struct trilin_dp *dp,
+static void trilin_dp_panel_hw_cfg(struct trilin_dp *dp,
 			    struct trilin_dp_panel *dp_panel)
 {
 	struct trilin_connector *conn = dp_panel->connector;

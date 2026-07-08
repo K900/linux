@@ -403,7 +403,7 @@ static int trilin_dp_mst_get_modes(struct drm_connector *connector)
 	return ret;
 }
 
-enum drm_mode_status trilin_dp_mst_mode_valid(struct drm_connector *connector,
+static enum drm_mode_status trilin_dp_mst_mode_valid(struct drm_connector *connector,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 15, 0)
 					      struct drm_display_mode *mode)
 #else

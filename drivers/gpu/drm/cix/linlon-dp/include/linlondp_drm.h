@@ -23,4 +23,9 @@ enum linlondp_hdr_eotf {
 struct color_ctm_ext {
 	uint64_t matrix[12];
 };
+
+int linlondp_atomic_replace_property_blob_from_id(
+	struct drm_device *dev, struct drm_property_blob **blob,
+	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
+	bool *replaced);
 #endif

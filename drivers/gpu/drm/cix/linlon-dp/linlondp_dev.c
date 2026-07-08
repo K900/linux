@@ -604,7 +604,7 @@ static int linlondp_gop_get(void)
 	return enabled_by_gop;
 }
 
-static void linlondp_gop_set(void)
+static void __maybe_unused linlondp_gop_set(void)
 {
 	struct arm_smccc_res res;
 	int dpu_gop_bit = 1;
@@ -634,10 +634,10 @@ struct linlondp_dev *linlondp_dev_create(struct device *dev)
 
 	mdev->dev = dev;
 
-    err = device_property_read_u32(dev, "enabled_by_gop",
-                               (u32 *)&mdev->enabled_by_gop);
-    if (err)
-        mdev->enabled_by_gop = 0;
+	err = device_property_read_u32(dev, "enabled_by_gop",
+				       (u32 *)&mdev->enabled_by_gop);
+	if (err)
+		mdev->enabled_by_gop = 0;
 
 	is_insmod = linlondp_gop_get();
 	if (is_insmod)

@@ -20,11 +20,6 @@
 #include "linlondp_kms.h"
 #include "linlondp_drm.h"
 
-extern int linlondp_atomic_replace_property_blob_from_id(
-	struct drm_device *dev, struct drm_property_blob **blob,
-	uint64_t blob_id, ssize_t expected_size, ssize_t expected_elem_size,
-	bool *replaced);
-
 void linlondp_crtc_get_color_config(struct drm_crtc_state *crtc_st,
 				    u32 *color_depths, u32 *color_formats)
 {
@@ -634,7 +629,6 @@ static unsigned long linlondp_calc_min_aclk_rate(struct linlondp_crtc *kcrtc,
 						 unsigned long pxlclk)
 {
 	unsigned long min_aclk = 0;
-	struct drm_crtc *crtc = &kcrtc->base;
 	struct linlondp_dev *mdev = kcrtc->master->mdev;
 	/* Once dual-link one display pipeline drives two display outputs,
 	 * the aclk needs run on the double rate of pxlclk

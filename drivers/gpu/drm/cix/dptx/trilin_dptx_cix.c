@@ -123,7 +123,7 @@ static int trilin_dptx_cix_bind(struct device *comp, struct device *master,
 	void *np;
 	const void *match;
 	struct drm_device *drm = master_data;
-	struct trilin_dptx_pdata *pdata;
+	struct trilin_dptx_pdata *pdata __maybe_unused;
 	struct trilin_dptx_cix_dev *cix_dptx = dev_get_drvdata(comp);
 	struct drm_encoder *encoder;
 	struct trilin_dpsub *dpsub;

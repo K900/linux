@@ -281,8 +281,10 @@ linlondp_wb_connector_create_color_prop(struct linlondp_wb_connector *wb_conn)
 {
 	struct drm_device *dev = wb_conn->base.base.dev;
 	struct drm_property *prop;
-	struct drm_prop_enum_list enum_list[max_t(int, DRM_COLOR_ENCODING_MAX,
-						  DRM_COLOR_RANGE_MAX)];
+	struct drm_prop_enum_list enum_list[(int)DRM_COLOR_ENCODING_MAX >
+			(int)DRM_COLOR_RANGE_MAX ?
+			(int)DRM_COLOR_ENCODING_MAX :
+			(int)DRM_COLOR_RANGE_MAX];
 	u32 supported_encoding = BIT(DRM_COLOR_YCBCR_BT601) |
 				 BIT(DRM_COLOR_YCBCR_BT709);
 	u32 supported_range = BIT(DRM_COLOR_YCBCR_LIMITED_RANGE) |

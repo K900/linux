@@ -10,6 +10,7 @@
 #include <linux/io.h>
 
 #include "cix_hdcp.h"
+#include "hdcp2_tx_tmr.h"
 
 //------------------------------------------------------------------------------
 //  Time Values:
@@ -44,7 +45,7 @@
 //  Returns:
 //      None
 //------------------------------------------------------------------------------
-void tmr_hdcp_init(void *addr)
+static void tmr_hdcp_init(void *addr)
 {
 	writel(0ul, addr);
 }
@@ -59,7 +60,7 @@ void tmr_hdcp_init(void *addr)
 //  Returns:
 //      None
 //------------------------------------------------------------------------------
-void tmr_hdcp_set_us(void *addr, uint32_t tmr_us)
+static void tmr_hdcp_set_us(void *addr, uint32_t tmr_us)
 {
 	uint32_t tmr_val = readl(addr);
 
@@ -78,7 +79,7 @@ void tmr_hdcp_set_us(void *addr, uint32_t tmr_us)
 //  Returns:
 //      None
 //------------------------------------------------------------------------------
-void tmr_hdcp_enable(void *addr, bool enable)
+static void tmr_hdcp_enable(void *addr, bool enable)
 {
 	uint32_t tmr_val = readl(addr);
 
@@ -101,7 +102,7 @@ void tmr_hdcp_enable(void *addr, bool enable)
 //  Returns:
 //      None
 //------------------------------------------------------------------------------
-void tmr_hdcp_interrupt(void *addr, bool enable)
+static void tmr_hdcp_interrupt(void *addr, bool enable)
 {
 	uint32_t tmr_val = readl(addr);
 
@@ -124,7 +125,7 @@ void tmr_hdcp_interrupt(void *addr, bool enable)
 //  Returns:
 //      None
 //------------------------------------------------------------------------------
-void tmr_hdcp_autoreload(void *addr, bool enable)
+static void __maybe_unused tmr_hdcp_autoreload(void *addr, bool enable)
 {
 	uint32_t tmr_val = readl(addr);
 
