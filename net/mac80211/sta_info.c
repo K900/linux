@@ -3540,21 +3540,26 @@ void sta_set_sinfo(struct sta_info *sta, struct station_info *sinfo,
 		sinfo->valid_links = sta->sta.valid_links;
 
 		for_each_valid_link(sinfo, link_id) {
-			struct link_station_info *lsi = sinfo->links[link_id];
-
+			struct link_station_info **lsi = &sinfo->links[link_id];
 			link_sta = wiphy_dereference(sta->local->hw.wiphy,
 						     sta->link[link_id]);
 			link = wiphy_dereference(sdata->local->hw.wiphy,
 						 sdata->link[link_id]);
 
-			if (!link_sta || !lsi || !link) {
+			if (!link_sta || !link) {
 				sinfo->valid_links &= ~BIT(link_id);
 				continue;
 			}
-			sta_set_link_sinfo(sta, lsi, link, tidstats);
+			if (!*lsi) {
+				*lsi = kzalloc(sizeof(**lsi), GFP_KERNEL);
+				if (!*lsi)
+					continue;
+			}
+
+			sta_set_link_sinfo(sta, *lsi, link, tidstats);
 			if (!thr &&
-			    (lsi->filled & BIT_ULL(NL80211_STA_INFO_EXPECTED_THROUGHPUT)))
-				est_thr += lsi->expected_throughput;
+			    ((*lsi)->filled & BIT_ULL(NL80211_STA_INFO_EXPECTED_THROUGHPUT)))
+				est_thr += (*lsi)->expected_throughput;
 		}
 		if (est_thr) {
 			sinfo->filled |= BIT_ULL(NL80211_STA_INFO_EXPECTED_THROUGHPUT);
