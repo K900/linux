@@ -18,7 +18,7 @@
 
 #include "linlondp_dev.h"
 #include "linlondp_kms.h"
-#include "linlondp_drm.h"
+#include "include/linlondp_drm.h"
 
 void linlondp_crtc_get_color_config(struct drm_crtc_state *crtc_st,
 				    u32 *color_depths, u32 *color_formats)

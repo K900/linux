@@ -10,7 +10,7 @@
 #include <drm/drm_print.h>
 #include <drm/drm_file.h>
 #include "linlondp_dev.h"
-#include "linlondp_drm.h"
+#include "include/linlondp_drm.h"
 #include "linlondp_kms.h"
 #include "linlondp_framebuffer.h"
 
