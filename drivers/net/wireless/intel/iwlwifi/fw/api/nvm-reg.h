@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
- * Copyright (C) 2012-2014, 2018-2025 Intel Corporation
+ * Copyright (C) 2012-2014, 2018-2026 Intel Corporation
  * Copyright (C) 2013-2015 Intel Mobile Communications GmbH
  * Copyright (C) 2016-2017 Intel Deutschland GmbH
  */
@@ -689,6 +689,12 @@ struct iwl_lari_config_change_cmd_v8 {
  *	get the data from the BIOS.
  * @oem_unii9_enable: UNII-9 enablement as read from the BIOS
  * @bios_hdr: bios config header
+ * @oem_uhb_allow_extension_bitmap: DSM Function 4 data as an extension of UHB
+ *	enabled MCC sets
+ * @bios_wcpe_hdr: puncturing config header
+ * @wcpe_bitmap: bitmap of puncturing enablement per MCC
+ * @bios_wbem_hdr: 320 MHz per-MCC WBEM config header
+ * @reserved: reserved
  */
 struct iwl_lari_config_change_cmd {
 	__le32 config_bitmap;
@@ -706,9 +712,16 @@ struct iwl_lari_config_change_cmd {
 	__le32 oem_unii9_enable;
 	/* since version 13 */
 	struct iwl_bios_config_hdr bios_hdr;
+	/* All the below are since version 14 */
+	__le32 oem_uhb_allow_extension_bitmap;
+	struct iwl_bios_config_hdr bios_wcpe_hdr;
+	__le32 wcpe_bitmap;
+	struct iwl_bios_config_hdr bios_wbem_hdr;
+	__le32 reserved[10];
 } __packed;
 /* LARI_CHANGE_CONF_CMD_S_VER_12
  * LARI_CHANGE_CONF_CMD_S_VER_13
+ * LARI_CHANGE_CONF_CMD_S_VER_14
  */
 
 /* Activate UNII-1 (5.2GHz) for World Wide */

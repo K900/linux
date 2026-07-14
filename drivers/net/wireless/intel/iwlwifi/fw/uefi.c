@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
- * Copyright(c) 2021-2025 Intel Corporation
+ * Copyright(c) 2021-2026 Intel Corporation
  */
 
 #include "iwl-drv.h"
@@ -884,6 +884,8 @@ int iwl_uefi_get_wbem(struct iwl_fw_runtime *fwrt, u32 *value)
 		goto out;
 	}
 	*value = data->wbem_320mhz_per_mcc & IWL_UEFI_WBEM_REV0_MASK;
+	fwrt->wbem_source = BIOS_SOURCE_UEFI;
+	fwrt->wbem_revision = data->revision;
 	IWL_DEBUG_RADIO(fwrt, "Loaded WBEM config from UEFI\n");
 out:
 	kfree(data);
@@ -970,10 +972,7 @@ int iwl_uefi_get_dsm(struct iwl_fw_runtime *fwrt, enum iwl_dsm_funcs func,
 int iwl_uefi_get_puncturing(struct iwl_fw_runtime *fwrt)
 {
 	struct uefi_cnv_var_puncturing_data *data;
-	/* default value is not enabled if there is any issue in reading
-	 * uefi variable or revision is not supported
-	 */
-	int puncturing = 0;
+	int ret = 0;
 
 	if (iwlwifi_mod_params.allow_puncturing)
 		return IWL_UEFI_CNV_PUNCTURING_USA_EN_MSK | IWL_UEFI_CNV_PUNCTURING_CANADA_EN_MSK;
@@ -983,19 +982,22 @@ int iwl_uefi_get_puncturing(struct iwl_fw_runtime *fwrt)
 					      "UefiCnvWlanPuncturing",
 					      sizeof(*data), NULL);
 	if (IS_ERR(data))
-		return puncturing;
+		return -EINVAL;
 
 	if (data->revision != IWL_UEFI_PUNCTURING_REVISION) {
 		IWL_DEBUG_RADIO(fwrt, "Unsupported UEFI PUNCTURING rev:%d\n",
 				data->revision);
+		ret = -EINVAL;
 	} else {
-		puncturing = data->puncturing & IWL_UEFI_PUNCTURING_REV0_MASK;
+		fwrt->puncturing_source = BIOS_SOURCE_UEFI;
+		fwrt->puncturing_revision = data->revision;
+		fwrt->bios_puncturing = data->puncturing;
 		IWL_DEBUG_RADIO(fwrt, "Loaded puncturing bits from UEFI: %d\n",
-				puncturing);
+				fwrt->bios_puncturing);
 	}
 
 	kfree(data);
-	return puncturing;
+	return ret;
 }
 IWL_EXPORT_SYMBOL(iwl_uefi_get_puncturing);
 

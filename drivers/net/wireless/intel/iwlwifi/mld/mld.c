@@ -419,7 +419,7 @@ iwl_op_mode_mld_start(struct iwl_trans *trans, const struct iwl_rf_cfg *cfg,
 
 	iwl_mld_get_bios_tables(mld);
 	iwl_uefi_get_sgom_table(trans, &mld->fwrt);
-	mld->bios_enable_puncturing = iwl_uefi_get_puncturing(&mld->fwrt);
+	iwl_uefi_get_puncturing(&mld->fwrt);
 
 	iwl_mld_hw_set_regulatory(mld);
 

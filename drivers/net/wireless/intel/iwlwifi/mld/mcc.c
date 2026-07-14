@@ -137,7 +137,7 @@ iwl_mld_get_regdomain(struct iwl_mld *mld,
 
 	/* FM follows BIOS/MCC policy, WH disallows puncturing only in US/CA. */
 	if (CSR_HW_RFID_TYPE(mld->trans->info.hw_rf_id) == IWL_CFG_RF_TYPE_FM) {
-		if (!iwl_puncturing_is_allowed_in_bios(mld->bios_enable_puncturing,
+		if (!iwl_puncturing_is_allowed_in_bios(mld->fwrt.bios_puncturing,
 						       le16_to_cpu(resp->mcc)))
 			ieee80211_hw_set(mld->hw, DISALLOW_PUNCTURING);
 		else
