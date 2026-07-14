@@ -325,8 +325,16 @@ void iwl_mld_configure_lari(struct iwl_mld *mld)
 	struct iwl_lari_config_change_cmd cmd = {
 		.config_bitmap = iwl_mld_get_lari_config_bitmap(fwrt),
 	};
-	bool has_raw_dsm_capa = fw_has_capa(&fwrt->fw->ucode_capa,
-					    IWL_UCODE_TLV_CAPA_FW_ACCEPTS_RAW_DSM_TABLE);
+	u8 cmd_ver = iwl_fw_lookup_cmd_ver(mld->fw,
+					   WIDE_ID(REGULATORY_AND_NVM_GROUP,
+						   LARI_CONFIG_CHANGE), 12);
+	/*
+	 * For LARI_CONFIG_CHANGE command version 13 and above, firmware accepts
+	 * raw DSM values by default and this TLV is no longer needed.
+	 */
+	bool has_raw_dsm_capa = cmd_ver >= 13 ||
+		fw_has_capa(&fwrt->fw->ucode_capa,
+			    IWL_UCODE_TLV_CAPA_FW_ACCEPTS_RAW_DSM_TABLE);
 	int ret;
 	u32 value;
 
@@ -428,9 +436,7 @@ void iwl_mld_configure_lari(struct iwl_mld *mld)
 			"sending LARI_CONFIG_CHANGE, oem_unii9_enable=0x%x\n",
 			le32_to_cpu(cmd.oem_unii9_enable));
 
-	if (iwl_fw_lookup_cmd_ver(mld->fw,
-				  WIDE_ID(REGULATORY_AND_NVM_GROUP,
-					  LARI_CONFIG_CHANGE), 12) == 12) {
+	if (cmd_ver == 12) {
 		int cmd_size = offsetof(typeof(cmd), oem_11bn_allow_bitmap);
 
 		ret = iwl_mld_send_cmd_pdu(mld,
