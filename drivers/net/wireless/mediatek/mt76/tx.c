@@ -10,6 +10,11 @@ module_param_named(tx_wait_thresh_ms, tx_wait_thresh_ms, ulong, 0644);
 MODULE_PARM_DESC(tx_wait_thresh_ms, "Time to wait for TXFREE before flushing the tx queue.\n"
 				    "0 to disable this behavior.");
 
+static unsigned long tx_timeout_period_ms = 200;
+module_param_named(tx_timeout_period_ms, tx_timeout_period_ms, ulong, 0644);
+MODULE_PARM_DESC(tx_timeout_period_ms, "Maximum time to pause tx if wait threshold is set.\n"
+				       "Only has an effect if tx_wait_thresh_ms is nonzero.");
+
 static int
 mt76_txq_get_qid(struct ieee80211_txq *txq)
 {
@@ -255,6 +260,8 @@ mt76_tx_status_check(struct mt76_dev *dev, bool flush)
 {
 	struct mt76_wcid *wcid, *tmp;
 	struct sk_buff_head list;
+
+	mt76_token_check(dev);
 
 	mt76_tx_status_lock(dev, &list);
 	list_for_each_entry_safe(wcid, tmp, &dev->wcid_list, list)
@@ -976,6 +983,31 @@ void __mt76_set_tx_blocked(struct mt76_dev *dev, bool blocked)
 		mt76_worker_schedule(&dev->tx_worker);
 }
 EXPORT_SYMBOL_GPL(__mt76_set_tx_blocked);
+
+void mt76_token_check(struct mt76_dev *dev)
+{
+	struct mt76_txwi_cache *newest_txwi;
+	bool should_unblock;
+
+	spin_lock_bh(&dev->token_lock);
+
+	should_unblock = dev->token_count < dev->token_size - MT76_TOKEN_FREE_THR;
+
+	newest_txwi = list_last_entry_or_null(&dev->token_queue, struct mt76_txwi_cache, list);
+
+	if (!newest_txwi ||
+	    (tx_wait_thresh_ms && newest_txwi &&
+	    time_is_before_jiffies(newest_txwi->jiffies + (HZ * tx_timeout_period_ms / 1000)))) {
+		if (dev->phy.q_tx[0]->blocked && should_unblock) {
+			mt76_dbg(dev, MT76_DBG_TXV,
+				 "token check (re?)starting tx queue\n");
+			__mt76_set_tx_blocked(dev, false);
+		}
+	}
+
+	spin_unlock_bh(&dev->token_lock);
+}
+EXPORT_SYMBOL_GPL(mt76_token_check);
 
 int mt76_token_consume(struct mt76_dev *dev, struct mt76_txwi_cache **ptxwi)
 {

@@ -2366,6 +2366,7 @@ static inline bool mt76_queue_is_npu_txfree(struct mt76_queue *q)
 	return FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_Q_TXFREE;
 }
 
+void mt76_token_check(struct mt76_dev *dev);
 struct mt76_txwi_cache *
 mt76_token_release(struct mt76_dev *dev, int token, bool *wake);
 int mt76_token_consume(struct mt76_dev *dev, struct mt76_txwi_cache **ptxwi);
