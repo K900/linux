@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/rpmsg.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/pdr.h>
@@ -36,6 +37,7 @@ struct pmic_glink {
 	struct rpmsg_endpoint *ept;
 
 	const struct pmic_glink_data *data;
+	unsigned long client_mask;
 
 	struct auxiliary_device altmode_aux;
 	struct auxiliary_device ps_aux;
@@ -318,6 +320,10 @@ static int pmic_glink_probe(struct platform_device *pdev)
 	if (!pg->data)
 		return -EINVAL;
 
+	pg->client_mask = pg->data->client_mask;
+	if (device_property_read_bool(&pdev->dev, "qcom,no-battery"))
+		pg->client_mask &= ~BIT(PMIC_GLINK_CLIENT_BATT);
+
 	pg->pdr = pdr_handle_alloc(pmic_glink_pdr_callback, pg);
 	if (IS_ERR(pg->pdr)) {
 		ret = dev_err_probe(&pdev->dev, PTR_ERR(pg->pdr),
@@ -325,17 +331,17 @@ static int pmic_glink_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (pg->data->client_mask & BIT(PMIC_GLINK_CLIENT_UCSI)) {
+	if (pg->client_mask & BIT(PMIC_GLINK_CLIENT_UCSI)) {
 		ret = pmic_glink_add_aux_device(pg, &pg->ucsi_aux, "ucsi");
 		if (ret)
 			goto out_release_pdr_handle;
 	}
-	if (pg->data->client_mask & BIT(PMIC_GLINK_CLIENT_ALTMODE)) {
+	if (pg->client_mask & BIT(PMIC_GLINK_CLIENT_ALTMODE)) {
 		ret = pmic_glink_add_aux_device(pg, &pg->altmode_aux, "altmode");
 		if (ret)
 			goto out_release_ucsi_aux;
 	}
-	if (pg->data->client_mask & BIT(PMIC_GLINK_CLIENT_BATT)) {
+	if (pg->client_mask & BIT(PMIC_GLINK_CLIENT_BATT)) {
 		ret = pmic_glink_add_aux_device(pg, &pg->ps_aux, "power-supply");
 		if (ret)
 			goto out_release_altmode_aux;
@@ -358,13 +364,13 @@ static int pmic_glink_probe(struct platform_device *pdev)
 	return 0;
 
 out_release_aux_devices:
-	if (pg->data->client_mask & BIT(PMIC_GLINK_CLIENT_BATT))
+	if (pg->client_mask & BIT(PMIC_GLINK_CLIENT_BATT))
 		pmic_glink_del_aux_device(pg, &pg->ps_aux);
 out_release_altmode_aux:
-	if (pg->data->client_mask & BIT(PMIC_GLINK_CLIENT_ALTMODE))
+	if (pg->client_mask & BIT(PMIC_GLINK_CLIENT_ALTMODE))
 		pmic_glink_del_aux_device(pg, &pg->altmode_aux);
 out_release_ucsi_aux:
-	if (pg->data->client_mask & BIT(PMIC_GLINK_CLIENT_UCSI))
+	if (pg->client_mask & BIT(PMIC_GLINK_CLIENT_UCSI))
 		pmic_glink_del_aux_device(pg, &pg->ucsi_aux);
 out_release_pdr_handle:
 	pdr_handle_release(pg->pdr);
@@ -378,11 +384,11 @@ static void pmic_glink_remove(struct platform_device *pdev)
 
 	pdr_handle_release(pg->pdr);
 
-	if (pg->data->client_mask & BIT(PMIC_GLINK_CLIENT_BATT))
+	if (pg->client_mask & BIT(PMIC_GLINK_CLIENT_BATT))
 		pmic_glink_del_aux_device(pg, &pg->ps_aux);
-	if (pg->data->client_mask & BIT(PMIC_GLINK_CLIENT_ALTMODE))
+	if (pg->client_mask & BIT(PMIC_GLINK_CLIENT_ALTMODE))
 		pmic_glink_del_aux_device(pg, &pg->altmode_aux);
-	if (pg->data->client_mask & BIT(PMIC_GLINK_CLIENT_UCSI))
+	if (pg->client_mask & BIT(PMIC_GLINK_CLIENT_UCSI))
 		pmic_glink_del_aux_device(pg, &pg->ucsi_aux);
 
 	guard(mutex)(&__pmic_glink_lock);
