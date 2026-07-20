@@ -3495,8 +3495,6 @@ int mt7996_init_dev_debugfs(struct mt7996_phy *phy)
 	debugfs_create_devm_seqfile(dev->mt76.dev, "twt_stats", dir,
 				    mt7996_twt_stats);
 	mt76_debugfs_add_mcu_queues(&dev->mt76, dir);
-	debugfs_create_devm_seqfile(dev->mt76.dev, "active-tokens", dir,
-				    mt76_active_tokens_read);
 	debugfs_create_devm_seqfile(dev->mt76.dev, "dump-token-msdu", dir,
 				    mt76_dump_token_msdu_read);
 	debugfs_create_file("rf_regval", 0600, dir, dev, &fops_rf_regval);
