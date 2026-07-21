@@ -1446,6 +1446,11 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 				       IEEE80211_TX_CTRL_MLO_LINK);
 	}
 
+	/* non-MLD frames are LINK_UNSPECIFIED; use the wcid's own link */
+	if (link_id == IEEE80211_LINK_UNSPECIFIED &&
+	    wcid != &dev->mt76.global_wcid)
+		link_id = wcid->link_id;
+
 	if (mvif && link_id != IEEE80211_LINK_UNSPECIFIED)
 		mlink = rcu_dereference(mvif->mt76.link[link_id]);
 
