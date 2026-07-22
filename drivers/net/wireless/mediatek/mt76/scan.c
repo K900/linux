@@ -49,6 +49,7 @@ mt76_scan_send_probe(struct mt76_dev *dev, struct cfg80211_ssid *ssid)
 	struct ieee80211_tx_info *info;
 	struct sk_buff *skb;
 	struct ieee80211_hdr *hdr;
+	u8 link_id;
 
 	if (WARN_ON_ONCE(!mvif))
 		return;
@@ -82,6 +83,10 @@ mt76_scan_send_probe(struct mt76_dev *dev, struct cfg80211_ssid *ssid)
 	if (req->no_cck)
 		info->flags |= IEEE80211_TX_CTL_NO_CCK_RATE;
 	info->control.flags |= IEEE80211_TX_CTRL_DONT_USE_RATE_MASK;
+
+	link_id = mvif->wcid ? mvif->wcid->link_id : IEEE80211_LINK_UNSPECIFIED;
+	info->control.flags &= ~IEEE80211_TX_CTRL_MLO_LINK;
+	info->control.flags |= u32_encode_bits(link_id, IEEE80211_TX_CTRL_MLO_LINK);
 
 	mt76_dbg(dev, MT76_DBG_CHAN, "%s: scan probe req, vif->addr: %pM  addr1: %pM addr2: %pM  addr3: %pM\n",
 		 __func__, vif->addr, hdr->addr1, hdr->addr2, hdr->addr3);
