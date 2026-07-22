@@ -1850,7 +1850,7 @@ static void mt7996_tx(struct ieee80211_hw *hw,
 		     "mt7996-tx, wcid: %p wcid->idx: %d skb: %p, call mt76_tx\n",
 		     wcid, wcid->idx, skb);
 
-	mt76_tx(mphy, control->sta, wcid, skb);
+	mt76_tx(mphy, control->sta, mt7996_get_tx_wcid(wcid), skb);
 unlock:
 	rcu_read_unlock();
 }
