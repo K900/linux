@@ -56,6 +56,7 @@
 static int sysctl_panic_on_oom;
 static int sysctl_oom_kill_allocating_task;
 static int sysctl_oom_dump_tasks = 1;
+static int sysctl_oom_gen_coredump;
 
 /*
  * Serializes oom killer invocations (out_of_memory()) from all contexts to
@@ -720,6 +721,13 @@ static const struct ctl_table vm_oom_kill_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec,
 	},
+	{
+		.procname	= "oom_gen_coredump",
+		.data		= &sysctl_oom_gen_coredump,
+		.maxlen		= sizeof(sysctl_oom_gen_coredump),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
+	},
 };
 #endif
 
@@ -913,6 +921,7 @@ static void __oom_kill_process(struct task_struct *victim, const char *message)
 {
 	struct task_struct *p;
 	struct mm_struct *mm;
+	int oom_sig = sysctl_oom_gen_coredump ? SIGABRT : SIGKILL;
 	bool can_oom_reap = true;
 
 	p = find_lock_task_mm(victim);
@@ -940,7 +949,7 @@ static void __oom_kill_process(struct task_struct *victim, const char *message)
 	 * in order to prevent the OOM victim from depleting the memory
 	 * reserves from the user space under its control.
 	 */
-	do_send_sig_info(SIGKILL, SEND_SIG_PRIV, victim, PIDTYPE_TGID);
+	do_send_sig_info(oom_sig, SEND_SIG_PRIV, victim, PIDTYPE_TGID);
 	mark_oom_victim(victim);
 	pr_err("%s: Killed process %d (%s) total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB, shmem-rss:%lukB, UID:%u pgtables:%lukB oom_score_adj:%d\n",
 		message, task_pid_nr(victim), victim->comm, K(mm->total_vm),
