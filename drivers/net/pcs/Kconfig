@@ -38,6 +38,7 @@ config PCS_MTK_USXGMII
 	select FWNODE_PCS
 	select PCS_MTK_LYNXI
 	select PHY_COMMON_PROPS
+	select PHY_MTK_XFI_TPHY
 	select PHYLINK
 	imply PHY_MTK_PEXTP
 	help
