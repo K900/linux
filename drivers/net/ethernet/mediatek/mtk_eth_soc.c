@@ -5324,7 +5324,7 @@ static const struct net_device_ops mtk_netdev_ops = {
 
 static int mtk_fill_available_pcs(struct phylink_config *config,
 				  struct phylink_pcs **available_pcs,
-				  unsigned int num_available_pcs)
+				  unsigned int num_possible_pcs)
 {
 	struct mtk_mac *mac = container_of(config, struct mtk_mac,
 					   phylink_config);
@@ -5334,7 +5334,7 @@ static int mtk_fill_available_pcs(struct phylink_config *config,
 	if (mtk_is_netsys_v3_or_greater(eth)) {
 		return fwnode_phylink_pcs_parse(of_fwnode_handle(mac->of_node),
 						available_pcs,
-						&num_available_pcs);
+						num_possible_pcs);
 	} else {
 		if (MTK_HAS_CAPS(eth->soc->caps, MTK_SHARED_SGMII))
 			sid = 0;
@@ -5425,7 +5425,7 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
 	mac->phylink_config.lpi_capabilities = MAC_100FD | MAC_1000FD |
 		MAC_2500FD;
 	mac->phylink_config.lpi_timer_default = 1000;
-	mac->phylink_config.num_available_pcs = 0;
+	mac->phylink_config.num_possible_pcs = 0;
 	mac->phylink_config.fill_available_pcs = mtk_fill_available_pcs;
 
 	/* MT7623 gmac0 is now missing its speed-specific PLL configuration
@@ -5471,11 +5471,9 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
 			__set_bit(PHY_INTERFACE_MODE_USXGMII,
 				mac->phylink_config.pcs_interfaces);
 
-			err = fwnode_phylink_pcs_parse(of_fwnode_handle(np), NULL, &count);
-			if (err == -ENODEV) {
-				err = 0;
+			count = fwnode_phylink_pcs_count(of_fwnode_handle(np));
+			if (count == 0)
 				goto no_pcs;
-			}
 
 			if (count > 2)
 				err = -ENOMEM;
@@ -5483,7 +5481,7 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
 			if (err)
 				goto free_netdev;
 
-			mac->phylink_config.num_available_pcs = count;
+			mac->phylink_config.num_possible_pcs = count;
 		} else {
 			if (MTK_HAS_CAPS(eth->soc->caps, MTK_SHARED_SGMII)) {
 				/* single LynxI PCS used by either GMAC */
@@ -5495,7 +5493,7 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
 				}
 				eth->shared_sgmii_used = true;
 			}
-			mac->phylink_config.num_available_pcs = 1;
+			mac->phylink_config.num_possible_pcs = 1;
 		}
 
 		phy_interface_or(mac->phylink_config.supported_interfaces,
