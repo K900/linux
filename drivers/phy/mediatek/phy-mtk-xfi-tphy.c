@@ -89,6 +89,8 @@ bool mtk_xfi_tphy_valid_ctle(struct phy *phy)
 	return true;
 }
 
+EXPORT_SYMBOL(mtk_xfi_tphy_valid_ctle);
+
 /**
  * mtk_xfi_tphy_setup() - Setup phy for specified interface mode.
  * @xfi_tphy: XFI phy instance.
