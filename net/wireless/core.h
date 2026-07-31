@@ -129,7 +129,10 @@ struct cfg80211_registered_device {
 static inline
 struct cfg80211_registered_device *wiphy_to_rdev(struct wiphy *wiphy)
 {
-	BUG_ON(!wiphy);
+	if (WARN_ON_ONCE(!wiphy)) {
+		pr_err("ERROR:  cfg80211_registered_device passed NULL wiphy\n");
+		return NULL;
+	}
 	return container_of(wiphy, struct cfg80211_registered_device, wiphy);
 }
 

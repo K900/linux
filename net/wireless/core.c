@@ -1891,9 +1891,14 @@ static struct pernet_operations cfg80211_pernet_ops = {
 
 void wiphy_work_queue(struct wiphy *wiphy, struct wiphy_work *work)
 {
-	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
+	struct cfg80211_registered_device *rdev;
 	unsigned long flags;
 
+	if (WARN_ON_ONCE(!wiphy)) {
+		pr_err("ERROR: wiphy_work_queue, wiphy is NULL.\n");
+		return;
+	}
+	rdev = wiphy_to_rdev(wiphy);
 	trace_wiphy_work_queue(wiphy, work);
 
 	spin_lock_irqsave(&rdev->wiphy_work_lock, flags);
