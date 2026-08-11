@@ -1420,6 +1420,7 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	struct mt7996_sta *msta = sta ? (struct mt7996_sta *)sta->drv_priv : NULL;
 	struct mt76_vif_link *mlink = NULL;
 	struct mt76_txwi_cache *t;
+	struct mt76_wcid *old_wcid = wcid;
 	int id, i, pid, nbuf = tx_info->nbuf - 1;
 	bool is_8023 = info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP;
 	__le32 *ptr = (__le32 *)txwi_ptr;
@@ -1433,8 +1434,19 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	if (unlikely(tx_info->skb->len <= ETH_HLEN))
 		return -EINVAL;
 
-	if (!wcid)
+	if (!wcid) {
 		wcid = &dev->mt76.global_wcid;
+		if (unlikely(WARN_ON_ONCE(IS_NON_CANONICAL(wcid)))) {
+			mt76_dbg(mdev, MT76_DBG_WRN,
+				 "%s: global wcid is bogus (%px), dev: (%px). Aborting!\n",
+				 __func__, wcid, dev);
+			goto error_release_token;
+		}
+		old_wcid = wcid;
+		mt76_wcid_dbg(&dev->mt76, wcid, MT76_DBG_WRN,
+			      "%s: null wcid passed, grabbing global_wcid\n",
+			      __func__);
+        }
 
 	if ((is_8023 || ieee80211_is_data_qos(hdr->frame_control)) && sta->mlo &&
 	    likely(tx_info->skb->protocol != cpu_to_be16(ETH_P_PAE))) {
@@ -1518,6 +1530,22 @@ int mt7996_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
 	}
 
 	wcid = mt7996_get_tx_wcid(wcid);
+	if (unlikely(WARN_ON_ONCE(IS_NON_CANONICAL(wcid)))) {
+		if (wcid != old_wcid) {
+			mt76_dbg(mdev, MT76_DBG_WRN,
+				 "%s: bogus tx wcid from mt7996_get_tx_wcid (%px), using %s wcid\n",
+				 __func__,
+				 wcid,
+				 old_wcid == &dev->mt76.global_wcid
+					? "global"
+					: "caller");
+			wcid = old_wcid;
+		} else {
+			mt76_dbg(mdev, MT76_DBG_WRN,
+				 "%s: bogus caller wcid (%px), using global wcid\n", __func__, wcid);
+			wcid = &dev->mt76.global_wcid;
+		}
+	}
 
 	pid = mt76_tx_status_skb_add(mdev, wcid, tx_info->skb);
 	memset(txwi_ptr, 0, MT_TXD_SIZE);
