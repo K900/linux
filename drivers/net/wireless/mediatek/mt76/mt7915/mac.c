@@ -2181,7 +2181,10 @@ void mt7915_mac_update_stats(struct mt7915_phy *phy)
 static void mt7915_mac_severe_check(struct mt7915_phy *phy)
 {
 	struct mt7915_dev *dev = phy->dev;
+	struct mt76_phy *mphy = phy->mt76;
 	u32 trb, ple_err;
+	int i;
+	bool l1_recover = false;
 
 	if (!phy->omac_mask)
 		return;
@@ -2212,6 +2215,29 @@ static void mt7915_mac_severe_check(struct mt7915_phy *phy)
 				   phy->mt76->band_idx);
 	}
 	dev->ple1_sts = ple_err;
+
+	/* Check if any tx queues are stopped. If any tx queues are stopped for
+	 * more than 5 seconds, trigger L1 recover
+	 */
+	for (i = 0; i <= MT_TXQ_BK; i++) {
+		struct mt76_queue *q = mphy->q_tx[i];
+
+		if (!q->stopped_at && mt76_txq_stopped(q)) {
+			q->stopped_at = jiffies;
+		} else if (q->stopped_at &&
+		    time_is_before_jiffies(q->stopped_at + (HZ * 5))) {
+			mt76_dbg(&dev->mt76, MT76_DBG_WRN,
+				 "Queue stuck, triggering L1 recovery. q: %px\n", q);
+			mt7915_mcu_set_ser(dev, SER_RECOVER, SER_SET_RECOVER_L1,
+					   mphy->band_idx);
+			l1_recover = true;
+			break;
+		}
+	}
+
+	if (l1_recover)
+		for (i = 0; i <= MT_TXQ_BK; i++)
+			mphy->q_tx[i]->stopped_at = 0;
 }
 
 void mt7915_mac_sta_rc_work(struct work_struct *work)
