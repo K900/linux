@@ -529,12 +529,12 @@ mt76_release_buffered_frames(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
 }
 EXPORT_SYMBOL_GPL(mt76_release_buffered_frames);
 
-static bool
-mt76_txq_stopped(struct mt76_queue *q)
+bool mt76_txq_stopped(struct mt76_queue *q)
 {
 	return q->stopped || q->blocked ||
 	       q->queued + MT_TXQ_FREE_THR >= q->ndesc;
 }
+EXPORT_SYMBOL_GPL(mt76_txq_stopped);
 
 static int
 mt76_txq_send_burst(struct mt76_phy *phy, struct mt76_queue *q,
@@ -951,6 +951,7 @@ void mt76_queue_tx_complete(struct mt76_dev *dev, struct mt76_queue *q,
 	spin_lock_bh(&q->lock);
 	q->tail = (q->tail + 1) % q->ndesc;
 	q->queued--;
+	q->stopped_at = 0;
 	spin_unlock_bh(&q->lock);
 }
 EXPORT_SYMBOL_GPL(mt76_queue_tx_complete);
