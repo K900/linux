@@ -379,22 +379,26 @@ ieee80211_et_add_survey_stats(struct ieee80211_ethtool_survey_stats *stats,
 
 	/* Get survey stats for current channel */
 	survey.filled = 0;
+	chan_def = NULL;
+	channel = NULL;
 
 	chanctx_conf = sdata_dereference(sdata->vif.bss_conf.chanctx_conf, sdata);
 	if (link) {
 		chan_def = &link->conf->chanreq.oper;
 		channel = chan_def->chan;
-	} else if (chanctx_conf) {
+	}
+
+	if (!channel && chanctx_conf) {
 		chan_def = &chanctx_conf->def;
 		channel = chan_def->chan;
-	} else if (local->open_count > 0 &&
-		 local->open_count == local->monitors &&
-		 sdata->vif.type == NL80211_IFTYPE_MONITOR) {
+	}
+
+	if (!channel &&
+	    local->open_count > 0 &&
+	    local->open_count == local->monitors &&
+	    sdata->vif.type == NL80211_IFTYPE_MONITOR) {
 		chan_def = &local->monitor_chanreq.oper;
 		channel = chan_def->chan;
-	} else {
-		chan_def = NULL;
-		channel = NULL;
 	}
 
 	if (channel) {
