@@ -337,10 +337,34 @@ static int tc956x_mac_configure(struct tc956x_data *td,
 	return 0;
 }
 
+/*
+ * Speed to select before the first link comes up.
+ *
+ * EMAC_CTL.SP_SEL resets to a value that is neither an SGMII rate nor
+ * 2500BASE-X.  For SGMII the in-band autonegotiation cannot complete
+ * until SP_SEL selects an SGMII rate, so the link never comes up and
+ * fix_mac_speed() (which is what programs SP_SEL) is never called.
+ * Select the interface's native rate here; fix_mac_speed() reprograms
+ * it once the PHY reports the negotiated speed.
+ */
+static int tc956x_mac_initial_speed(phy_interface_t interface)
+{
+	switch (interface) {
+	case PHY_INTERFACE_MODE_SGMII:
+		return SPEED_1000;
+	case PHY_INTERFACE_MODE_2500BASEX:
+		return SPEED_2500;
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
 static void tc956x_mac_enable(struct tc956x_data *td)
 {
 	const struct tc956x_chip *chip = td->auxbus_data->chip;
+	phy_interface_t interface = td->plat->phy_interface;
 	u32 id = td->auxbus_data->mac_id;
+	int speed;
 
 	tc956x_clock_enable(chip, id, MAC_CLOCK_TX);
 	tc956x_clock_enable(chip, id, MAC_CLOCK_RX);
@@ -349,6 +373,11 @@ static void tc956x_mac_enable(struct tc956x_data *td)
 		tc956x_clock_enable(chip, id, MAC_CLOCK_RMII);
 
 	tc956x_reset_deassert(chip, id, MAC_RESET_MAC);
+
+	speed = tc956x_mac_initial_speed(interface);
+	if (speed > 0)
+		tc956x_mac_configure(td, interface, speed);
+
 	tc956x_pma_init(td);
 	tc956x_reset_deassert(chip, id, MAC_RESET_XPCS);
 }
