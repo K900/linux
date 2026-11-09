@@ -316,6 +316,7 @@ struct mt7915_dev {
 
 	u32 hw_pattern;
 	u32 ple1_sts;
+	u32 ignore_radar; /* skip propagating up the stack, for debugging */
 
 	bool dbdc_support;
 	bool flash_mode;
